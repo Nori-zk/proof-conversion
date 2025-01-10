@@ -21,6 +21,8 @@ mkdir -p ${WORK_DIR_RELATIVE_TO_SCRIPTS}/proofs/layer3
 mkdir -p ${WORK_DIR_RELATIVE_TO_SCRIPTS}/proofs/layer4
 mkdir -p ${WORK_DIR_RELATIVE_TO_SCRIPTS}/proofs/layer5
 
+
+start_time=$(date +%s)
 echo "Compiling recursion vks..."
 node ./build/src/compile_recursion_vks.js ${WORK_DIR_RELATIVE_TO_SCRIPTS} ${CACHE_DIR_RELATIVE_TO_SCRIPTS} &
 
@@ -35,7 +37,11 @@ else
   exit 1
 fi
 
-MAX_THREADS=${MAX_THREADS:-32}
+end_time=$(date +%s)
+elapsed_time=$((end_time - start_time))
+echo "compilling recursion vks : Time taken: ${elapsed_time} seconds"
+
+MAX_THREADS=${MAX_THREADS:-24}
 echo "MAX THREADS: $MAX_THREADS"
 
 MAX_ITERATIONS=$(( (32 + $MAX_THREADS - 1)/$MAX_THREADS ))
@@ -43,6 +49,7 @@ TOTAL_IN_LOOP=24
 SHOULD_BREAK=false
 
 echo "Computing ZKPs 0-23..."
+start_time=$(date +%s)
 for i in `seq 0 $MAX_ITERATIONS`; do
   for j in `seq 0 $(( $MAX_THREADS - 1 ))`; do
     ZKP_I=$(( $i * $MAX_THREADS + $j ))
@@ -62,7 +69,11 @@ for i in `seq 0 $MAX_ITERATIONS`; do
 done
 
 echo "Computed ZKPs 0-23..."
+end_time=$(date +%s)
+elapsed_time=$((end_time - start_time))
+echo "Computed ZKPs : Time taken: ${elapsed_time} seconds"
 
+start_time=$(date +%s)
 for i in `seq 1 5`; do
     echo "Compressing layer ${i}..."
     upper_limit=$(( 2 ** (5 - i) - 1 ))
@@ -88,5 +99,9 @@ for i in `seq 1 5`; do
     done
     echo "Compressed layer ${i}..."
 done
+
+end_time=$(date +%s)
+elapsed_time=$((end_time - start_time))
+echo "Compressed ZKPs : Time taken: ${elapsed_time} seconds"
 
 echo "Done!"

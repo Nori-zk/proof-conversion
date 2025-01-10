@@ -12,3 +12,10 @@ This project is licensed under either of
 at your option.
 
 The [SPDX](https://spdx.dev) license identifier for this project is `MIT OR Apache-2.0`.
+
+## Run PLONK conversion script
+
+`chmod +x ./convert_proofs.sh`
+
+`MAX_THREADS=32 ./convert_proofs.sh`
+replace `32` with number of threads on your machine
