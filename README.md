@@ -19,3 +19,7 @@ The [SPDX](https://spdx.dev) license identifier for this project is `MIT OR Apac
 
 `MAX_THREADS=32 ./convert_proofs.sh`
 replace `32` with number of threads on your machine
+
+## Verify converted SP1 ETH proof in zkApp
+
+`npm run eth`
