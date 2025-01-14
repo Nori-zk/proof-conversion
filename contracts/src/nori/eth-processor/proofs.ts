@@ -6,7 +6,7 @@ const __dirname = dirname(__filename);
 
 const BASE_PATH = join(__dirname, '../../../../..');
 
-const PROOF_NAME = '1736168227';
+const PROOF_NAME = '1736633250';
 
 export const PATH_TO_SP1_PROOF = join(
   BASE_PATH,
