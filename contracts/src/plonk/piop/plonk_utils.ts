@@ -119,13 +119,10 @@ export function customPiLagrange(zeta: FrC, zh_eval: FrC, x: FpC, y: FpC, vk: Sp
     // den = 1/(z - w^i)
     den.mul(den_inv).assertEquals(FrC.from(1n));
     let res = vk.omega_pow_i.mul(vk.inv_domain_size).assertCanonical()
-    console.log('res to hardcode', res.toBigInt())
 
     // w^i / n * (z^n - 1)/(z - w^i)
     const li = zh_eval.mul(vk.omega_pow_i_div_n).assertCanonical().mul(den).assertCanonical()
-    console.log('our omega pow i', vk.omega_pow_i.toBigInt())
-    console.log('our omega pow i div N', vk.omega_pow_i_div_n.toBigInt())
-    console.log('our li', li.toBigInt())
+  
     return li.mul(h_fr).assertCanonical()
 }
 
