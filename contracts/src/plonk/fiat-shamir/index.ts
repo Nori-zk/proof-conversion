@@ -434,6 +434,7 @@ class Sp1PlonkFiatShamir extends Struct({
 
         // note that here they compute challenge from zeta_reduced and not unreduced as before
         cm_bytes = cm_bytes.concat(provableBn254ScalarFieldToBytes(this.zeta));
+        console.log('zeta inside fiat-shamir', this.zeta.toBigInt())
 
         cm_bytes = cm_bytes.concat(provableBn254BaseFieldToBytes(linearized_cm_x));
         cm_bytes = cm_bytes.concat(provableBn254BaseFieldToBytes(linearized_cm_y));

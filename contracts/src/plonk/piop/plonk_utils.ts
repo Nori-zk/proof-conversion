@@ -1,6 +1,6 @@
 import { FpC, FrC } from "../../towers/index.js";
 import { powFr } from "../../towers/fr.js";
-import { Sp1PlonkVk } from "../vk.js";
+import { Sp1PlonkVk,  } from "../vk.js";
 import { ForeignCurve, Provable, assert } from "o1js";
 import { bn254 } from "../../ec/g1.js";
 import { HashFr } from "./hash_fr.js";
@@ -109,7 +109,8 @@ export function customPiLagrange(zeta: FrC, zh_eval: FrC, x: FpC, y: FpC, vk: Sp
     const hashFr = new HashFr() 
 
     const h_fr = hashFr.hash(x, y); 
-
+    // console.log('our h_fr', h_fr.toBigInt())
+    // let omega_pow_i = vk.index_commit_api_0.add(vk.pub_inputs).
     const den_inv = zeta.sub(vk.omega_pow_i).assertCanonical();
     let den = Provable.witness(FrC.provable, () =>
         den_inv.inv().assertCanonical()
@@ -117,9 +118,14 @@ export function customPiLagrange(zeta: FrC, zh_eval: FrC, x: FpC, y: FpC, vk: Sp
 
     // den = 1/(z - w^i)
     den.mul(den_inv).assertEquals(FrC.from(1n));
+    let res = vk.omega_pow_i.mul(vk.inv_domain_size).assertCanonical()
+    console.log('res to hardcode', res.toBigInt())
 
     // w^i / n * (z^n - 1)/(z - w^i)
     const li = zh_eval.mul(vk.omega_pow_i_div_n).assertCanonical().mul(den).assertCanonical()
+    console.log('our omega pow i', vk.omega_pow_i.toBigInt())
+    console.log('our omega pow i div N', vk.omega_pow_i_div_n.toBigInt())
+    console.log('our li', li.toBigInt())
     return li.mul(h_fr).assertCanonical()
 }
 

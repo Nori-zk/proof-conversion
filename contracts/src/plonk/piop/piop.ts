@@ -21,7 +21,7 @@ class PlonkVerifierPIOP {
         fs.squeezeZeta(proof)
 
         const [zeta_pow_n, zh_eval] = evalVanishing(fs.zeta, this.VK)
-
+        // console.log("zeta_pow_n",zeta_pow_n.toBigInt() )
         const alpha_2_l0 = compute_alpha_square_lagrange_0(zh_eval, fs.zeta, fs.alpha, this.VK); 
 
         const [hx, hy] = fold_quotient(proof.h0_x, proof.h0_y, proof.h1_x, proof.h1_y, proof.h2_x, proof.h2_y, fs.zeta, zeta_pow_n, zh_eval)
