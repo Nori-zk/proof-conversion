@@ -14,7 +14,7 @@ setup_env() {
 
   export WORK_DIR=conversion
   export RUN_DIR=$(pwd)/$WORK_DIR
-  export PROOF_DIR=../example-proofs
+  export PROOF_DIR=../proofs-to-run
 
   mkdir -p "$RUN_DIR"
 }

@@ -51,7 +51,7 @@ const EthVerifier = ZkProgram({
         // if (process.env.BLOBSTREAM_ENABLED == 'true') {
         // ethProgramVK = FrC.from(process.env.BLOBSTREAM_PROGRAM_VK as string);
         const ethPlonkVK = FrC.from(
-          '196878606721575887576459165954740506068545221718566953877467912405201938207' //$programVK todo check ?
+          '9789275659627809334116192247584283293808128911170761516714869670668916769' //$programVK todo check ?
         );
 
         const ethNodeVk = Field.from(
