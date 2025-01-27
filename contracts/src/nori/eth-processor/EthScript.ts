@@ -73,17 +73,18 @@ const input = new EthInput({
 console.log('about to compute proof');
 const proof = await EthVerifier.compute(input, rawProof);
 console.log('about to verify proof');
-const valid = await verify(proof, vk);
-console.log('verified in zkProgram?', valid);
+// const valid = await verify(proof, vk);
+// console.log('verified in zkProgram?', valid);
 // const ethProof = await ethVerifier.compute();
 
 // update transaction
 const txn1 = await Mina.transaction(senderAccount, async () => {
-  await zkApp.mockUpdate(proof);
+  await zkApp.update(proof);
 });
 await txn1.prove();
 await txn1.sign([senderKey]).send();
 
-// const updatedNum = zkApp.num.get();
-// expect(updatedNum).toEqual(Field(3));
-// });
+const updatedState = Mina.getAccount(zkAppAddress);
+console.log('updated latestHead', updatedState.zkapp?.appState[1].toString());
+const updatedHeadState = zkApp.latestHead.get();
+console.log('updatedHeadState', updatedHeadState.toString());

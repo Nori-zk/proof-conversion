@@ -64,15 +64,10 @@ const EthVerifier = ZkProgram({
 
         proof.verify(vk);
         proof.publicOutput.subtreeVkDigest.assertEquals(ethNodeVk);
-        Provable.log('all', input);
-        Provable.log('newHeader', input.newHeader);
+        // Provable.log('all', input);
+        // Provable.log('newHeader', input.newHeader);
         Provable.log('newHead slot', input.newHead);
-        //   struct ProofOutputs {
-        //     uint256 newHead;
-        //     bytes32 prevHeader;
-        //     uint256 prevHead;
-        //     bytes32 syncCommitteeHash;
-        // }
+
         let bytes: UInt8[] = [];
         bytes = bytes.concat(input.executionStateRoot.bytes);
         bytes = bytes.concat(input.newHeader.bytes);

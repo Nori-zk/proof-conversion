@@ -10,11 +10,9 @@ const BASE_PATH = join(__dirname, '../../../../..');
 // Function to get the latest proof name from the directory
 function getLatestProofName(): string {
   const proofDir = join(BASE_PATH, 'proofs-to-run');
-  console.log('proofDir', proofDir);
   const files = readdirSync(proofDir)
     .filter((file) => file.endsWith('.json'))
     .map((file) => file.replace('.json', ''))
-    // .filter((name) => /^\d+$/.test(name))
     .sort((a, b) => b.localeCompare(a)); // Sort in descending order
 
   if (files.length === 0) {
