@@ -36,7 +36,8 @@ const zkp2 = ZkProgram({
             acc.state.hx = hx; 
             acc.state.hy = hy; 
 
-            return Poseidon.hashPacked(Accumulator, acc);
+            //return Poseidon.hashPacked(Accumulator, acc);
+            return {publicOutput: Poseidon.hashPacked(Accumulator, acc)};
         },
       },
     },

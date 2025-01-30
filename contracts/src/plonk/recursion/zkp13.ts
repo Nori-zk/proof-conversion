@@ -64,7 +64,8 @@ const zkp13 = ZkProgram({
             let new_lines_hashes_digest = ArrayListHasher.hash(lines_hashes);
             acc.state.lines_hashes_digest = new_lines_hashes_digest;
 
-            return Poseidon.hashPacked(KzgAccumulator, acc);
+            //return Poseidon.hashPacked(KzgAccumulator, acc);
+            return {publicOutput: Poseidon.hashPacked(KzgAccumulator, acc)};
         },
       },
     },

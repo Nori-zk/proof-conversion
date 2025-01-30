@@ -35,11 +35,21 @@ const layer1 = ZkProgram({
               Field(1), // layer
             ]);
 
-            return new SubtreeCarry({
+            /*return new SubtreeCarry({
                 leftIn: piLeft.publicInput, 
                 rightOut: piRight.publicOutput, 
                 subtreeVkDigest: subtreeVkDigest
-          });
+          });*/
+
+          return {
+            publicOutput: new SubtreeCarry({
+              leftIn: piLeft.publicInput, 
+              rightOut: piRight.publicOutput, 
+              subtreeVkDigest: subtreeVkDigest
+        })
+};
+
+            
         },
       },
     },

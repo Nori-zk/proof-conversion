@@ -23,7 +23,8 @@ const zkp7 = ZkProgram({
             let H = acc.fs.gammaKzgDigest_part0(acc.proof, VK, acc.state.lcm_x, acc.state.lcm_y, acc.state.linearized_opening);
             acc.state.H = H;
 
-            return Poseidon.hashPacked(Accumulator, acc);
+            //return Poseidon.hashPacked(Accumulator, acc);
+            return {publicOutput: Poseidon.hashPacked(Accumulator, acc)};
         },
       },
     },

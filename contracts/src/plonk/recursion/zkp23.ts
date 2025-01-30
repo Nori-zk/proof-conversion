@@ -46,7 +46,8 @@ const zkp23 = ZkProgram({
             f.assert_equals(Fp12.one());
 
             acc.state.f = f;
-            return Poseidon.hashPacked(Provable.Array(FrC.provable, 2), [acc.proof.pi0, acc.proof.pi1]);
+            //return Poseidon.hashPacked(Provable.Array(FrC.provable, 2), [acc.proof.pi0, acc.proof.pi1]);
+            return {publicOutput: Poseidon.hashPacked(Provable.Array(FrC.provable, 2), [acc.proof.pi0, acc.proof.pi1])};
         },
       },
     },

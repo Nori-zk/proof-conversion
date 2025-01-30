@@ -28,7 +28,8 @@ const zkp10 = ZkProgram({
             acc.state.cm_y = cm_y;
             acc.state.kzg_random = kzg_random;
 
-            return Poseidon.hashPacked(Accumulator, acc);
+            //return Poseidon.hashPacked(Accumulator, acc);
+            return {publicOutput: Poseidon.hashPacked(Accumulator, acc)};
         },
       },
     },

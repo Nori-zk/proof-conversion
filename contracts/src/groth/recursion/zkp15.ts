@@ -32,7 +32,9 @@ const zkp15 = ZkProgram({
             accBn.x.assertCanonical().assertEquals(PI.x);
             accBn.y.assertCanonical().assertEquals(PI.y);
 
-            return pis_hash;
+            //return pis_hash;
+            return {publicOutput: pis_hash};
+            
         },
       },
     },
