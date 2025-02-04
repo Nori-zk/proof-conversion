@@ -1,7 +1,7 @@
 import { Field, Poseidon, Provable } from "o1js";
 import { ArrayListHasher, KzgAccumulator, KzgProof, KzgState } from "../../kzg/structs.js";
 import { Accumulator } from "../accumulator.js"
-import { compute_alpha_square_lagrange_0, compute_commitment_linearized_polynomial_split_0, compute_commitment_linearized_polynomial_split_1, compute_commitment_linearized_polynomial_split_2, customPiLagrange, evalVanishing, fold_quotient, fold_state_0, fold_state_1, fold_state_2, opening_of_linearized_polynomial, pi_contribution, preparePairing_0, preparePairing_1 } from "../piop/plonk_utils.js";
+import { compute_alpha_square_lagrange_0, compute_commitment_linearized_polynomial_split_0, compute_commitment_linearized_polynomial_split_1, compute_commitment_linearized_polynomial_split_2, customPiLagrange, evalVanishing, fold_quotient_split_0, fold_quotient_split_1, fold_state_0, fold_state_1, fold_state_2, opening_of_linearized_polynomial, pi_contribution, preparePairing_0, preparePairing_1 } from "../piop/plonk_utils.js";
 import { VK } from "../vk.js";
 import { G1Affine } from "../../ec/index.js";
 import { Fp12 } from "../../towers/fp12.js";
@@ -56,7 +56,7 @@ class WitnessTracker {
     }
 
     zkp2(): Accumulator {
-        const [hx, hy] = fold_quotient(
+        const [hx, hy] = fold_quotient_split_0(
             this.acc.proof.h0_x, 
             this.acc.proof.h0_y, 
             this.acc.proof.h1_x, 
@@ -65,7 +65,6 @@ class WitnessTracker {
             this.acc.proof.h2_y, 
             this.acc.fs.zeta, 
             this.acc.state.zeta_pow_n, 
-            this.acc.state.zh_eval
         )
 
         this.acc.state.hx = hx; 
@@ -75,6 +74,15 @@ class WitnessTracker {
     }
 
     zkp3(): Accumulator {
+        const [hx, hy] = fold_quotient_split_1(
+            this.acc.state.hx, 
+            this.acc.state.hy,
+            this.acc.state.zh_eval
+        )
+
+        this.acc.state.hx = hx; 
+        this.acc.state.hy = hy;
+
         const pis = pi_contribution([this.acc.state.pi0, this.acc.state.pi1], this.acc.fs.zeta, this.acc.state.zh_eval, VK.inv_domain_size, VK.omega)
 
         // ~32k

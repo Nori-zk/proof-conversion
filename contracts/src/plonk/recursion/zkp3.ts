@@ -4,6 +4,7 @@ import {
     Poseidon,
   } from 'o1js';
 import { Accumulator } from '../accumulator.js';
+import { fold_quotient_split_1 } from '../piop/plonk_utils.js';
 import { customPiLagrange, opening_of_linearized_polynomial, pi_contribution } from '../piop/plonk_utils.js';
 import { VK } from '../vk.js';
 
@@ -20,6 +21,15 @@ const zkp3 = ZkProgram({
         ) {
             const inDigest = Poseidon.hashPacked(Accumulator, acc);
             inDigest.assertEquals(input);
+
+            const [hx, hy] = fold_quotient_split_1(
+                            acc.state.hx,
+                            acc.state.hy,
+                            acc.state.zh_eval,
+            )
+
+            acc.state.hx = hx;
+            acc.state.hy = hy;
 
             const pis = pi_contribution([acc.state.pi0, acc.state.pi1], acc.fs.zeta, acc.state.zh_eval, VK.inv_domain_size, VK.omega)
 

@@ -5,7 +5,7 @@ import {
     Provable
   } from 'o1js';
 import { Accumulator } from '../accumulator.js';
-import { fold_quotient } from '../piop/plonk_utils.js';
+import { fold_quotient_split_0 } from '../piop/plonk_utils.js';
 import { VK } from '../vk.js';
 
 
@@ -23,7 +23,7 @@ const zkp2 = ZkProgram({
             const inDigest = Poseidon.hashPacked(Accumulator, acc);
             inDigest.assertEquals(input);
 
-            const [hx, hy] = fold_quotient(
+            const [hx, hy] = fold_quotient_split_0(
                 acc.proof.h0_x, 
                 acc.proof.h0_y, 
                 acc.proof.h1_x, 
@@ -32,7 +32,6 @@ const zkp2 = ZkProgram({
                 acc.proof.h2_y, 
                 acc.fs.zeta, 
                 acc.state.zeta_pow_n, 
-                acc.state.zh_eval 
             )
 
             acc.state.hx = hx; 
