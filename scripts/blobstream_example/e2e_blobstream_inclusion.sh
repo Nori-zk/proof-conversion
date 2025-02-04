@@ -1,6 +1,7 @@
 set -e 
 
-export MAX_THREADS=${MAX_THREADS:-24}
+#export MAX_THREADS=${MAX_THREADS:-4}
+export MAX_THREADS=1
 
 SCRIPT_DIR=$(dirname -- $(realpath $0)) 
 cd $SCRIPT_DIR/../..

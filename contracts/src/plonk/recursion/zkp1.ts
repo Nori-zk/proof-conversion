@@ -2,11 +2,13 @@ import {
     ZkProgram,
     Field,
     Poseidon,
+    Provable
   } from 'o1js';
 import { Accumulator } from '../accumulator.js';
 import { compute_alpha_square_lagrange_0, evalVanishing } from '../piop/plonk_utils.js';
 import { VK } from '../vk.js';
 
+// ~ 59601
 const zkp1 = ZkProgram({
     name: 'zkp1',
     publicInput: Field,
@@ -37,7 +39,6 @@ const zkp1 = ZkProgram({
       },
     },
 });
-
 
 const ZKP1Proof = ZkProgram.Proof(zkp1);
 export { ZKP1Proof, zkp1 }

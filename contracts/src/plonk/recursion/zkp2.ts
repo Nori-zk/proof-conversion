@@ -2,10 +2,12 @@ import {
     ZkProgram,
     Field,
     Poseidon,
+    Provable
   } from 'o1js';
 import { Accumulator } from '../accumulator.js';
 import { fold_quotient } from '../piop/plonk_utils.js';
 import { VK } from '../vk.js';
+
 
 const zkp2 = ZkProgram({
     name: 'zkp2',
@@ -30,7 +32,7 @@ const zkp2 = ZkProgram({
                 acc.proof.h2_y, 
                 acc.fs.zeta, 
                 acc.state.zeta_pow_n, 
-                acc.state.zh_eval
+                acc.state.zh_eval 
             )
 
             acc.state.hx = hx; 
