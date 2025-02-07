@@ -77,7 +77,9 @@ export function compute_alpha_square_lagrange_0(zh_eval: FrC, zeta: FrC, alpha: 
 }
 
 // be careful because solidity returns negative of this point
-// This function is used as a part of zkp2, which is 2^16 constraints in o1js v2.2.0
+// This function is used as a part of zkp2, 
+// which is more than 2^16 constraints in o1js v2.2.0
+// would be better to split it into 2 parts
 export function fold_quotient(
     h0_x: FpC, 
     h0_y: FpC,

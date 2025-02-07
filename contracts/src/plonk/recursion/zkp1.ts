@@ -40,5 +40,6 @@ const zkp1 = ZkProgram({
     },
 });
 
+
 const ZKP1Proof = ZkProgram.Proof(zkp1);
 export { ZKP1Proof, zkp1 }
