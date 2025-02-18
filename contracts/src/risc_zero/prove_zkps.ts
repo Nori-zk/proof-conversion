@@ -23,9 +23,9 @@ async function prove_risc_zero_example() {
 
     const proof = await riscZeroExampleVerifier.compute(Poseidon.hashPacked(Provable.Array(FrC.provable, 5), riscZeroGroth16Proof.pis), riscZeroPlonkProof, riscZeroGroth16Proof.pis);
     
-    const valid = await verify(proof, vk); 
+    const valid = await verify(proof.proof, vk); 
 
-    fs.writeFileSync(riscZeroExampleOutputProofPath, JSON.stringify(proof), 'utf8');
+    fs.writeFileSync(riscZeroExampleOutputProofPath, JSON.stringify(proof.proof), 'utf8');
     console.log("valid risc zero proof?: ", valid);
 }
 

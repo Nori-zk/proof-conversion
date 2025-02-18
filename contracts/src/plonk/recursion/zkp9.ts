@@ -26,7 +26,7 @@ const zkp9 = ZkProgram({
             acc.state.cm_x = cm_x; 
             acc.state.cm_y = cm_y;
 
-            return Poseidon.hashPacked(Accumulator, acc);
+            return {publicOutput: Poseidon.hashPacked(Accumulator, acc)};
         },
       },
     },

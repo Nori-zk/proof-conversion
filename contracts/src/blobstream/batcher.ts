@@ -229,12 +229,21 @@ const batcherVerifier = ZkProgram({
 
           Provable.assertEqualIf(isLast, Bytes32.provable, blobInclusionProof.publicInput.digest, Bytes32.from(currentRollingHashBytes));
 
-          return new BatcherOutput({
+          /*return new BatcherOutput({
             initialStateHash: Provable.if(isFirst, Field, input.currentStateHash, previousProof.publicOutput.initialStateHash),
             currentStateHash,
             currentRollingHash,
             dataCommitment: Bytes32.from(dataCommitment),
-          });
+          });*/
+
+          return {
+            publicOutput: new BatcherOutput({
+              initialStateHash: Provable.if(isFirst, Field, input.currentStateHash, previousProof.publicOutput.initialStateHash),
+              currentStateHash,
+              currentRollingHash,
+              dataCommitment: Bytes32.from(dataCommitment),
+            })
+};
         },
       },
     },

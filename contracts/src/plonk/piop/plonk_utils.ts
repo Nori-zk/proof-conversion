@@ -77,6 +77,9 @@ export function compute_alpha_square_lagrange_0(zh_eval: FrC, zeta: FrC, alpha: 
 }
 
 // be careful because solidity returns negative of this point
+// This function is used as a part of zkp2, 
+// which is more than 2^16 constraints in o1js v2.2.0
+// would be better to split it into 2 parts
 export function fold_quotient(
     h0_x: FpC, 
     h0_y: FpC,
@@ -104,6 +107,45 @@ export function fold_quotient(
 
     return [acc.x.assertCanonical(), acc.y.assertCanonical()]
 }
+
+export function fold_quotient_split_0(
+    h0_x: FpC, 
+    h0_y: FpC,
+    h1_x: FpC,
+    h1_y: FpC,
+    h2_x: FpC,
+    h2_y: FpC,
+
+    zeta: FrC,
+    zeta_pow_n: FrC,
+): [FpC, FpC] {
+    const h0 = new bn254({x: h0_x, y: h0_y});
+    const h1 = new bn254({x: h1_x, y: h1_y});
+    const h2 = new bn254({x: h2_x, y: h2_y});
+
+    const zeta_pow_n_plus_2 = zeta_pow_n.mul(zeta).assertCanonical().mul(zeta).assertCanonical();
+
+    let acc = h2.scale(zeta_pow_n_plus_2); 
+    acc = acc.add(h1); 
+    acc = acc.scale(zeta_pow_n_plus_2); 
+    acc = acc.add(h0)
+
+    return [acc.x.assertCanonical(), acc.y.assertCanonical()]
+}
+
+export function fold_quotient_split_1(
+    fold_quotient_x: FpC,
+    fold_quotient_y: FpC,
+    zh_eval: FrC
+): [FpC, FpC] {
+
+    let acc = new bn254({x: fold_quotient_x, y: fold_quotient_y});
+    acc = acc.scale(zh_eval)
+
+    return [acc.x.assertCanonical(), acc.y.assertCanonical()]
+}
+
+
 
 export function customPiLagrange(zeta: FrC, zh_eval: FrC, x: FpC, y: FpC, vk: Sp1PlonkVk): FrC {
     const hashFr = new HashFr() 

@@ -35,7 +35,7 @@ const zkp11 = ZkProgram({
             acc.state.neg_fq_x = neg_fq_x; 
             acc.state.neg_fq_y = neg_fq_y;
 
-            return Poseidon.hashPacked(Accumulator, acc);
+            return {publicOutput: Poseidon.hashPacked(Accumulator, acc)};
         },
       },
     },

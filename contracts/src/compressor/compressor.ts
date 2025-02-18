@@ -28,11 +28,19 @@ const node = ZkProgram({
               layer
             ]);
 
-            return new SubtreeCarry({
+            /*return new SubtreeCarry({
                 leftIn: piLeft.publicOutput.leftIn, 
                 rightOut: piRight.publicOutput.rightOut,
                 subtreeVkDigest
-            });
+            });*/
+
+            return {
+              publicOutput: new SubtreeCarry({
+                leftIn: piLeft.publicOutput.leftIn, 
+                rightOut: piRight.publicOutput.rightOut,
+                subtreeVkDigest
+            })
+  };
         },
       },
     },

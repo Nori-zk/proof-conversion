@@ -29,7 +29,7 @@ const zkp8 = ZkProgram({
             acc.state.cm_y = cm_y;
             acc.state.cm_opening = cm_opening;
 
-            return Poseidon.hashPacked(Accumulator, acc);
+            return {publicOutput: Poseidon.hashPacked(Accumulator, acc)};
         },
       },
     },

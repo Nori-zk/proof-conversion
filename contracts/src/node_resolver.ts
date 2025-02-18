@@ -66,7 +66,7 @@ const proveLayer1 = async (index: number) => {
     }
 
     const proof = await layer1.compute(piLeft, vkLeft, verifyLeft, piRight, vkRight, verifyRight);
-    fs.writeFileSync(`${workDir}/proofs/layer1/p${index}.json`, JSON.stringify(proof), 'utf8');
+    fs.writeFileSync(`${workDir}/proofs/layer1/p${index}.json`, JSON.stringify(proof.proof), 'utf8');
     console.log(`layer: 1 node: ${index} written`);
 }
 
@@ -81,7 +81,7 @@ const proveLayer2 = async (index: number) => {
     const piRight = await NodeProofRight.fromJSON(JSON.parse(fs.readFileSync(`${workDir}/proofs/layer1/p${rightIdx}.json`, 'utf8')));
 
     const proof = await node.compute(piLeft, layer1Vk, piRight, layer1Vk, Field(2));
-    fs.writeFileSync(`${workDir}/proofs/layer2/p${index}.json`, JSON.stringify(proof), 'utf8');
+    fs.writeFileSync(`${workDir}/proofs/layer2/p${index}.json`, JSON.stringify(proof.proof), 'utf8');
     console.log(`layer: 2 node: ${index} written`);
 }
 
@@ -101,7 +101,7 @@ const prove = async (layer: number, index: number) => {
         const piRight = await NodeProofRight.fromJSON(JSON.parse(fs.readFileSync(`${workDir}/proofs/layer${layer - 1}/p${rightIdx}.json`, 'utf8')));
 
         const proof = await node.compute(piLeft, nodeVk, piRight, nodeVk, Field(layer));
-        fs.writeFileSync(`${workDir}/proofs/layer${layer}/p${index}.json`, JSON.stringify(proof), 'utf8');
+        fs.writeFileSync(`${workDir}/proofs/layer${layer}/p${index}.json`, JSON.stringify(proof.proof), 'utf8');
         console.log(`layer: ${layer} node: ${index} written`);
     }
 }

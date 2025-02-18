@@ -38,9 +38,9 @@ async function prove_blobstream() {
     const vk = (await blobstreamVerifier.compile({cache: Cache.FileSystem(cacheDir)})).verificationKey;
 
     const proof = await blobstreamVerifier.compute(input, blobstreamPlonkProof);
-    const valid = await verify(proof, vk); 
+    const valid = await verify(proof.proof, vk); 
 
-    fs.writeFileSync(blobstreamProofPath, JSON.stringify(proof), 'utf8');
+    fs.writeFileSync(blobstreamProofPath, JSON.stringify(proof.proof), 'utf8');
     console.log("valid blobstream proof?: ", valid);
 }
 
@@ -64,9 +64,9 @@ async function prove_blob_inclusion() {
 
     const blobInclusionPlonkProof = await NodeProofLeft.fromJSON(JSON.parse(fs.readFileSync(blobInclusionPlonkProofPath, 'utf8')));
     const blobInclusionProof = await blobInclusionVerifier.compute(blobInclusionInput, blobInclusionPlonkProof);
-    const blobInclusionValid = await verify(blobInclusionProof, blobInclusionVk); 
+    const blobInclusionValid = await verify(blobInclusionProof.proof, blobInclusionVk); 
 
-    fs.writeFileSync(blobInclusionProofPath, JSON.stringify(blobInclusionProof), 'utf8');
+    fs.writeFileSync(blobInclusionProofPath, JSON.stringify(blobInclusionProof.proof), 'utf8');
 
     console.log("valid blob inclusion proof?: ", blobInclusionValid);
 }
@@ -125,14 +125,14 @@ async function prove_batcher() {
         Field.from(0n),
         Bytes64.from(data.slice(0, 64)),
     );
-    const valid0 = await verify(proof0, batcherVk); 
+    const valid0 = await verify(proof0.proof, batcherVk); 
     console.log("valid batcher proof0?: ", valid0);
 
     const input1 = new BatcherInput({   
         index: Field.from(1n),
         namespace: Bytes.fromHex("0000000000000000000000000000000000000000000000000000000000"),
-        currentRollingHash: proof0.publicOutput.currentRollingHash,
-        currentStateHash: proof0.publicOutput.currentStateHash,
+        currentRollingHash: proof0.proof.publicOutput.currentRollingHash,
+        currentStateHash: proof0.proof.publicOutput.currentStateHash,
         batcherVkHash: batcherVk.hash,
         blobInclusionVkHash: blobInclusionVk.hash,
     });
@@ -143,22 +143,22 @@ async function prove_batcher() {
     console.log(`num to add 1: ${numToAdd1}`);
     const proof1 = await batcherVerifier.compute(
         input1, 
-        BatcherDynamicProof.fromProof(proof0),
+        BatcherDynamicProof.fromProof(proof0.proof),
         batcherVk,
         BlobInclusionDynamicProof.fromProof(await BlobInclusionProof.dummy(blobInclusionDummyInput, undefined, 1)),
         blobInclusionVk,
         Field.from(0n),
         Bytes64.from(data.slice(64, 128)),
     );
-    const valid1 = await verify(proof1, batcherVk); 
+    const valid1 = await verify(proof1.proof, batcherVk); 
     console.log("valid batcher proof1?: ", valid1);
-    proof1.publicOutput.currentStateHash.assertEquals(Poseidon.hashPacked(Field, numToAdd1));
+    proof1.proof.publicOutput.currentStateHash.assertEquals(Poseidon.hashPacked(Field, numToAdd1));
 
     const input2 = new BatcherInput({   
         index: Field.from(2n),
         namespace: Bytes.fromHex("0000000000000000000000000000000000000000000000000000000000"),
-        currentRollingHash: proof1.publicOutput.currentRollingHash,
-        currentStateHash: proof1.publicOutput.currentStateHash,
+        currentRollingHash: proof1.proof.publicOutput.currentRollingHash,
+        currentStateHash: proof1.proof.publicOutput.currentStateHash,
         batcherVkHash: batcherVk.hash,
         blobInclusionVkHash: blobInclusionVk.hash,
     });
@@ -169,22 +169,22 @@ async function prove_batcher() {
     console.log(`num to add 2: ${numToAdd2}`);
     const proof2 = await batcherVerifier.compute(
         input2, 
-        BatcherDynamicProof.fromProof(proof1), 
+        BatcherDynamicProof.fromProof(proof1.proof), 
         batcherVk,
         BlobInclusionDynamicProof.fromProof(await BlobInclusionProof.dummy(blobInclusionDummyInput, undefined, 1)),
         blobInclusionVk,
         numToAdd1,
         Bytes64.from(data.slice(128, 192)),
     );
-    const valid2 = await verify(proof2, batcherVk); 
+    const valid2 = await verify(proof2.proof, batcherVk); 
     console.log("valid batcher proof2?: ", valid2);
-    proof2.publicOutput.currentStateHash.assertEquals(Poseidon.hashPacked(Field, numToAdd1.add(numToAdd2)));    
+    proof2.proof.publicOutput.currentStateHash.assertEquals(Poseidon.hashPacked(Field, numToAdd1.add(numToAdd2)));    
 
     const input3 = new BatcherInput({   
         index: Field.from(3n),
         namespace: Bytes.fromHex("0000000000000000000000000000000000000000000000000000000000"),
-        currentRollingHash: proof2.publicOutput.currentRollingHash,
-        currentStateHash: proof2.publicOutput.currentStateHash,
+        currentRollingHash: proof2.proof.publicOutput.currentRollingHash,
+        currentStateHash: proof2.proof.publicOutput.currentStateHash,
         batcherVkHash: batcherVk.hash,
         blobInclusionVkHash: blobInclusionVk.hash,
     });
@@ -195,16 +195,16 @@ async function prove_batcher() {
     console.log(`num to add 3: ${numToAdd3}`);
     const proof3 = await batcherVerifier.compute(
         input3, 
-        BatcherDynamicProof.fromProof(proof2), 
+        BatcherDynamicProof.fromProof(proof2.proof), 
         batcherVk,
         BlobInclusionDynamicProof.fromProof(await BlobInclusionProof.dummy(blobInclusionDummyInput, undefined, 1)),
         blobInclusionVk,
         numToAdd1.add(numToAdd2),
         Bytes64.from(data.slice(192, 256)),
     );
-    const valid3 = await verify(proof3, batcherVk); 
+    const valid3 = await verify(proof3.proof, batcherVk); 
     console.log("valid batcher proof3?: ", valid3);
-    proof3.publicOutput.currentStateHash.assertEquals(Poseidon.hashPacked(Field, numToAdd1.add(numToAdd2).add(numToAdd3)));     
+    proof3.proof.publicOutput.currentStateHash.assertEquals(Poseidon.hashPacked(Field, numToAdd1.add(numToAdd2).add(numToAdd3)));     
 
     const blobInclusionProof = await BlobInclusionProof.fromJSON(JSON.parse(fs.readFileSync(blobInclusionProofPath, 'utf8')));
     const blobInclusionValid = await verify(blobInclusionProof, blobInclusionVk); 
@@ -213,15 +213,15 @@ async function prove_batcher() {
     const input4 = new BatcherInput({   
         index: Field.from(4n),
         namespace: Bytes.fromHex("0000000000000000000000000000000000000000000000000000000000"),
-        currentRollingHash: proof3.publicOutput.currentRollingHash,
-        currentStateHash: proof3.publicOutput.currentStateHash,
+        currentRollingHash: proof3.proof.publicOutput.currentRollingHash,
+        currentStateHash: proof3.proof.publicOutput.currentStateHash,
         batcherVkHash: batcherVk.hash,
         blobInclusionVkHash: blobInclusionVk.hash,
     });
 
     const proof4 = await batcherVerifier.compute(
         input4, 
-        BatcherDynamicProof.fromProof(proof3), 
+        BatcherDynamicProof.fromProof(proof3.proof), 
         batcherVk,
         BlobInclusionDynamicProof.fromProof(blobInclusionProof),
         blobInclusionVk,
@@ -231,11 +231,11 @@ async function prove_batcher() {
             ...Array(31).fill(0),
         ]),
     );
-    const valid4 = await verify(proof4, batcherVk); 
+    const valid4 = await verify(proof4.proof, batcherVk); 
     console.log("valid batcher proof4?: ", valid4);
-    proof4.publicOutput.currentStateHash.assertEquals(Poseidon.hashPacked(Field, numToAdd1.add(numToAdd2).add(numToAdd3)));     
+    proof4.proof.publicOutput.currentStateHash.assertEquals(Poseidon.hashPacked(Field, numToAdd1.add(numToAdd2).add(numToAdd3)));     
 
-    fs.writeFileSync(batcherProofPath, JSON.stringify(proof4), 'utf8');
+    fs.writeFileSync(batcherProofPath, JSON.stringify(proof4.proof), 'utf8');
 }
 
 async function blobstream_contract() {

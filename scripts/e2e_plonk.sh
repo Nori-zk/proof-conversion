@@ -33,8 +33,12 @@ mkdir -p ${WORK_DIR_RELATIVE_TO_SCRIPTS}
 CACHE_DIR_RELATIVE_TO_SCRIPTS="./scripts/${CACHE_DIR}"
 mkdir -p ${CACHE_DIR_RELATIVE_TO_SCRIPTS}
 
+start_time=$(date +%s)
 # get aux pairing witness 
 ./scripts/get_aux_witness_plonk.sh ${ENV}
+end_time=$(date +%s)
+elapsed_time=$((end_time - start_time))
+echo "get_aux_witness_plonk: Time taken: ${elapsed_time} seconds"
 
 # test e2e proof 
 ./scripts/plonk_tree.sh ${ENV}

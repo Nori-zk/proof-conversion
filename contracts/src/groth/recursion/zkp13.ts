@@ -38,7 +38,8 @@ const zkp13 = ZkProgram({
             f.assert_equals(Fp12.one());
 
             acc.state.f = f;
-            return Poseidon.hashPacked(G1Affine, acc.proof.PI);
+
+            return {publicOutput: Poseidon.hashPacked(G1Affine, acc.proof.PI)};
         },
       },
     },
