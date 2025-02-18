@@ -25,7 +25,6 @@ const zkp0 = ZkProgram({
             acc.fs.squeezeGamma(acc.proof, acc.state.pi0, acc.state.pi1, VK)
             acc.fs.squeezeBeta()
 
-            //return Poseidon.hashPacked(Accumulator, acc);
             return {
               publicOutput: Poseidon.hashPacked(Accumulator, acc)
             };

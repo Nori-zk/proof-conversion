@@ -94,7 +94,6 @@ const zkp0 = ZkProgram({
             acc.state.T = T;
             acc.state.g_digest = new_g_digest;
 
-            //return Poseidon.hashPacked(Accumulator, acc);
             return {publicOutput: Poseidon.hashPacked(Accumulator, acc)};
         },
       },

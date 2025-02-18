@@ -32,7 +32,6 @@ const zkp14 = ZkProgram({
             const acc_aff = new G1Affine({ x: acc.x.assertCanonical(), y: acc.y.assertCanonical() })
             const acc_hash = Poseidon.hashPacked(G1Affine, acc_aff); 
 
-            //return Poseidon.hashPacked(Provable.Array(Field, 3), [input, pis_hash, acc_hash]);
             return {publicOutput: Poseidon.hashPacked(Provable.Array(Field, 3), [input, pis_hash, acc_hash])};
         },
       },

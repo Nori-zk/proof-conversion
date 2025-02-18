@@ -43,7 +43,6 @@ const zkp3 = ZkProgram({
             acc.state.pi = pi; 
             acc.state.linearized_opening = linearized_opening; 
 
-            //return Poseidon.hashPacked(Accumulator, acc);
             return {publicOutput: Poseidon.hashPacked(Accumulator, acc)};
         },
       },

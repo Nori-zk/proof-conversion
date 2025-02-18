@@ -59,7 +59,6 @@ const zkp12 = ZkProgram({
                 state: kzgState
             })
 
-            //return Poseidon.hashPacked(KzgAccumulator, kzgAccumulator);
             return {publicOutput: Poseidon.hashPacked(KzgAccumulator, kzgAccumulator)};
         },
       },
