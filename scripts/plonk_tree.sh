@@ -1,107 +1,104 @@
 #!/bin/bash
+set -e
 
-args=("$@")
-ENV=${args[0]}
-source ${ENV}
+ENV_FILE=$(realpath "$1")
+AUX_WITNESS_PATH=$(realpath "$2")
+WORK_DIR=$(realpath "$3")
+CACHE_DIR=$(realpath "$4")
+
+source "${ENV_FILE}"
+
+# Optimized Parameters
+export RAYON_NUM_THREADS=2  # Per Node.js process
+export CROSSBEAM_THREADS=1
+# Node.js memory (8GB per process)
+export NODE_MEMORY_LIMIT=8192
+MAX_THREADS=${MAX_THREADS:-32}
+
+# Kernel Tuning
+sudo sysctl -w vm.zone_reclaim_mode=0
+sudo sysctl -w vm.overcommit_memory=1
+sudo sysctl -w vm.swappiness=10
+sudo cpupower frequency-set -g performance
 
 cd ./contracts
 
-WORK_DIR_RELATIVE_TO_SCRIPTS="../scripts/${WORK_DIR}"
-CACHE_DIR_RELATIVE_TO_SCRIPTS="../scripts/${CACHE_DIR}"
-AUX_WITNESS_RELATIVE_PATH="$(realpath ${WORK_DIR_RELATIVE_TO_SCRIPTS})/aux_wtns.json"
+# NUMA Directory Setup
+mkdir -p "${WORK_DIR}"/{proofs,vks}/{layer0,layer1,layer2,layer3,layer4,layer5}
 
+for node in {0..3}; do
+  node_dir="${WORK_DIR}/node${node}"
+  mkdir -p "$node_dir"
+  ln -sfn "${WORK_DIR}/proofs" "${node_dir}/proofs" 2>/dev/null
+  ln -sfn "${WORK_DIR}/vks" "${node_dir}/vks" 2>/dev/null
+done
 
-mkdir -p ${WORK_DIR_RELATIVE_TO_SCRIPTS}/vks/
-mkdir -p ${WORK_DIR_RELATIVE_TO_SCRIPTS}/proofs/
-
-mkdir -p ${WORK_DIR_RELATIVE_TO_SCRIPTS}/proofs/layer0
-mkdir -p ${WORK_DIR_RELATIVE_TO_SCRIPTS}/proofs/layer1
-mkdir -p ${WORK_DIR_RELATIVE_TO_SCRIPTS}/proofs/layer2
-mkdir -p ${WORK_DIR_RELATIVE_TO_SCRIPTS}/proofs/layer3
-mkdir -p ${WORK_DIR_RELATIVE_TO_SCRIPTS}/proofs/layer4
-mkdir -p ${WORK_DIR_RELATIVE_TO_SCRIPTS}/proofs/layer5
-
-
+# Compile recursion vks
 start_time=$(date +%s)
 echo "Compiling recursion vks..."
-node ./build/src/compile_recursion_vks.js ${WORK_DIR_RELATIVE_TO_SCRIPTS} ${CACHE_DIR_RELATIVE_TO_SCRIPTS} &
+node --max-old-space-size=$NODE_MEMORY_LIMIT \
+  ./build/src/compile_recursion_vks.js "${WORK_DIR}" "${CACHE_DIR}"
+end_time=$(date +%s)
+echo "Compiled recursion vks in $((end_time - start_time))s"
 
-node_pid=$!
-wait $node_pid
-exit_status=$?
+# ZKP Computation
+start_time=$(date +%s)
+echo "Computing ZKPs 0-23 with ${MAX_THREADS} threads..."
 
-if [ $exit_status -eq 0 ]; then
-  echo "Recursion vks compiled successfully"
-else
-  echo "Recursion vks compilation failed"
-  exit 1
-fi
+compute_zkp() {
+  local ZKP_I=$1
+  local NUMA_NODE=$((ZKP_I % 4))
+  
+  # Pass arguments as positional parameters using ::::
+  numactl --cpunodebind=$NUMA_NODE --membind=$NUMA_NODE \
+    node --max-old-space-size=$NODE_MEMORY_LIMIT \
+    ./build/src/plonk/recursion/prove_zkps.js \
+    "zkp${ZKP_I}" \
+    "$HEX_PROOF" \
+    "$PROGRAM_VK" \
+    "$HEX_PI" \
+    "$AUX_WITNESS_PATH" \
+    "$WORK_DIR" \
+    "$CACHE_DIR"
+}
+
+# Export variables explicitly for parallel
+export HEX_PROOF PROGRAM_VK HEX_PI AUX_WITNESS_PATH WORK_DIR CACHE_DIR
+export -f compute_zkp
+
+# Use env_parallel to preserve environment
+seq 0 23 | parallel -j $MAX_THREADS --halt soon,fail=1 compute_zkp
 
 end_time=$(date +%s)
-elapsed_time=$((end_time - start_time))
-echo "compilling recursion vks : Time taken: ${elapsed_time} seconds"
+echo "Computed ZKPs in $((end_time - start_time))s"
 
-MAX_THREADS=${MAX_THREADS:-24}
-echo "MAX THREADS: $MAX_THREADS"
-
-MAX_ITERATIONS=$(( (32 + $MAX_THREADS - 1)/$MAX_THREADS ))
-TOTAL_IN_LOOP=24
-SHOULD_BREAK=false
-
-echo "Computing ZKPs 0-23..."
+# Layer Compression
 start_time=$(date +%s)
-for i in `seq 0 $MAX_ITERATIONS`; do
-  for j in `seq 0 $(( $MAX_THREADS - 1 ))`; do
-    ZKP_I=$(( $i * $MAX_THREADS + $j ))
-    if (( $ZKP_I >= $TOTAL_IN_LOOP )); then
-      SHOULD_BREAK=true
-    fi
-    if $SHOULD_BREAK; then
-      break
-    fi
-    # echo "Computing ZKP ${ZKP_I}..."
-    node ./build/src/plonk/recursion/prove_zkps.js zkp${ZKP_I} $HEX_PROOF $PROGRAM_VK $HEX_PI $AUX_WITNESS_RELATIVE_PATH ${WORK_DIR_RELATIVE_TO_SCRIPTS} ${CACHE_DIR_RELATIVE_TO_SCRIPTS} &
-  done
-  wait
-  if $SHOULD_BREAK; then
-    break
-  fi
-done
 
-echo "Computed ZKPs 0-23..."
-end_time=$(date +%s)
-elapsed_time=$((end_time - start_time))
-echo "Computed ZKPs : Time taken: ${elapsed_time} seconds"
+compress_layer() {
+  local layer=$1
+  local ZKP_J=$2
+  local NUMA_NODE=$((ZKP_J % 4))
+  
+  numactl --cpunodebind=$NUMA_NODE --membind=$NUMA_NODE \
+    node --max-old-space-size=$NODE_MEMORY_LIMIT \
+    ./build/src/node_resolver.js \
+    24 \
+    "${layer}" \
+    "${ZKP_J}" \
+    "${WORK_DIR}" \
+    "${CACHE_DIR}"
+}
 
-start_time=$(date +%s)
-for i in `seq 1 5`; do
-    echo "Compressing layer ${i}..."
-    upper_limit=$(( 2 ** (5 - i) - 1 ))
-    MAX_ITERATIONS=$(( ($upper_limit + $MAX_THREADS - 1) / $MAX_THREADS ))
-    SHOULD_BREAK=false
-    for j in `seq 0 $MAX_ITERATIONS`; do
-        # echo "${i}, ${j}"
-       for k in `seq 0 $(( $MAX_THREADS - 1 ))`; do
-          ZKP_J=$(( $j * $MAX_THREADS + $k ))
-          if (( $ZKP_J > $upper_limit )); then
-            SHOULD_BREAK=true
-          fi
-          if $SHOULD_BREAK; then
-            break
-          fi
-          # echo "${i}, ${j}, ${k}, ${ZKP_J}"
-          node ./build/src/node_resolver.js  $TOTAL_IN_LOOP ${i} ${ZKP_J} ${WORK_DIR_RELATIVE_TO_SCRIPTS} ${CACHE_DIR_RELATIVE_TO_SCRIPTS} &
-        done
-        wait
-        if $SHOULD_BREAK; then
-          break
-        fi
-    done
-    echo "Compressed layer ${i}..."
+export -f compress_layer
+
+for i in {1..5}; do
+  upper_limit=$((2 ** (5 - i) - 1))
+  echo "Compressing layer $i (0-$upper_limit)..."
+  seq 0 $upper_limit | parallel -j $MAX_THREADS compress_layer $i
 done
 
 end_time=$(date +%s)
-elapsed_time=$((end_time - start_time))
-echo "Compressed ZKPs : Time taken: ${elapsed_time} seconds"
+echo "Compressed layers in $((end_time - start_time))s"
 
 echo "Done!"

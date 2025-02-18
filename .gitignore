@@ -4,3 +4,4 @@ scripts/risc_zero_example/run
 scripts/risc_zero_example/work_dir
 scripts/risc_zero_example/cache_dir
 scripts/conversion
+contracts/conversion

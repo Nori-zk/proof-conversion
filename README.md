@@ -18,6 +18,17 @@ MAX_THREADS=32 ./convert_plonk.sh
 
 Replace `32` with the number of threads available on your machine.
 
+## Running on server specific requirments
+
+#### Install `parallel`
+
+```sh
+sudo apt install parallel
+```
+
+Depending on the CPU model, specificaly NUMA nodes setup, you may need to adjust values in
+`scrips/plonk_tree.sh`
+
 ## Overview of o1js-blobstream by Geometry Research
 
 Refer to the **[Gitbook documentation](https://o1js-blobstream.gitbook.io/o1js-blobstream)** for details on **o1js-blobstream**.
