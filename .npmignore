@@ -9,3 +9,28 @@ src
 
 # Never reveal your keys!
 keys
+
+conversion
+example-proofs
+pairing-utils
+scripts
+
+o1js
+
+# NodeJS
+node_modules
+coverage
+
+# Editor
+.vscode
+
+# System
+.DS_Store
+
+groth16_cache
+
+src/recursion/vks
+src/recursion/proofs
+
+src/plonk/recursion/vks
+src/plonk/recursion/proofs
