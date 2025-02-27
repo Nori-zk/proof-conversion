@@ -1,11 +1,9 @@
 #!/bin/bash
 
 build_contracts() {
-  if [ ! -d "./contracts/build" ]; then
-    pushd ./contracts || exit 1
+  if [ ! -d "./build" ]; then
     [ ! -d "node_modules" ] && npm ci
     npm run build
-    popd || exit 1
   fi
 }
 
@@ -26,7 +24,7 @@ process_proof_files() {
       
       mkdir -p "$E2E_PLONK_DIR"
 
-      if node ../contracts/build/src/blobstream/sp1_to_env.js \
+      if node ../build/src/blobstream/sp1_to_env.js \
           "$proof_file" \
           "$VERSION_DIR" \
           "$WORK_DIR" \

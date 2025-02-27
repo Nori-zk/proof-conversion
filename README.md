@@ -18,6 +18,15 @@ MAX_THREADS=32 ./convert_plonk.sh
 
 Replace `32` with the number of threads available on your machine.
 
+### Optional Kernel Tuning
+
+```
+sudo sysctl -w vm.zone_reclaim_mode=0
+sudo sysctl -w vm.overcommit_memory=1
+sudo sysctl -w vm.swappiness=10
+sudo cpupower frequency-set -g performance
+```
+
 ## Running on server specific requirments
 
 #### Install `parallel`

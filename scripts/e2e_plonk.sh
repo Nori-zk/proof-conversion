@@ -14,12 +14,10 @@ if [ "$node_version" -lt 22 ]; then
 fi
 
 # Build contracts if needed
-pushd ./contracts
 if [ ! -d "./build" ]; then
   [ ! -d "node_modules" ] && npm ci
   npm run build
 fi
-popd
 
 # Set paths
 VERSION_DIR=$(dirname "$ENV_FILE")

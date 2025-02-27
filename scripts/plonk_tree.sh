@@ -15,14 +15,6 @@ export CROSSBEAM_THREADS=1
 export NODE_MEMORY_LIMIT=8192
 MAX_THREADS=${MAX_THREADS:-32}
 
-# Kernel Tuning
-sudo sysctl -w vm.zone_reclaim_mode=0
-sudo sysctl -w vm.overcommit_memory=1
-sudo sysctl -w vm.swappiness=10
-sudo cpupower frequency-set -g performance
-
-cd ./contracts
-
 # NUMA Directory Setup
 mkdir -p "${WORK_DIR}"/{proofs,vks}/{layer0,layer1,layer2,layer3,layer4,layer5}
 
@@ -47,7 +39,8 @@ echo "Computing ZKPs 0-23 with ${MAX_THREADS} threads..."
 
 compute_zkp() {
   local ZKP_I=$1
-  local NUMA_NODE=$((ZKP_I % 4))
+  local NUMA_NODES=$(numactl --hardware | grep -oP '(?<=available: )\d+')
+  local NUMA_NODE=$((ZKP_I % NUMA_NODES))
   
   # Pass arguments as positional parameters using ::::
   numactl --cpunodebind=$NUMA_NODE --membind=$NUMA_NODE \
@@ -78,7 +71,8 @@ start_time=$(date +%s)
 compress_layer() {
   local layer=$1
   local ZKP_J=$2
-  local NUMA_NODE=$((ZKP_J % 4))
+  local NUMA_NODES=$(numactl --hardware | grep -oP '(?<=available: )\d+')
+  local NUMA_NODE=$((ZKP_J % NUMA_NODES))
   
   numactl --cpunodebind=$NUMA_NODE --membind=$NUMA_NODE \
     node --max-old-space-size=$NODE_MEMORY_LIMIT \

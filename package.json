@@ -1,6 +1,6 @@
 {
-  "name": "pairing",
-  "version": "0.1.0",
+  "name": "@nori-zk/proof-conversion",
+  "version": "0.1.1",
   "description": "",
   "author": "",
   "license": "Apache-2.0",
@@ -10,6 +10,10 @@
     "mina-dapp",
     "zkapp"
   ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
   "type": "module",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
