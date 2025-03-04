@@ -24,6 +24,7 @@
     "format": "prettier --write --ignore-unknown **/*",
     "test": "npm run build && node --max-old-space-size=65536 build/src/plonk/e2e_test.js && node --max-old-space-size=65536 build/src/plonk/mm_loop/e2e_test.js && node --max-old-space-size=65536 build/src/plonk/piop/e2e_test.js && node --max-old-space-size=65536 build/src/plonk/piop/e2e_test.js && node --max-old-space-size=65536 build/src/groth/e2e_test.js",
     "testw": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "test:compute": "npm run build && node --experimental-vm-modules ./build/src/compute/test.js",
     "lint": "npx eslint src/* --fix"
   },
   "dependencies": {

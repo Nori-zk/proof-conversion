@@ -1,12 +1,12 @@
 import { ComputationalStage, ComputationPlan, ProcessCmdOutput } from "./plan.js";
-import { PlatformFeatureDetectionComputationalPlan, PlatformFeatures } from "./platform.js";
+import { PlatformFeatureDetectionComputationalPlan, PlatformFeatures } from "./plans/platform/index.js";
 import { ProcessPool } from "./processPool.js";
 
 export class ComputationalPlanExecutor {
     #poolSize: number;
     #processPool: ProcessPool;
 
-    async #executeComputationalPlanInner<T>(state = {} as T & PlatformFeatures, plan: ComputationPlan<T & PlatformFeatures>) {
+    async #executeComputationalPlanInner<T, R, I>(state = {} as T & PlatformFeatures, plan: ComputationPlan<T & PlatformFeatures, R, I>) {
         console.info(`Executing computational plan: ${plan.name}`);
 
         for (let stage_idx = 0; stage_idx < plan.stages.length; stage_idx++) {
@@ -48,6 +48,7 @@ export class ComputationalPlanExecutor {
                     break;
                 }
                 case 'parallel-cmd': {
+                    // If this is numa optimised then we should modify our commands
                     if (stage.callback) {
                         const cmdResults = await Promise.all(
                             stage.processCmds
@@ -68,21 +69,19 @@ export class ComputationalPlanExecutor {
                     throw new Error(`Unknown stage type '${(stage as ComputationalStage<any>).type}' aborting.`);
                 }
             }
-
-
-
         }
 
-        return state;
+        // Run collect
+        return plan.collect(state);
     }
 
-    async execute() {
+    async execute<T extends PlatformFeatures, R, I=undefined>(plan: ComputationPlan<T, R, I>) {
         // Define platform features
         const plaformPlan = new PlatformFeatureDetectionComputationalPlan();
         // Execute platform plan        
-        const platformFeatures = this.#executeComputationalPlanInner<PlatformFeatures>({} as PlatformFeatures, plaformPlan);
-
-        return platformFeatures;
+        const platformFeatures = await this.#executeComputationalPlanInner<PlatformFeatures, PlatformFeatures, I>({} as PlatformFeatures, plaformPlan);
+        // Execute the given plan
+        return await this.#executeComputationalPlanInner<T,R,I>(platformFeatures as T, plan);
     }
 
     constructor(poolSize: number) {

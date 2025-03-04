@@ -1,3 +1,4 @@
+import { PlatformFeatures } from "./plans/platform";
 
 export interface ProcessCmd {
     cmd: string;
@@ -5,6 +6,10 @@ export interface ProcessCmd {
     emit?: boolean;
     capture?: boolean;
 }
+
+/*export interface OptimisableProcessCmd extends ProcessCmd {
+    args: string[];
+}*/
 
 export interface ProcessCmdOutput {
     code: number;
@@ -29,6 +34,7 @@ export interface ParallelComputationStage<T> extends BaseComputationalStage {
     processCmds: ProcessCmd[];
     callback?: (sharedState: T, result: ProcessCmdOutput[]) => Promise<void> | void;
     prerequisite?: (sharedState: T) => Promise<boolean> | boolean;
+    numaOptimized?: boolean;
 }
 
 export interface MainThreadComputationStage<T> extends BaseComputationalStage {
@@ -42,10 +48,12 @@ export type ComputationalStage<T> =
     | ParallelComputationStage<T>
     | MainThreadComputationStage<T>;
 
-export interface ComputationPlan<T> {
+export interface ComputationPlan<T extends PlatformFeatures, R, I=undefined> {
     name: string;
     sharedState: T,
-    stages: ComputationalStage<any>[];
+    stages: ComputationalStage<T>[];
+    init?: (sharedState: T, input: I) => Promise<void>;
+    collect: (sharedState: T) => Promise<R>;
 }
 
 export function Implements<T>() {
