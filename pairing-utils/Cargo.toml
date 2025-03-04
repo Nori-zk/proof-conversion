@@ -6,6 +6,7 @@ edition = "2021"
 [lib]
 name = "pairing_utils"
 path = "src/lib.rs"
+crate-type = ["cdylib"]
 
 [dependencies]
 ark-ff = "0.4.2"
@@ -18,3 +19,5 @@ ark-serialize = "0.4.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 num-bigint = "0.4"
+wasm-bindgen = "0.2"
+serde-wasm-bindgen = "0.4"
