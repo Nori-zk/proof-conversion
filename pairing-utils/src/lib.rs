@@ -13,7 +13,9 @@ pub mod tonelli_shanks;
 pub mod utils;
 pub mod write;
 
-mod wasm;
+#[cfg(feature = "wasm")]
+pub mod wasm;
+#[cfg(feature = "wasm")]
 pub use wasm::{compute_and_serialize_aux_witness_js, make_alpha_beta_js};
 
 pub fn display_fq12(x: Fq12, label: &str) {
