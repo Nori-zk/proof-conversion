@@ -64,9 +64,9 @@ pub fn deserialize_fq12_jsvalue(f12: Field12JSValue) -> Fq12 {
 }
 
 #[wasm_bindgen]
-pub fn compute_and_serialize_aux_witness_js(mlo_json_input: JsValue) -> JsValue {
+pub fn compute_and_serialize_aux_witness_js(mlo_js_input: JsValue) -> JsValue {
     // Convert the JavaScript object to the Field12 struct
-    let f12_jsvalue: Field12JSValue = from_value(mlo_json_input).unwrap();
+    let f12_jsvalue: Field12JSValue = from_value(mlo_js_input).unwrap();
     let mlo = deserialize_fq12_jsvalue(f12_jsvalue);
 
     // Should probably do a softer version of assert.
@@ -120,9 +120,9 @@ pub struct AlphaBetaOutputJSValue {
 }
 
 #[wasm_bindgen]
-pub fn make_alpha_beta_js(alpha_beta_json_input: JsValue) -> JsValue {
+pub fn make_alpha_beta_js(alpha_beta_js_input: JsValue) -> JsValue {
     // Convert the JavaScript object to the AlphaBetaJSValue struct
-    let alpha_beta_data: AlphaBetaJSInputValue = from_value(alpha_beta_json_input).unwrap();
+    let alpha_beta_data: AlphaBetaJSInputValue = from_value(alpha_beta_js_input).unwrap();
 
     // Parse alpha and beta points
     let alpha_x: Fq = Fq::from_str(&alpha_beta_data.alpha.x).unwrap();
