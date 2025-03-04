@@ -36,6 +36,7 @@ export class ComputationalPlanExecutor {
         console.info(`Executing computational plan: ${plan.name}`);
 
         if (plan.init) {
+            console.info(`Running computational plan init.`);
             await plan.init(state, input);
         }
 
@@ -107,6 +108,7 @@ export class ComputationalPlanExecutor {
         }
 
         // Run collect
+        console.info('Collecting computational plan results.');
         return plan.collect(state);
     }
 
@@ -117,6 +119,10 @@ export class ComputationalPlanExecutor {
         const platformFeatures = await this.#executeComputationalPlanInner<PlatformFeatures, PlatformFeatures, I>({} as PlatformFeatures, plaformPlan, input);
         // Execute the given plan
         return await this.#executeComputationalPlanInner<T, R, I>(platformFeatures as T, plan, input);
+    }
+
+    workerFreeStatus() {
+        return this.#processPool.workerFreeStatus();
     }
 
     constructor(poolSize: number) {
