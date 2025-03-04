@@ -25,22 +25,22 @@ export interface BaseComputationalStage {
 export interface SerialComputationalStage<T> extends BaseComputationalStage {
     type: 'serial-cmd';
     processCmd: ProcessCmd;
-    callback?: (sharedState: T, result: ProcessCmdOutput) => Promise<void> | void;
-    prerequisite?: (sharedState: T) => Promise<boolean> | boolean;
+    callback?: (state: T, result: ProcessCmdOutput) => Promise<void> | void;
+    prerequisite?: (state: T) => Promise<boolean> | boolean;
 }
 
 export interface ParallelComputationStage<T> extends BaseComputationalStage {
     type: 'parallel-cmd';
     processCmds: ProcessCmd[];
-    callback?: (sharedState: T, result: ProcessCmdOutput[]) => Promise<void> | void;
-    prerequisite?: (sharedState: T) => Promise<boolean> | boolean;
+    callback?: (state: T, result: ProcessCmdOutput[]) => Promise<void> | void;
+    prerequisite?: (state: T) => Promise<boolean> | boolean;
     numaOptimized?: boolean;
 }
 
 export interface MainThreadComputationStage<T> extends BaseComputationalStage {
     type: 'main-thread';
-    execute: (sharedState: T) => Promise<void> | void;
-    prerequisite?: (sharedState: T) => Promise<boolean> | boolean;
+    execute: (state: T) => Promise<void> | void;
+    prerequisite?: (state: T) => Promise<boolean> | boolean;
 }
 
 export type ComputationalStage<T> =
@@ -50,10 +50,9 @@ export type ComputationalStage<T> =
 
 export interface ComputationPlan<T extends PlatformFeatures, R, I=undefined> {
     name: string;
-    sharedState: T,
     stages: ComputationalStage<T>[];
-    init?: (sharedState: T, input: I) => Promise<void>;
-    collect: (sharedState: T) => Promise<R>;
+    init?: (state: T, input: I) => Promise<void>;
+    collect: (state: T) => Promise<R>;
 }
 
 export function Implements<T>() {

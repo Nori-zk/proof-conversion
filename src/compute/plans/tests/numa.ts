@@ -4,15 +4,16 @@ import { PlatformFeatures } from "../platform";
 
 interface NumaNodeTestComputationPlanOutput {
     output: string[];
+    input: string;
 }
 
 interface NumaNodeTestComputationPlanState extends PlatformFeatures, NumaNodeTestComputationPlanOutput { }
 
-export class NumaNodeTestComputationPlan implements ComputationPlan<NumaNodeTestComputationPlanState, NumaNodeTestComputationPlanOutput> {
-    sharedState: NumaNodeTestComputationPlanState = {} as NumaNodeTestComputationPlanState;
+export class NumaNodeTestComputationPlan implements ComputationPlan<NumaNodeTestComputationPlanState, NumaNodeTestComputationPlanOutput, string> {
     name = 'NumaNodeTest';
-    async init (sharedState: NumaNodeTestComputationPlanState, input: undefined): Promise<void> {
-        sharedState.output = [];
+    async init (state: NumaNodeTestComputationPlanState, input: string): Promise<void> {
+        state.output = [];
+        state.input = input;
     }
     stages: ComputationalStage<NumaNodeTestComputationPlanState>[] = [
         {
@@ -21,16 +22,17 @@ export class NumaNodeTestComputationPlan implements ComputationPlan<NumaNodeTest
             processCmds: range(10).map((idx) => {
                 return {
                     cmd: 'echo',
-                    args: [`'Command${idx}'`],
+                    args: [`Command${idx}`],
+                    capture: true
                 };
             }),
-            numaOptimized: true,
-            callback: (sharedState, result) => {
-                sharedState.output = result.map((processOutput) => processOutput.stdOut as string);
-            }
+            callback: (state, result) => {
+                state.output = result.map((processOutput) => (processOutput.stdOut as string).trim());
+            },
+            numaOptimized: true
         }
     ];
-    async collect(sharedState: NumaNodeTestComputationPlanState): Promise<NumaNodeTestComputationPlanOutput> {
-        return { output: sharedState.output };
+    async collect(state: NumaNodeTestComputationPlanState): Promise<NumaNodeTestComputationPlanOutput> {
+        return {output: state.output, input: state.input};
     }
 }
