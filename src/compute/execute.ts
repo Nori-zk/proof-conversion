@@ -119,6 +119,10 @@ export class ComputationalPlanExecutor {
         return await this.#executeComputationalPlanInner<T, R, I>(platformFeatures as T, plan, input);
     }
 
+    workerFreeStatus() {
+        return this.#processPool.workerFreeStatus();
+    }
+
     constructor(poolSize: number) {
         this.#poolSize = poolSize;
         this.#processPool = new ProcessPool(poolSize);
