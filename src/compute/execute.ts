@@ -36,6 +36,7 @@ export class ComputationalPlanExecutor {
         console.info(`Executing computational plan: ${plan.name}`);
 
         if (plan.init) {
+            console.info(`Running computational plan init.`);
             await plan.init(state, input);
         }
 
@@ -107,6 +108,7 @@ export class ComputationalPlanExecutor {
         }
 
         // Run collect
+        console.info('Collecting computational plan results.');
         return plan.collect(state);
     }
 
