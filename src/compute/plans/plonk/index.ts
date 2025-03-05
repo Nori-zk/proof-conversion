@@ -140,9 +140,7 @@ node maxoldspacesize=$NODE_MEMORY_LIMIT \
             type: 'parallel-cmd',
             processCmds: (state: State) => {
                 return range(5).map((i) => {
-                    const upperLimit = Math.pow(2, 5 - i) - 1; // upper limit calculation as per the script
-        
-                    // Generate the commands for each ZKP_J in the range 0 to upperLimit
+                    const upperLimit = Math.pow(2, 5 - i) - 1;        
                     return range(upperLimit + 1).map((ZKP_J) => {
                         return {
                             cmd: 'node',
@@ -150,12 +148,8 @@ node maxoldspacesize=$NODE_MEMORY_LIMIT \
                                 '--max-old-space-size=6000',
                                 './build/src/node_resolver.js',
                                 '24',
-                                `${i}`, // Layer number (i)
-                                `${ZKP_J}`, // This is ZKP_J
-                                state.input.encodedProof,
-                                state.input.programVK,
-                                state.input.hexPi,
-                                state.cacheDir,
+                                `${i}`,
+                                `${ZKP_J}`,
                                 state.cacheDir,
                                 state.cacheDir,
                             ],
