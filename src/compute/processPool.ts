@@ -129,7 +129,7 @@ export class ProcessPool {
         }
         else {
             // Queue job for next free worker
-            console.warn(`No available workers. Job '${this.#jobToString(processCmd)}' is being queued.`);
+            console.warn(`No workers. Job '${this.#jobToString(processCmd).slice(0, 30)}...' queued.`);
             this.#lifo.push({ ...processCmd, invertedPromise });
             return invertedPromise.promise;
         }
