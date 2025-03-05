@@ -6,7 +6,7 @@ import { range } from '../../../utils/range.js';
 import { ComputationalStage, ComputationPlan } from '../../plan.js';
 import { PlatformFeatures } from '../platform/index.js';
 import rootDir from '../../../utils/root_dir.js';
-import { mkdirSync, rmSync, writeFileSync } from 'fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { getMlo } from '../../../plonk/get_mlo.js';
 
 export type PlonkInput = {
@@ -122,7 +122,7 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
             name: 'CompressLayer',
             type: 'parallel-cmd',
             processCmds: (state: State) => {
-                return range(5).map((i) => {
+                return range(1, 6).map((i) => {
                     const upperLimit = Math.pow(2, 5 - i) - 1;
                     return range(upperLimit + 1).map((ZKP_J) => {
                         return {
@@ -147,6 +147,11 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
     async collect(state: State): Promise<PlonkOutput> {
         rmSync(resolve(rootDir, 'conversion', state.cacheDir), { recursive: true });
         console.log(state.witness);
-        return {} as PlonkOutput;
+        const output :PlonkOutput = {
+            vkData: JSON.parse(readFileSync(resolve(state.cacheDir, 'vks', 'nodeVk.json'), 'utf8')) as PlonkVkData,
+            proofData: JSON.parse(readFileSync(resolve(state.cacheDir, 'proofs', 'layer5', 'p0.json'), 'utf8')) as PlonkProofData
+        }
+        console.log(output);
+        return output;
     }
 }

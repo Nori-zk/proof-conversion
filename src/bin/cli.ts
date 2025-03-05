@@ -61,7 +61,9 @@ program
     // Execute the corresponding function with the file data
     commandFunction(fileData)
       .then((result) => {
-        console.log(JSON.stringify(result, null, 2));  // Pretty-print result
+        const resultStr = JSON.stringify(result, null, 2);
+        console.log(resultStr);  // Pretty-print result
+        fs.writeFileSync(`${filePath}.converted`,resultStr);
       })
       .catch((err: unknown) => {
         console.error('Error executing command:', err);

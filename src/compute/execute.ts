@@ -93,6 +93,9 @@ export class ComputationalPlanExecutor {
                         processCmds = processCmds(state);
                     }
 
+                    console.log("stage processCmds", JSON.stringify(processCmds,null,4));
+
+
                     // If this is numa optimised then we should modify our commands
                     let modifiedCommands = processCmds;
                     if (stage.numaOptimized && state.numaNodes) {
