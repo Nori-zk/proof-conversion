@@ -29,11 +29,10 @@ export interface Alpha {
 }
 
 export interface Beta {
-
-    x_c0?: string;
-    x_c1?: string;
-    y_c0?: string;
-    y_c1?: string;
+    x_c0: string;
+    x_c1: string;
+    y_c0: string;
+    y_c1: string;
 }
 
 export interface AlphaBetaWasm {
@@ -52,7 +51,7 @@ export function makeAlphaBeta(raw_vk: unknown, input: AlphaBetaWasm) {
     // extends v by overriding the alpha_beta Field12 fields
 
     throw Error("This function is not implemented yet... The raw_vk type is not implemented");
-    
+
     const v = (raw_vk || {"alpha_beta": {}}) as {"alpha_beta": Field12Wasm};
 
     const serialized_alpha_beta = wasmMakeAlphaBeta(input) as Field12Wasm;
