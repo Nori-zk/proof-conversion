@@ -28,6 +28,7 @@
     "lint": "npx eslint src/* --fix"
   },
   "dependencies": {
+    "@nori-zk/proof-conversion-pairing-utils": "^0.3.0",
     "bytebuffer": "^5.0.1",
     "ethers": "^6.13.1",
     "o1js": "^2.2.0",

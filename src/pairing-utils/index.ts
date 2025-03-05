@@ -23,9 +23,13 @@ export interface AuxWitnessWasm {
     shift_power: string;
 }
 
-export interface AlphaBetaPoint {
+export interface Alpha {
     x: string;
     y: string;
+}
+
+export interface Beta {
+
     x_c0?: string;
     x_c1?: string;
     y_c0?: string;
@@ -33,30 +37,39 @@ export interface AlphaBetaPoint {
 }
 
 export interface AlphaBetaWasm {
-    alpha: AlphaBetaPoint;
-    beta: AlphaBetaPoint;
+    alpha: Alpha;
+    beta: Beta;
 }
 
-export interface AlphaBetaOutputWasm {
-    g00: string;
-    g01: string;
-    g10: string;
-    g11: string;
-    g20: string;
-    g21: string;
-    h00: string;
-    h01: string;
-    h10: string;
-    h11: string;
-    h20: string;
-    h21: string;
+export function computeAuxWitness(f12Wasm: Field12Wasm): AuxWitnessWasm {
+    return wasmComputeAuxWitness(f12Wasm) as AuxWitnessWasm;
 }
 
-export function computeAuxWitness(input: Field12Wasm): AuxWitnessWasm {
-    return wasmComputeAuxWitness(input) as AuxWitnessWasm;
-}
+export function makeAlphaBeta(raw_vk: unknown, input: AlphaBetaWasm) {
+    // this is not complete
+    // cargo run --bin alphabeta -- $RAW_VK_PATH $VK_PATH & 
+    // make_alpha_beta this function takes json_path for the $RAW_VK_PATH env var and uses this as "v"... it then
+    // extends v by overriding the alpha_beta Field12 fields
 
-export function makeAlphaBeta(input: AlphaBetaWasm): AlphaBetaOutputWasm {
-    return wasmMakeAlphaBeta(input) as AlphaBetaOutputWasm;
+    throw Error("This function is not implemented yet... The raw_vk type is not implemented");
+    
+    const v = (raw_vk || {"alpha_beta": {}}) as {"alpha_beta": Field12Wasm};
+
+    const serialized_alpha_beta = wasmMakeAlphaBeta(input) as Field12Wasm;
+    
+    v["alpha_beta"]["g00"] = serialized_alpha_beta.g00;
+    v["alpha_beta"]["g01"] = serialized_alpha_beta.g01;
+    v["alpha_beta"]["g10"] = serialized_alpha_beta.g10;
+    v["alpha_beta"]["g11"] = serialized_alpha_beta.g11;
+    v["alpha_beta"]["g20"] = serialized_alpha_beta.g20;
+    v["alpha_beta"]["g21"] = serialized_alpha_beta.g21;
+    v["alpha_beta"]["h00"] = serialized_alpha_beta.h00;
+    v["alpha_beta"]["h01"] = serialized_alpha_beta.h01;
+    v["alpha_beta"]["h10"] = serialized_alpha_beta.h10;
+    v["alpha_beta"]["h11"] = serialized_alpha_beta.h11;
+    v["alpha_beta"]["h20"] = serialized_alpha_beta.h20;
+    v["alpha_beta"]["h21"] = serialized_alpha_beta.h21;
+
+    return v;
 }
 

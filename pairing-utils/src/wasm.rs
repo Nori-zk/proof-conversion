@@ -87,36 +87,26 @@ pub fn compute_and_serialize_aux_witness_js(mlo_js_input: JsValue) -> JsValue {
 
 /// alphabeta
 
+
 #[derive(Serialize, Deserialize, Debug)]
-pub struct AlphaBetaJSInputValue {
-    pub alpha: AlphaBetaPoint,
-    pub beta: AlphaBetaPoint,
+pub struct Alpha {
+    pub x: String,
+    pub y: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct AlphaBetaPoint {
-    pub x: String,
-    pub y: String,
+pub struct Beta {
     pub x_c0: Option<String>,
     pub x_c1: Option<String>,
     pub y_c0: Option<String>,
     pub y_c1: Option<String>,
 }
 
+
 #[derive(Serialize, Deserialize, Debug)]
-pub struct AlphaBetaOutputJSValue {
-    pub g00: String,
-    pub g01: String,
-    pub g10: String,
-    pub g11: String,
-    pub g20: String,
-    pub g21: String,
-    pub h00: String,
-    pub h01: String,
-    pub h10: String,
-    pub h11: String,
-    pub h20: String,
-    pub h21: String,
+pub struct AlphaBetaJSInputValue {
+    pub alpha: Alpha,
+    pub beta: Beta,
 }
 
 #[wasm_bindgen]
@@ -148,7 +138,7 @@ pub fn make_alpha_beta_js(alpha_beta_js_input: JsValue) -> JsValue {
 
     // Update the input data with the serialized result
 
-    let result_data = AlphaBetaOutputJSValue {
+    let result_data = Field12JSValue {
         g00: serialized_alpha_beta.g00,
         g01: serialized_alpha_beta.g01,
         g10: serialized_alpha_beta.g10,
