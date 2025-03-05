@@ -57,8 +57,8 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
     }
     stages: ComputationalStage<State>[] = [
         {
-            'name': 'CreateFileSystemCace',
-            'type': 'main-thread',
+            name: 'CreateFileSystemCace',
+            type: 'main-thread',
             execute: (state) => {
                 mkdirSync(state.cacheDir, { recursive: true });
                 createDirectories(state.cacheDir, proofVkCacheStructure);
@@ -95,7 +95,7 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
             }
         },
         {
-            'name': 'ComputeZPK',
+            name: 'ComputeZPK',
             type: 'parallel-cmd',
             processCmds: (state: State) => {
                 return range(24).map((i) => {
@@ -119,7 +119,7 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
             numaOptimized: true
         },
         {
-            'name': 'CompressLayer',
+            name: 'CompressLayer',
             type: 'parallel-cmd',
             processCmds: (state: State) => {
                 return range(5).map((i) => {
