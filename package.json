@@ -17,6 +17,9 @@
   "type": "module",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
+  "bin": {
+    "proof-conversion": "./build/src/bin/cli-wrapper.js"
+  },
   "scripts": {
     "build": "tsc",
     "buildw": "tsc --watch",
@@ -25,11 +28,13 @@
     "test": "npm run build && node --max-old-space-size=65536 build/src/plonk/e2e_test.js && node --max-old-space-size=65536 build/src/plonk/mm_loop/e2e_test.js && node --max-old-space-size=65536 build/src/plonk/piop/e2e_test.js && node --max-old-space-size=65536 build/src/plonk/piop/e2e_test.js && node --max-old-space-size=65536 build/src/groth/e2e_test.js",
     "testw": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:compute": "npm run build && node --experimental-vm-modules ./build/src/compute/test.js",
-    "lint": "npx eslint src/* --fix"
+    "lint": "npx eslint src/* --fix",
+    "relink": "npm unlink proof-conversion && npm run build && npm link"
   },
   "dependencies": {
     "@nori-zk/proof-conversion-pairing-utils": "^0.3.0",
     "bytebuffer": "^5.0.1",
+    "commander": "^13.1.0",
     "ethers": "^6.13.1",
     "o1js": "^2.2.0",
     "typescript": "^5.4.5"

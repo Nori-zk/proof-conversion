@@ -1,8 +1,7 @@
 import { ComputationalStage, ComputationPlan } from '../../plan.js';
 import { PlatformFeatures } from '../platform';
 
-
-export interface PlonkInput {
+export type PlonkInput = {
     hexPi: string;
     programVK: string;
     encodedProof: string;
@@ -28,9 +27,10 @@ export interface PlonkOutput {
 interface State extends PlatformFeatures, PlonkOutput {}
 
 export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutput, PlonkInput> {
+    readonly __inputType!: PlonkInput;
     name = "PlonkConverter";
     stages: ComputationalStage<State>[] = [];
     async collect(state: State): Promise<PlonkOutput> {
-        return;
+        return {} as PlonkOutput;
     }
 }

@@ -2,6 +2,10 @@ import { ComputationalStage, ComputationPlan, ProcessCmd, ProcessCmdOutput } fro
 import { PlatformFeatureDetectionComputationalPlan, PlatformFeatures } from "./plans/platform/index.js";
 import { ProcessPool } from "./processPool.js";
 
+type InferInput<P> = P extends ComputationPlan<any, any, infer I> ? I : never;
+type InferOutput<P> = P extends ComputationPlan<any, infer R, any> ? R : never;
+type InferState<P> = P extends ComputationPlan<infer S, any, any> ? S : never;
+
 function applyNumaOptimization<T>(stageProcessCommands: ProcessCmd[], state: T & PlatformFeatures) {
     return stageProcessCommands.map((processCmd, idx) => {
         const numaNode = idx % state.numaNodes!; 
@@ -112,13 +116,13 @@ export class ComputationalPlanExecutor {
         return plan.collect(state);
     }
 
-    async execute<T extends PlatformFeatures, R, I = undefined>(plan: ComputationPlan<T, R, I>, input: I) {
+    async execute<P extends ComputationPlan<any,any,any>>(plan: P, input: InferInput<P>) {
         // Define platform features
         const plaformPlan = new PlatformFeatureDetectionComputationalPlan();
         // Execute platform plan        
-        const platformFeatures = await this.#executeComputationalPlanInner<PlatformFeatures, PlatformFeatures, I>({} as PlatformFeatures, plaformPlan, input);
+        const platformFeatures = await this.#executeComputationalPlanInner<PlatformFeatures, PlatformFeatures, InferInput<P>>({} as PlatformFeatures, plaformPlan as InferInput<P>, input);
         // Execute the given plan
-        return await this.#executeComputationalPlanInner<T, R, I>(platformFeatures as T, plan, input);
+        return await this.#executeComputationalPlanInner<InferState<P>, InferOutput<P>, InferInput<P>>(platformFeatures as InferState<P>, plan, input);
     }
 
     workerFreeStatus() {

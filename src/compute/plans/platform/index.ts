@@ -7,7 +7,8 @@ export interface PlatformFeatures {
     numaNodes?: number;
 }
 
-export class PlatformFeatureDetectionComputationalPlan implements ComputationPlan<PlatformFeatures, PlatformFeatures> {
+export class PlatformFeatureDetectionComputationalPlan implements ComputationPlan<PlatformFeatures, PlatformFeatures, undefined> {
+    __inputType: undefined;
     name = 'PlatformFeatureDetection';
     stages: ComputationalStage<PlatformFeatures>[] = [
         {

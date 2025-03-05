@@ -10,6 +10,7 @@ interface NumaNodeTestComputationPlanOutput {
 interface NumaNodeTestComputationPlanState extends PlatformFeatures, NumaNodeTestComputationPlanOutput { }
 
 export class NumaNodeTestComputationPlan implements ComputationPlan<NumaNodeTestComputationPlanState, NumaNodeTestComputationPlanOutput, string> {
+    __inputType: string;
     name = 'NumaNodeTest';
     async init (state: NumaNodeTestComputationPlanState, input: string): Promise<void> {
         state.output = [];

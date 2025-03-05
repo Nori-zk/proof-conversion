@@ -32,37 +32,17 @@ fs.writeFileSync(envPath, env, 'utf8');
 */
 
 import { ComputationalPlanExecutor } from "../../compute/execute.js";
-import { PlonkComputationalPlan, PlonkInput } from "../../compute/plans/plonk";
+import { PlonkComputationalPlan } from "../../compute/plans/plonk/index.js";
 import { Sp1 } from "./types.js";
 
-export async function performSp1Plonk(sp1: Sp1) {
-    // Unpack argument
-
+export async function performSp1ToPlonk(executor: ComputationalPlanExecutor, sp1: Sp1) {
+    // Unpack arguments
     const hexPi = `0x${Buffer.from(sp1.public_values.buffer.data).toString('hex')}`;
     const programVK = sp1.proof.Plonk.public_inputs[0];
     const encodedProof = `0x00000000${sp1.proof.Plonk.encoded_proof}`;
 
-    const proofInput: PlonkInput = {hexPi, programVK, encodedProof};
-
-    const executor = new ComputationalPlanExecutor(2);
-    const result = executor.execute(new PlonkComputationalPlan(),proofInput);
+    // Invoke executor
+    return executor.execute(new PlonkComputationalPlan(),{hexPi, programVK, encodedProof});
 }
 
-
-/*
-
-import { ComputationalPlanExecutor } from "./execute.js";
-import { NumaNodeTestComputationPlan } from "./plans/tests/numa.js";
-
-async function main() {
-    const testPlanExecutor = new ComputationalPlanExecutor(12);
-    const result = await testPlanExecutor.execute(new NumaNodeTestComputationPlan(), "TestInput");
-    console.log(result);
-    console.log(testPlanExecutor.workerFreeStatus());
-}
-
-main().catch(console.error);
-
-
-*/
 

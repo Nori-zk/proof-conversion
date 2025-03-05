@@ -48,7 +48,8 @@ export type ComputationalStage<T> =
     | ParallelComputationStage<T>
     | MainThreadComputationStage<T>;
 
-export interface ComputationPlan<T extends PlatformFeatures, R, I=undefined> {
+export interface ComputationPlan<T extends PlatformFeatures, R, I> {
+    __inputType: I;
     name: string;
     stages: ComputationalStage<T>[];
     init?: (state: T, input: I) => Promise<void>;
