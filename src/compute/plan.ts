@@ -24,14 +24,14 @@ export interface BaseComputationalStage {
 
 export interface SerialComputationalStage<T> extends BaseComputationalStage {
     type: 'serial-cmd';
-    processCmd: ProcessCmd;
+    processCmd: ProcessCmd | ((state: T) => ProcessCmd);
     callback?: (state: T, result: ProcessCmdOutput) => Promise<void> | void;
     prerequisite?: (state: T) => Promise<boolean> | boolean;
 }
 
 export interface ParallelComputationStage<T> extends BaseComputationalStage {
     type: 'parallel-cmd';
-    processCmds: ProcessCmd[];
+    processCmds: ProcessCmd[] | ((state: T) => ProcessCmd[]);
     callback?: (state: T, result: ProcessCmdOutput[]) => Promise<void> | void;
     prerequisite?: (state: T) => Promise<boolean> | boolean;
     numaOptimized?: boolean;

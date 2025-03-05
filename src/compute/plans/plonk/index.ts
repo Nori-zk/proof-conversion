@@ -1,13 +1,13 @@
-import { mkdirSync, rmSync, writeFileSync } from 'fs';
-import { ComputationalStage, ComputationPlan } from '../../plan.js';
-import { PlatformFeatures } from '../platform';
 import { resolve } from 'path';
-import rootDir from '../../../utils/root_dir.js';
-import { getRandomString } from '../../../utils/random.js';
-import { getMlo } from '../../../plonk/get_mlo.js';
 import { AuxWitnessWasm, computeAuxWitness } from '../../../pairing-utils/index.js';
 import { createDirectories, DirectoryStructure } from '../../../utils/cache.js';
+import { getRandomString } from '../../../utils/random.js';
 import { range } from '../../../utils/range.js';
+import { ComputationalStage, ComputationPlan } from '../../plan.js';
+import { PlatformFeatures } from '../platform/index.js';
+import rootDir from '../../../utils/root_dir.js';
+import { mkdirSync, rmSync, writeFileSync } from 'fs';
+import { getMlo } from '../../../plonk/get_mlo.js';
 
 export type PlonkInput = {
     hexPi: string;
@@ -44,7 +44,7 @@ const proofVkCacheStructure: DirectoryStructure = {
     vks: range(6).map(i => `layer${i}`)
 };
 
-const nodeCacheStructure: DirectoryStructure = range(4).map((i)=>`node${i}`);
+const nodeCacheStructure: DirectoryStructure = range(4).map((i) => `node${i}`);
 
 export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutput, PlonkInput> {
     readonly __inputType!: PlonkInput;
@@ -53,9 +53,17 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
         state.input = input;
         state.cacheName = getRandomString(20);
         state.cacheDir = resolve(rootDir, 'conversion', state.cacheName, 'e2e_plonk')
-        mkdirSync(state.cacheDir, {recursive: true});
     }
     stages: ComputationalStage<State>[] = [
+        {
+            'name': 'CreateFileSystemCace',
+            'type': 'main-thread',
+            execute: (state) => {
+                mkdirSync(state.cacheDir, { recursive: true });
+                createDirectories(state.cacheDir, proofVkCacheStructure);
+                createDirectories(state.cacheDir, nodeCacheStructure);
+            }
+        },
         {
             name: 'GenerateWitness',
             type: 'main-thread',
@@ -67,27 +75,28 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
                 // Create cache directories
                 writeFileSync(resolve(state.cacheDir, 'mlo.json'), mlo);
                 writeFileSync(resolve(state.cacheDir, 'aux_wtns.json'), JSON.stringify(witness));
-                createDirectories(state.cacheDir,proofVkCacheStructure);
-                createDirectories(state.cacheDir,nodeCacheStructure);
+
                 return;
             }
         },
         /*
 echo "Compiling recursion vks..."
-node --max-old-space-size=$NODE_MEMORY_LIMIT \
+node maxoldspacesize=$NODE_MEMORY_LIMIT \
   ./build/src/compile_recursion_vks.js "${WORK_DIR}" "${CACHE_DIR}"
         */
         {
             name: 'CompileRecursion',
             type: 'serial-cmd',
-            processCmd: {
-                cmd: 'node',
-                args: ['--max-old-space-size=8192', './build/src/compile_recursion_vks.js', '', '']
+            processCmd: (state: State) => {
+                return {
+                    cmd: 'node',
+                    args: ['maxoldspacesize=8192', './build/src/compile_recursion_vks.js', state.cacheDir, state.cacheDir]
+                }
             }
         }
     ];
     async collect(state: State): Promise<PlonkOutput> {
-        rmSync(resolve(rootDir, 'conversion', state.cacheDir), {recursive: true});
+        rmSync(resolve(rootDir, 'conversion', state.cacheDir), { recursive: true });
         console.log(state.witness);
         return {} as PlonkOutput;
     }

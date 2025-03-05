@@ -72,19 +72,29 @@ export class ComputationalPlanExecutor {
                     break;
                 }
                 case 'serial-cmd': {
+                    let processCmd = stage.processCmd;
+                    if (processCmd instanceof Function) {
+                        processCmd = processCmd(state);
+                    }
+
                     if (stage.callback) {
-                        const cmdResult = await this.#processPool.runCommand(stage.processCmd).catch(err => err);
+                        const cmdResult = await this.#processPool.runCommand(processCmd).catch(err => err);
                         const stageCallback = stage.callback(state, cmdResult);
                         if (stageCallback instanceof Promise) {
                             await stageCallback;
                         }
                     }
-                    else await this.#processPool.runCommand(stage.processCmd);
+                    else await this.#processPool.runCommand(processCmd);
                     break;
                 }
                 case 'parallel-cmd': {
+                    let processCmds = stage.processCmds;
+                    if (processCmds instanceof Function) {
+                        processCmds = processCmds(state);
+                    }
+
                     // If this is numa optimised then we should modify our commands
-                    let modifiedCommands = stage.processCmds;
+                    let modifiedCommands = processCmds;
                     if (stage.numaOptimized && state.numaNodes) {
                         modifiedCommands = applyNumaOptimization<T>(modifiedCommands, state);
                     }
