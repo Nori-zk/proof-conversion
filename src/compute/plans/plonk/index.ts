@@ -3,7 +3,7 @@ import { AuxWitnessWasm, computeAuxWitness } from '../../../pairing-utils/index.
 import { createDirectories, DirectoryStructure } from '../../../utils/cache.js';
 import { getRandomString } from '../../../utils/random.js';
 import { range } from '../../../utils/range.js';
-import { ComputationalStage, ComputationPlan } from '../../plan.js';
+import { ComputationalStage, ComputationPlan, ParallelComputationStage } from '../../plan.js';
 import { PlatformFeatures } from '../platform/index.js';
 import rootDir from '../../../utils/root_dir.js';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
@@ -118,11 +118,11 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
             },
             numaOptimized: true
         },
-        {
-            name: 'CompressLayer',
-            type: 'parallel-cmd',
-            processCmds: (state: State) => {
-                return range(1, 6).map((i) => {
+        ...range(1, 6).map((i) => {
+            const stage: ParallelComputationStage<State> = {
+                name:`CompressLayer${i}`,
+                type: 'parallel-cmd',
+                processCmds: (state: State) => {
                     const upperLimit = Math.pow(2, 5 - i) - 1;
                     return range(upperLimit + 1).map((ZKP_J) => {
                         return {
@@ -139,10 +139,11 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
                             emit: true,
                         };
                     });
-                }).flat();
-            },
-            numaOptimized: true
-        },
+                },
+                numaOptimized: true
+            }
+            return stage;
+        })
     ];
     async collect(state: State): Promise<PlonkOutput> {
         console.log(state.witness);
