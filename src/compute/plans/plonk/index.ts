@@ -90,7 +90,7 @@ node maxoldspacesize=$NODE_MEMORY_LIMIT \
             processCmd: (state: State) => {
                 return {
                     cmd: 'node',
-                    args: ['maxoldspacesize=8192', './build/src/compile_recursion_vks.js', state.cacheDir, state.cacheDir]
+                    args: ['--max-old-space-size=6000', './build/src/compile_recursion_vks.js', state.cacheDir, state.cacheDir]
                 }
             }
         },
