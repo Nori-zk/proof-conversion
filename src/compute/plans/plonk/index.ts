@@ -145,13 +145,13 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
         },
     ];
     async collect(state: State): Promise<PlonkOutput> {
-        rmSync(resolve(rootDir, 'conversion', state.cacheDir), { recursive: true });
         console.log(state.witness);
         const output :PlonkOutput = {
             vkData: JSON.parse(readFileSync(resolve(state.cacheDir, 'vks', 'nodeVk.json'), 'utf8')) as PlonkVkData,
             proofData: JSON.parse(readFileSync(resolve(state.cacheDir, 'proofs', 'layer5', 'p0.json'), 'utf8')) as PlonkProofData
         }
         console.log(output);
+        rmSync(resolve(rootDir, 'conversion', state.cacheDir), { recursive: true });
         return output;
     }
 }
