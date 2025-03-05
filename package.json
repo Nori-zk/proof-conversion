@@ -32,7 +32,7 @@
     "relink": "npm unlink proof-conversion && npm run build && npm link"
   },
   "dependencies": {
-    "@nori-zk/proof-conversion-pairing-utils": "^0.3.0",
+    "@nori-zk/proof-conversion-pairing-utils": "^0.4.0",
     "bytebuffer": "^5.0.1",
     "commander": "^13.1.0",
     "ethers": "^6.13.1",

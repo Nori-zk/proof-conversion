@@ -57,9 +57,9 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
             name: 'GenerateWitness',
             type: 'main-thread',
             execute: (state: State) => {
-                //const mlo = getMlo(state.input.encodedProof, state.input.programVK, state.input.hexPi).toJSON(); // This is a wasm function
-                const witness = computeAuxWitness;//(JSON.parse(mlo));
-                //state.witness = witness;
+                const mlo = getMlo(state.input.encodedProof, state.input.programVK, state.input.hexPi).toJSON(); // This is a wasm function
+                const witness = computeAuxWitness(JSON.parse(mlo));
+                state.witness = witness;
                 return;
             }
         }

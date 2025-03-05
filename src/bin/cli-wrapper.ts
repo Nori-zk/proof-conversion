@@ -4,7 +4,7 @@
 import { spawn } from "child_process";
 
 // Run the actual script with the required Node.js flags
-const child = spawn('node', ['--experimental-vm-modules', '--experimental-wasm-modules', '--wasm-max-table-size=1000', './build/src/bin/cli.js', ...process.argv.slice(2)], {
+const child = spawn('node', ['--experimental-vm-modules', '--experimental-wasm-modules', '--wasm-max-table-size=2000', './build/src/bin/cli.js', ...process.argv.slice(2)], {
   stdio: 'inherit',
   cwd: process.cwd()
 });
