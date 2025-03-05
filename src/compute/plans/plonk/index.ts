@@ -112,15 +112,60 @@ node maxoldspacesize=$NODE_MEMORY_LIMIT \
             'name': 'ComputeZPK',
             type: 'parallel-cmd',
             processCmds: (state: State) => {
-                return range(24).map((i)=>{
+                return range(24).map((i) => {
                     return {
                         cmd: 'node',
-                        args: ['--max-old-space-size=6000', `zkp${i}`, state.input.encodedProof, state.input.programVK, state.input.hexPi, state.cacheDir, state.cacheDir, state.cacheDir],
+                        args: ['--max-old-space-size=6000', './build/src/plonk/recursion/prove_zkps.js', `zkp${i}`, state.input.encodedProof, state.input.programVK, state.input.hexPi, state.cacheDir, state.cacheDir, state.cacheDir],
                     }
                 })
             },
             numaOptimized: true
-        }
+        },
+
+        /*
+
+ numactl --cpunodebind=$NUMA_NODE --membind=$NUMA_NODE \
+    node --max-old-space-size=$NODE_MEMORY_LIMIT \
+    ./build/src/node_resolver.js \
+    24 \
+    "${layer}" \
+    "${ZKP_J}" \
+    "${WORK_DIR}" \
+    "${CACHE_DIR}"
+}
+        */
+
+        {
+            'name': 'CompressLayer',
+            type: 'parallel-cmd',
+            processCmds: (state: State) => {
+                return range(5).map((i) => {
+                    const upperLimit = Math.pow(2, 5 - i) - 1; // upper limit calculation as per the script
+        
+                    // Generate the commands for each ZKP_J in the range 0 to upperLimit
+                    return range(upperLimit + 1).map((ZKP_J) => {
+                        return {
+                            cmd: 'node',
+                            args: [
+                                '--max-old-space-size=6000',
+                                './build/src/node_resolver.js',
+                                '24',
+                                `${i}`, // Layer number (i)
+                                `${ZKP_J}`, // This is ZKP_J
+                                state.input.encodedProof,
+                                state.input.programVK,
+                                state.input.hexPi,
+                                state.cacheDir,
+                                state.cacheDir,
+                                state.cacheDir,
+                            ],
+                        };
+                    });
+                }).flat();
+            },
+            numaOptimized: true
+        },
+
     ];
     async collect(state: State): Promise<PlonkOutput> {
         rmSync(resolve(rootDir, 'conversion', state.cacheDir), { recursive: true });
