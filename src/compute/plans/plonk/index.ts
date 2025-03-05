@@ -73,7 +73,6 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
                 const witness = computeAuxWitness(JSON.parse(mlo));
                 state.witness = witness;
 
-
                 // Create cache directories
                 writeFileSync(resolve(state.cacheDir, 'mlo.json'), mlo);
 
