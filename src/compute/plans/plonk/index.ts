@@ -37,6 +37,7 @@ interface State extends PlatformFeatures, PlonkOutput {
     cacheDir: string;
     input: PlonkInput;
     witness: AuxWitnessWasm;
+    witnessPath: string;
 }
 
 const proofVkCacheStructure: DirectoryStructure = {
@@ -72,9 +73,12 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
                 const witness = computeAuxWitness(JSON.parse(mlo));
                 state.witness = witness;
 
+
                 // Create cache directories
                 writeFileSync(resolve(state.cacheDir, 'mlo.json'), mlo);
-                writeFileSync(resolve(state.cacheDir, 'aux_wtns.json'), JSON.stringify(witness));
+
+                state.witnessPath = resolve(state.cacheDir, 'aux_wtns.json');
+                writeFileSync(state.witnessPath, JSON.stringify(witness));
 
                 return;
             }
@@ -90,7 +94,12 @@ node maxoldspacesize=$NODE_MEMORY_LIMIT \
             processCmd: (state: State) => {
                 return {
                     cmd: 'node',
-                    args: ['--max-old-space-size=6000', './build/src/compile_recursion_vks.js', state.cacheDir, state.cacheDir]
+                    args: [
+                        '--max-old-space-size=6000',
+                        './build/src/compile_recursion_vks.js',
+                        state.cacheDir,
+                        state.cacheDir
+                    ]
                 }
             }
         },
@@ -115,7 +124,18 @@ node maxoldspacesize=$NODE_MEMORY_LIMIT \
                 return range(24).map((i) => {
                     return {
                         cmd: 'node',
-                        args: ['--max-old-space-size=6000', './build/src/plonk/recursion/prove_zkps.js', `zkp${i}`, state.input.encodedProof, state.input.programVK, state.input.hexPi, state.cacheDir, state.cacheDir, state.cacheDir],
+                        args: [
+                            '--max-old-space-size=6000',
+                            './build/src/plonk/recursion/prove_zkps.js',
+                            `zkp${i}`,
+                            state.input.encodedProof,
+                            state.input.programVK,
+                            state.input.hexPi,
+                            state.witnessPath,
+                            state.cacheDir,
+                            state.cacheDir
+                        ],
+                        emit: true,
                     }
                 })
             },
@@ -140,7 +160,7 @@ node maxoldspacesize=$NODE_MEMORY_LIMIT \
             type: 'parallel-cmd',
             processCmds: (state: State) => {
                 return range(5).map((i) => {
-                    const upperLimit = Math.pow(2, 5 - i) - 1;        
+                    const upperLimit = Math.pow(2, 5 - i) - 1;
                     return range(upperLimit + 1).map((ZKP_J) => {
                         return {
                             cmd: 'node',
@@ -153,6 +173,7 @@ node maxoldspacesize=$NODE_MEMORY_LIMIT \
                                 state.cacheDir,
                                 state.cacheDir,
                             ],
+                            emit: true,
                         };
                     });
                 }).flat();

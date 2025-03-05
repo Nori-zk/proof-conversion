@@ -53,3 +53,11 @@ at your option.
 
 The **[SPDX](https://spdx.dev)** license identifier for this project is:  
 `MIT OR Apache-2.0`.
+
+# New API
+
+Run `npm run relink` to install proof-conversion bash command.
+
+Conversion examples:
+
+1. `proof-conversion sp1ToPlonk example-proofs/v4.json `
