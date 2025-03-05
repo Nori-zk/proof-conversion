@@ -1,5 +1,5 @@
 import { ComputationalStage, ComputationPlan } from "../../plan.js";
-import { range } from "../../utils.js";
+import { range } from "../../../utils/range.js";
 import { PlatformFeatures } from "../platform";
 
 interface NumaNodeTestComputationPlanOutput {

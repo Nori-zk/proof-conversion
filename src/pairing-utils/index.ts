@@ -2,24 +2,11 @@ import {
     compute_and_serialize_aux_witness_js as wasmComputeAuxWitness, 
     make_alpha_beta_js as wasmMakeAlphaBeta 
 } from "@nori-zk/proof-conversion-pairing-utils";
+import { Fp12Type } from "../towers/fp12";
 
-export interface Field12Wasm {
-    g00: string;
-    g01: string;
-    g10: string;
-    g11: string;
-    g20: string;
-    g21: string;
-    h00: string;
-    h01: string;
-    h10: string;
-    h11: string;
-    h20: string;
-    h21: string;
-}
 
 export interface AuxWitnessWasm {
-    c: Field12Wasm;
+    c: Fp12Type;
     shift_power: string;
 }
 
@@ -40,8 +27,8 @@ export interface AlphaBetaWasm {
     beta: Beta;
 }
 
-export function computeAuxWitness(f12Wasm: Field12Wasm): AuxWitnessWasm {
-    return wasmComputeAuxWitness(f12Wasm) as AuxWitnessWasm;
+export function computeAuxWitness(f12: Fp12Type): AuxWitnessWasm {
+    return wasmComputeAuxWitness(f12) as AuxWitnessWasm;
 }
 
 export function makeAlphaBeta(raw_vk: unknown, input: AlphaBetaWasm) {
@@ -52,9 +39,9 @@ export function makeAlphaBeta(raw_vk: unknown, input: AlphaBetaWasm) {
 
     throw Error("This function is not implemented yet... The raw_vk type is not implemented");
 
-    const v = (raw_vk || {"alpha_beta": {}}) as {"alpha_beta": Field12Wasm};
+    const v = (raw_vk || {"alpha_beta": {}}) as {"alpha_beta": Fp12Type};
 
-    const serialized_alpha_beta = wasmMakeAlphaBeta(input) as Field12Wasm;
+    const serialized_alpha_beta = wasmMakeAlphaBeta(input) as Fp12Type;
     
     v["alpha_beta"]["g00"] = serialized_alpha_beta.g00;
     v["alpha_beta"]["g01"] = serialized_alpha_beta.g01;
