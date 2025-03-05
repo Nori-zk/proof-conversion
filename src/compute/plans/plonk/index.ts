@@ -83,11 +83,6 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
                 return;
             }
         },
-        /*
-echo "Compiling recursion vks..."
-node maxoldspacesize=$NODE_MEMORY_LIMIT \
-  ./build/src/compile_recursion_vks.js "${WORK_DIR}" "${CACHE_DIR}"
-        */
         {
             name: 'CompileRecursion',
             type: 'serial-cmd',
@@ -103,20 +98,6 @@ node maxoldspacesize=$NODE_MEMORY_LIMIT \
                 }
             }
         },
-
-        /*
-  # Pass arguments as positional parameters using ::::
-  numactl --cpunodebind=$NUMA_NODE --membind=$NUMA_NODE \
-    node --max-old-space-size=$NODE_MEMORY_LIMIT \
-    ./build/src/plonk/recursion/prove_zkps.js \
-    "zkp${ZKP_I}" \
-    "$HEX_PROOF" \
-    "$PROGRAM_VK" \
-    "$HEX_PI" \
-    "$AUX_WITNESS_PATH" \
-    "$WORK_DIR" \
-    "$CACHE_DIR"
-        */
         {
             'name': 'ComputeZPK',
             type: 'parallel-cmd',
@@ -141,20 +122,6 @@ node maxoldspacesize=$NODE_MEMORY_LIMIT \
             },
             numaOptimized: true
         },
-
-        /*
-
- numactl --cpunodebind=$NUMA_NODE --membind=$NUMA_NODE \
-    node --max-old-space-size=$NODE_MEMORY_LIMIT \
-    ./build/src/node_resolver.js \
-    24 \
-    "${layer}" \
-    "${ZKP_J}" \
-    "${WORK_DIR}" \
-    "${CACHE_DIR}"
-}
-        */
-
         {
             'name': 'CompressLayer',
             type: 'parallel-cmd',
@@ -180,7 +147,6 @@ node maxoldspacesize=$NODE_MEMORY_LIMIT \
             },
             numaOptimized: true
         },
-
     ];
     async collect(state: State): Promise<PlonkOutput> {
         rmSync(resolve(rootDir, 'conversion', state.cacheDir), { recursive: true });
