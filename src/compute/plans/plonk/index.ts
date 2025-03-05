@@ -72,13 +72,10 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
                 const mlo = getMlo(state.input.encodedProof, state.input.programVK, state.input.hexPi).toJSON(); // This is a wasm function
                 const witness = computeAuxWitness(JSON.parse(mlo));
                 state.witness = witness;
-
-                // Create cache directories
-                writeFileSync(resolve(state.cacheDir, 'mlo.json'), mlo);
-
                 state.witnessPath = resolve(state.cacheDir, 'aux_wtns.json');
+                // Write the mlo and witness to the cache dir
+                writeFileSync(resolve(state.cacheDir, 'mlo.json'), mlo);
                 writeFileSync(state.witnessPath, JSON.stringify(witness));
-
                 return;
             }
         },
