@@ -1,5 +1,5 @@
 [package]
-name = "pairing-utils"
+name = "proof-conversion-pairing-utils"
 version = "0.1.0"
 edition = "2021"
 
@@ -25,6 +25,7 @@ num-bigint = "0.4"
 wasm-bindgen = "0.2"
 serde-wasm-bindgen = "0.4"
 
+# WebAssembly feature
 [features]
 wasm = ["wasm-bindgen", "serde-wasm-bindgen"]
 
