@@ -5,6 +5,7 @@ export interface ProcessCmd {
     args: string[];
     emit?: boolean;
     capture?: boolean;
+    printableArgs?: number[];
 }
 
 /*export interface OptimisableProcessCmd extends ProcessCmd {

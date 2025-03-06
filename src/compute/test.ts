@@ -1,4 +1,4 @@
-import { ComputationalPlanExecutor } from "./execute.js";
+import { ComputationalPlanExecutor } from "./executor.js";
 import { NumaNodeTestComputationPlan } from "./plans/tests/numa.js";
 
 async function main() {

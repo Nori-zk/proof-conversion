@@ -31,7 +31,7 @@ fs.writeFileSync(envPath, env, 'utf8');
 
 */
 
-import { ComputationalPlanExecutor } from "../../compute/execute.js";
+import { ComputationalPlanExecutor } from "../../compute/executor.js";
 import { PlonkComputationalPlan } from "../../compute/plans/plonk/index.js";
 import { Sp1 } from "./types.js";
 

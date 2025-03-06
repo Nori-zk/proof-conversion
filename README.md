@@ -42,7 +42,64 @@ Depending on the CPU model, specificaly NUMA nodes setup, you may need to adjust
 
 Refer to the **[Gitbook documentation](https://o1js-blobstream.gitbook.io/o1js-blobstream)** for details on **o1js-blobstream**.
 
-## License
+# v2 API
+
+Version 2 is migrating away from having a mix of languages (TS, Bash, and Rust) to having a homogeneous TS-first approach utilizing WebAssembly to incorporate the Rust components and striving to deprecate Bash.
+
+## Typescript API
+
+### Installation
+
+`npm install @nori-zk/proof-conversion --save`
+
+### Usage:
+
+```
+import { ComputationalPlanExecutor, performSp1ToPlonk, Sp1, Logger, LogPrinter } from '@nori-zk/proof-conversion';
+import { readFileSync } from 'fs';
+
+async function main() {
+    const logPrinter = new LogPrinter(['log', 'warn', 'error', 'debug', 'fatal', 'verbose']);
+    const maxProcesses = 10;
+    const executor = new ComputationalPlanExecutor(maxProcesses);
+    const sp1ProofStr = readFileSync('./example-proofs/v4.json', 'utf8');
+    const sp1Proof = JSON.parse(sp1ProofStr) as Sp1;
+    const result = await performSp1ToPlonk(executor, sp1Proof);
+    console.log('Finished conversion', result);
+}
+
+main().catch(console.error);
+```
+
+## Cli
+
+### Installation
+
+#### Local installation (when you have cloned the repository):
+
+Run `npm run relink` to install proof-conversion bash command.
+
+#### Remote installation:
+
+`npm install @nori-zk/proof-conversion -g` (note may require sudo depending on your configuration)
+
+### Usage
+
+`nori-proof-converter <command> <input-json-file-path>`
+
+Currently supported commands:
+ 
+- sp1ToPlonk
+
+Examples:
+
+1. `proof-conversion sp1ToPlonk example-proofs/v4.json `
+
+### Cli Troublingshooting
+
+- If getting a permission denied check npm's awareness of linked modules `npm ls -g --depth=0 --link=true` remove symlinks manually if nessesary and run `npm run relink`
+
+# License
 
 This project is licensed under either:
 
@@ -53,15 +110,3 @@ at your option.
 
 The **[SPDX](https://spdx.dev)** license identifier for this project is:  
 `MIT OR Apache-2.0`.
-
-# New API
-
-Run `npm run relink` to install proof-conversion bash command.
-
-Conversion examples:
-
-1. `proof-conversion sp1ToPlonk example-proofs/v4.json `
-
-# Cli Troublingshooting
-
-- If getting a permission denied check npm's awareness of linked modules `npm ls -g --depth=0 --link=true` remove symlinks manually if nessesary and run `npm run relink`

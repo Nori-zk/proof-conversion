@@ -25,7 +25,12 @@ class InvertedPromise<T, E = any> {
 
 export function processCmdToString(processCmd: ProcessCmd) {
     const {cmd, args} = processCmd;
-    return args.length ? `${cmd} ${args.join(' ')}` : cmd;
+    if (!processCmd.printableArgs) {
+        return args.length ? `${cmd} ${args.join(' ')}` : cmd;
+    }
+    else {
+        return args.length ? `${cmd} ${args.filter((_,idx)=>processCmd.printableArgs?.includes(idx)).join(' ')}...` : cmd;
+    }
 }
 
 interface ProcessJob extends ProcessCmd {
@@ -89,7 +94,7 @@ export class ProcessPool {
             // Capture process close
             child.on('close', (code) => {
                 if (code === 0) {
-                    this.#logger.log(`[Executor${workerId}]: Cmd '${printableProcessCmd.slice(0, 120)}' succeeded in ${(Date.now()-startTime)/1000} seconds.`);
+                    this.#logger.log(`[Executor${workerId}]: Cmd '${printableProcessCmd}' succeeded in ${(Date.now()-startTime)/1000} seconds.`);
                     resolve({code, stdErr, stdOut});
                 } else {
                     const message = `[Executor${workerId}]: Cmd '${printableProcessCmd}' exited non zero code '${code}'`;
@@ -138,7 +143,7 @@ export class ProcessPool {
         }
         else {
             // Queue job for next free worker
-            this.#logger.debug(`No workers available. Job '${this.#jobToString(processCmd).slice(0, 120)}...' queued.`);
+            this.#logger.debug(`No workers available. Job '${this.#jobToString(processCmd)}' queued.`);
             this.#lifo.push({ ...processCmd, invertedPromise });
             return invertedPromise.promise;
         }

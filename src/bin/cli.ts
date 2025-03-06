@@ -2,7 +2,7 @@ import { Command } from "commander";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import { ComputationalPlanExecutor } from "../compute/execute.js";
+import { ComputationalPlanExecutor } from "../compute/executor.js";
 import { performSp1ToPlonk } from "../api/sp1/plonk.js";
 import { Logger } from "../logging/logger.js";
 import { LogPrinter } from "../logging/log_printer.js";
@@ -34,14 +34,14 @@ const program = new Command();
 
 // Set metadata for the CLI
 program
-  .name(packageJson.name)
+  .name(Object.keys(packageJson.bin)[0])
   .description(packageJson.description)
   .version(packageJson.version);
 
 // Define the main command
 program
   .argument('<command>', 'command to execute (e.g. sp1ToPlonk)')
-  .argument('<file-path>', 'file path to process')
+  .argument('<input-json-file-path>', 'json file path to process')
   .action((commandName: string, filePath: string) => {
     logger.log(`Command '${commandName}' received with input path '${filePath}'`);
     // Check if the command exists in the map
@@ -86,7 +86,7 @@ program
 if (process.argv.length <= 2) {
   console.log(program.helpInformation());  // Directly output help without triggering exit
   console.log(`Available commands: ${Object.keys(commandMap).join(', ')}`);
-  process.exit(0);  // Exit normally
+  process.exit(0);
 } else {
   try {
     // Configure exit override to handle errors without recursion
@@ -94,7 +94,7 @@ if (process.argv.length <= 2) {
       console.log(program.helpInformation());  // Output help text directly
       console.log(`Available commands: ${Object.keys(commandMap).join(', ')}`)
       logger.fatal(err);
-      process.exit(1);  // Exit manually with error code
+      process.exit(1);
     });
 
     // Parse the command line arguments

@@ -16,7 +16,11 @@ function applyNumaOptimization<S extends PlatformFeatures>(stageProcessCommands:
         const newCmd = 'numactl';
         const newArgs = [`--cpunodebind=${numaNode}`, `--membind=${numaNode}`, cmd, ...args];
 
-        return { ...processCmd, cmd: newCmd, args: newArgs };
+        const newProcessCommand = { ...processCmd, cmd: newCmd, args: newArgs };
+        if (newProcessCommand.printableArgs) {
+            newProcessCommand.printableArgs = [0,1,2, ...newProcessCommand.printableArgs.map((idx:number)=>idx+3)]
+        }
+        return newProcessCommand;
     });
 }
 
