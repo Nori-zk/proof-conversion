@@ -1,5 +1,6 @@
 import { spawn } from "child_process";
 import { ProcessCmd, ProcessCmdOutput } from "./plan";
+import { Logger } from "../logging/logger.js";
 
 class InvertedPromise<T, E = any> {
     promise: Promise<T>;
@@ -22,7 +23,6 @@ class InvertedPromise<T, E = any> {
     }
 }
 
-
 export function processCmdToString(processCmd: ProcessCmd) {
     const {cmd, args} = processCmd;
     return args.length ? `${cmd} ${args.join(' ')}` : cmd;
@@ -32,9 +32,12 @@ interface ProcessJob extends ProcessCmd {
     invertedPromise: InvertedPromise<ProcessCmdOutput>
 }
 
+let processPoolIdx = 0;
+
 export class ProcessPool {
     #free: Set<number>;
     #lifo: ProcessJob[] = [];
+    #logger: Logger;
 
     #jobToString(processCmd: ProcessCmd) {
         return processCmdToString(processCmd);
@@ -42,7 +45,8 @@ export class ProcessPool {
 
     async #spawnWorker(processCmd: ProcessCmd, workerId: number) {
         const printableProcessCmd = this.#jobToString(processCmd);
-        console.info(`Process Pool [Executor ${workerId}]: Attempting to execute cmd: '${printableProcessCmd}'`);
+        const startTime = Date.now();
+        this.#logger.log(`[Executor${workerId}]: Attempting to execute cmd: '${printableProcessCmd}'.`);
         const {cmd, args} = processCmd;
         return new Promise<ProcessCmdOutput>((resolve, reject) => {
             let stdio: 'inherit' | 'ignore' | 'pipe';
@@ -77,14 +81,17 @@ export class ProcessPool {
 
             // Capture exit code
             child.on('error', (error) => {
+                this.#logger.error(`[Executor${workerId}]: Cmd '${printableProcessCmd.slice(0, 120)}' failed: ${error}`);
                 reject({code: 1, stdErr, stdOut, error});
             });
 
             // Capture process close
             child.on('close', (code) => {
                 if (code === 0) {
+                    this.#logger.log(`[Executor${workerId}]: Cmd '${printableProcessCmd.slice(0, 120)}' succeeded in ${(Date.now()-startTime)/1000} seconds.`);
                     resolve({code, stdErr, stdOut});
                 } else {
+                    this.#logger.error(`[Executor${workerId}]: Cmd '${printableProcessCmd.slice(0, 120)}' exited non zero code '${code}'.`);
                     reject({code, stdErr, stdOut});
                 }
             });
@@ -129,7 +136,7 @@ export class ProcessPool {
         }
         else {
             // Queue job for next free worker
-            console.warn(`No workers. Job '${this.#jobToString(processCmd).slice(0, 120)}...' queued.`);
+            this.#logger.debug(`No workers available. Job '${this.#jobToString(processCmd).slice(0, 120)}...' queued.`);
             this.#lifo.push({ ...processCmd, invertedPromise });
             return invertedPromise.promise;
         }
@@ -140,6 +147,8 @@ export class ProcessPool {
     }
 
     constructor(poolSize: number) {
+        processPoolIdx++;
         this.#free = new Set(Array.from({ length: poolSize }, (_, i) => i));
+        this.#logger = new Logger(`ProcessPool${processPoolIdx}`);
     }
 }

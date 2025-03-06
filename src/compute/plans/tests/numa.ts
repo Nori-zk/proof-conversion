@@ -33,7 +33,7 @@ export class NumaNodeTestComputationPlan implements ComputationPlan<NumaNodeTest
             numaOptimized: true
         }
     ];
-    async collect(state: NumaNodeTestComputationPlanState): Promise<NumaNodeTestComputationPlanOutput> {
+    async then(state: NumaNodeTestComputationPlanState): Promise<NumaNodeTestComputationPlanOutput> {
         return {output: state.output, input: state.input};
     }
 }

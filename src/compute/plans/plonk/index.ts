@@ -1,5 +1,5 @@
 import { resolve } from 'path';
-import { AuxWitnessWasm, computeAuxWitness } from '../../../pairing-utils/index.js';
+import { computeAuxWitness } from '../../../pairing-utils/index.js';
 import { createDirectories, DirectoryStructure } from '../../../utils/cache.js';
 import { getRandomString } from '../../../utils/random.js';
 import { range } from '../../../utils/range.js';
@@ -33,10 +33,10 @@ export interface PlonkOutput {
 }
 
 interface State extends PlatformFeatures, PlonkOutput {
-    cacheName: string;
+    workingDirName: string;
+    workingDir: string;
     cacheDir: string;
     input: PlonkInput;
-    witness: AuxWitnessWasm;
     witnessPath: string;
 }
 
@@ -52,17 +52,18 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
     name = "PlonkConverter";
     async init(state: State, input: PlonkInput): Promise<void> {
         state.input = input;
-        state.cacheName = getRandomString(20);
-        state.cacheDir = resolve(rootDir, 'conversion', state.cacheName, 'e2e_plonk')
+        state.workingDirName = getRandomString(20);
+        state.workingDir = resolve(rootDir, 'conversion', state.workingDirName);
+        state.cacheDir = resolve(rootDir, 'conversion', 'plonk_cache');
     }
     stages: ComputationalStage<State>[] = [
         {
-            name: 'CreateFileSystemCace',
+            name: 'CreateFileSystemCache',
             type: 'main-thread',
             execute: (state) => {
-                mkdirSync(state.cacheDir, { recursive: true });
-                createDirectories(state.cacheDir, proofVkCacheStructure);
-                createDirectories(state.cacheDir, nodeCacheStructure);
+                mkdirSync(state.workingDir, { recursive: true });
+                createDirectories(state.workingDir, proofVkCacheStructure);
+                createDirectories(state.workingDir, nodeCacheStructure);
             }
         },
         {
@@ -71,10 +72,9 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
             execute: (state: State) => {
                 const mlo = getMlo(state.input.encodedProof, state.input.programVK, state.input.hexPi).toJSON(); // This is a wasm function
                 const witness = computeAuxWitness(JSON.parse(mlo));
-                state.witness = witness;
-                state.witnessPath = resolve(state.cacheDir, 'aux_wtns.json');
+                state.witnessPath = resolve(state.workingDir, 'aux_wtns.json');
                 // Write the mlo and witness to the cache dir
-                writeFileSync(resolve(state.cacheDir, 'mlo.json'), mlo);
+                writeFileSync(resolve(state.workingDir, 'mlo.json'), mlo);
                 writeFileSync(state.witnessPath, JSON.stringify(witness));
                 return;
             }
@@ -88,7 +88,7 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
                     args: [
                         '--max-old-space-size=6000',
                         './build/src/compile_recursion_vks.js',
-                        state.cacheDir,
+                        state.workingDir,
                         state.cacheDir
                     ]
                 }
@@ -109,7 +109,7 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
                             state.input.programVK,
                             state.input.hexPi,
                             state.witnessPath,
-                            state.cacheDir,
+                            state.workingDir,
                             state.cacheDir
                         ],
                         emit: true,
@@ -133,7 +133,7 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
                                 '24',
                                 `${i}`,
                                 `${ZKP_J}`,
-                                state.cacheDir,
+                                state.workingDir,
                                 state.cacheDir,
                             ],
                             emit: true,
@@ -145,14 +145,14 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
             return stage;
         })
     ];
-    async collect(state: State): Promise<PlonkOutput> {
-        console.log(state.witness);
+    async then(state: State): Promise<PlonkOutput> {
         const output :PlonkOutput = {
-            vkData: JSON.parse(readFileSync(resolve(state.cacheDir, 'vks', 'nodeVk.json'), 'utf8')) as PlonkVkData,
-            proofData: JSON.parse(readFileSync(resolve(state.cacheDir, 'proofs', 'layer5', 'p0.json'), 'utf8')) as PlonkProofData
+            vkData: JSON.parse(readFileSync(resolve(state.workingDir, 'vks', 'nodeVk.json'), 'utf8')) as PlonkVkData,
+            proofData: JSON.parse(readFileSync(resolve(state.workingDir, 'proofs', 'layer5', 'p0.json'), 'utf8')) as PlonkProofData
         }
-        console.log(output);
-        rmSync(resolve(rootDir, 'conversion', state.cacheDir), { recursive: true });
         return output;
+    }
+    async finally(state: State): Promise<void> {
+        rmSync(state.workingDir, { recursive: true, force: true });
     }
 }

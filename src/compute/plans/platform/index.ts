@@ -48,7 +48,7 @@ export class PlatformFeatureDetectionComputationalPlan implements ComputationPla
             }
         }
     ];
-    async collect(state: PlatformFeatures) {
+    async then(state: PlatformFeatures) {
         return state;
     }
 }

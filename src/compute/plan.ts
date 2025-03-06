@@ -53,7 +53,8 @@ export interface ComputationPlan<T extends PlatformFeatures, R, I> {
     name: string;
     stages: ComputationalStage<T>[];
     init?: (state: T, input: I) => Promise<void>;
-    collect: (state: T) => Promise<R>;
+    then: (state: T) => Promise<R>;
+    finally?: (state: T) => Promise<void>;
 }
 
 export function Implements<T>() {
