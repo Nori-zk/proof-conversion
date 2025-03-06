@@ -50,7 +50,9 @@ Version 2 is migrating away from having a mix of languages (TS, Bash, and Rust) 
 
 ### Installation
 
-`npm install @nori-zk/proof-conversion --save`
+```
+npm install @nori-zk/proof-conversion --save
+```
 
 ### Usage:
 
@@ -85,11 +87,19 @@ Run `npm run relink` to install proof-conversion bash command.
 
 ### Usage
 
-`nori-proof-converter <command> <input-json-file-path>`
+```
+nori-proof-converter <command> <input-json-file-path>
+```
 
 Currently supported commands:
  
 - sp1ToPlonk
+
+You can change the number of child processes it spawns by setting the MAX_PROCESSES environment variable before running the cli:
+
+```
+export MAX_PROCESSES = 10
+```
 
 Examples:
 
