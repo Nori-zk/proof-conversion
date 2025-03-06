@@ -57,7 +57,7 @@ npm install @nori-zk/proof-conversion --save
 ### Usage:
 
 ```
-import { ComputationalPlanExecutor, performSp1ToPlonk, Sp1, Logger, LogPrinter } from '@nori-zk/proof-conversion';
+import { ComputationalPlanExecutor, performSp1ToPlonk, Sp1, LogPrinter } from '@nori-zk/proof-conversion';
 import { readFileSync } from 'fs';
 
 async function main() {
