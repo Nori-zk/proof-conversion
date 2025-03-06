@@ -88,7 +88,7 @@ export class ProcessPool {
             child.on('error', (error) => {
                 const message = `[Executor${workerId}]: Cmd '${printableProcessCmd}' failed: ${error}`;
                 this.#logger.error(message);
-                reject(new Error(message));
+                reject({code: 1, stdErr, stdOut, error});
             });
 
             // Capture process close
@@ -99,7 +99,7 @@ export class ProcessPool {
                 } else {
                     const message = `[Executor${workerId}]: Cmd '${printableProcessCmd}' exited non zero code '${code}'`;
                     this.#logger.error(message);
-                    reject(new Error(message));
+                    reject({code, stdErr, stdOut});
                 }
             });
         });
