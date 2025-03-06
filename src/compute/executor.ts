@@ -18,7 +18,7 @@ function applyNumaOptimization<S extends PlatformFeatures>(stageProcessCommands:
 
         const newProcessCommand = { ...processCmd, cmd: newCmd, args: newArgs };
         if (newProcessCommand.printableArgs) {
-            newProcessCommand.printableArgs = [0,1,2, ...newProcessCommand.printableArgs.map((idx:number)=>idx+3)]
+            newProcessCommand.printableArgs = [0, 1, 2, ...newProcessCommand.printableArgs.map((idx: number) => idx + 3)]
         }
         return newProcessCommand;
     });
@@ -31,7 +31,7 @@ export class ComputationalPlanExecutor {
     #processPool: ProcessPool;
     #logger: Logger;
     #planExecutionId = 0;
-    #activePlans = new Map<number,{plan: ComputationPlan<any,any,any>, state: any}>();
+    #activePlans = new Map<number, { plan: ComputationPlan<any, any, any>, state: any }>();
 
     async #performMainThreadStage<S extends PlatformFeatures>(stage: MainThreadComputationStage<S>, state: S) {
         let result: void | Promise<void> = stage.execute(state);
@@ -105,18 +105,19 @@ export class ComputationalPlanExecutor {
         this.#planExecutionId++;
         const planId = this.#planExecutionId;
         this.#logger.log(`Executing computational plan '${plan.name}'.`);
-
+        let success = false;
+        const startTime = Date.now();
         try {
-            this.#activePlans.set(planId, {plan, state});
+            this.#activePlans.set(planId, { plan, state });
             if (plan.init) {
                 this.#logger.log(`Calling the 'init' function of the '${plan.name}' computational plan.`);
                 await plan.init(state, input);
             }
 
-            let startTime: number;
+            let stageStartTime: number;
             for (let stage_idx = 0; stage_idx < plan.stages.length; stage_idx++) {
                 const stage = plan.stages[stage_idx];
-                startTime = Date.now();
+                stageStartTime = Date.now();
 
                 const prerequisiteCheck = stage.prerequisite;
                 if (prerequisiteCheck) {
@@ -154,22 +155,38 @@ export class ComputationalPlanExecutor {
                     }
                 }
 
-                this.#logger.log(`[${stage.type}] Stage ${stage_idx} of '${stage.name}' computational plan completed in ${(Date.now() - startTime) / 1000} seconds.`);
+                this.#logger.log(`[${stage.type}] Stage ${stage_idx} of '${stage.name}' computational plan completed in ${(Date.now() - stageStartTime) / 1000} seconds.`);
             }
 
             // Run collect
             this.#logger.log(`Calling the 'then' function of the '${plan.name}' computational plan.`);
-            return plan.then(state);
+            const result = await plan.then(state);
+            success = true;
+            return result;
         }
         catch (error) {
+            success = false;
             this.#logger.error(`Executing computational plan '${plan.name}' failed: ${error}`);
             throw error;
         }
         finally {
-            this.#logger.log(`Calling the 'finally' function of the '${plan.name}' computational plan.`);
             this.#activePlans.delete(planId);
+            let cleanupWorked = true;
             if (plan.finally) {
-                await plan.finally(state);
+                this.#logger.log(`Calling the 'finally' function of the '${plan.name}' computational plan.`);
+                await plan.finally(state).catch((err) => {
+                    this.#logger.error(`Error calling the 'finally' function of the '${plan.name}' computational plan. ${err}`);
+                    cleanupWorked = false;
+                });
+            }
+            const elapsed = (Date.now() - startTime) / 1000;
+            if (success) {
+                if (cleanupWorked) this.#logger.log(`Computational plan '${plan.name}' completed in ${elapsed} seconds.`);
+                else this.#logger.warn(`Computational plan '${plan.name}' completed in ${elapsed} seconds. However the 'finally' function had an error.'`);
+
+            }
+            else {
+                this.#logger.error(`Computational plan '${plan.name}' failed after ${elapsed} seconds.`);
             }
         }
     }
@@ -186,7 +203,7 @@ export class ComputationalPlanExecutor {
     async terminate() {
         let resolver = Promise.resolve();
         this.#activePlans.forEach((activePlan) => {
-            resolver = resolver.then(async ()=>{
+            resolver = resolver.then(async () => {
                 if (activePlan.plan.finally) await activePlan.plan.finally(activePlan.state);
             });
         });
