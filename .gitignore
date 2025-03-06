@@ -27,3 +27,5 @@ src/recursion/proofs
 
 src/plonk/recursion/vks
 src/plonk/recursion/proofs
+
+.conversion-cache

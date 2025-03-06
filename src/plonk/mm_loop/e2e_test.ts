@@ -4,9 +4,15 @@ import { KZGPairing } from './multi_miller.js';
 import { Provable } from 'o1js';
 import { G1Affine } from '../../ec/index.js';
 import { Fp12 } from '../../towers/fp12.js';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const g2_lines_required = require('./g2_lines.json');
+const tau_lines_required = require('./tau_lines.json');
+//import g2_lines_required from './g2_lines.json';
+//import tau_lines_required from './tau_lines.json';
+const g2_lines = JSON.stringify(g2_lines_required); //fs.readFileSync(`./src/plonk/mm_loop/g2_lines.json`, 'utf8');
+const tau_lines = JSON.stringify(tau_lines_required); //fs.readFileSync(`./src/plonk/mm_loop/tau_lines.json`, 'utf8');
 
-const g2_lines = fs.readFileSync(`./src/plonk/mm_loop/g2_lines.json`, 'utf8');
-const tau_lines = fs.readFileSync(`./src/plonk/mm_loop/tau_lines.json`, 'utf8');
 const kzgP = new KZGPairing(g2_lines, tau_lines, make_w27());
 
 function main() {

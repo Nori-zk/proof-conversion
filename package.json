@@ -18,7 +18,7 @@
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
   "bin": {
-    "nori-proof-conversion": "./build/src/bin/cli-wrapper.js"
+    "nori-proof-converter": "./build/src/bin/cli-wrapper.js"
   },
   "scripts": {
     "build": "tsc",
@@ -29,7 +29,7 @@
     "testw": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:compute": "npm run build && node --experimental-vm-modules ./build/src/compute/test.js",
     "lint": "npx eslint src/* --fix",
-    "relink": "npm unlink nori-proof-conversion && npm run build && npm link"
+    "relink": "npm unlink nori-proof-converter && npm run build && npm link"
   },
   "dependencies": {
     "@nori-zk/proof-conversion-pairing-utils": "^0.4.0",

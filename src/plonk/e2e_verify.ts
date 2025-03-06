@@ -7,7 +7,14 @@ import { FrC } from '../towers/fr.js';
 import { Sp1PlonkProof, deserializeProof } from './proof.js';
 import { parsePublicInputs } from './parse_pi.js';
 import { AuXWitness } from './aux_witness.js';
-
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const g2_lines_required = require('./mm_loop/g2_lines.json');
+const tau_lines_required = require('./mm_loop/tau_lines.json');
+//import g2_lines_required from './mm_loop/g2_lines.json';
+//import tau_lines_required from './mm_loop/tau_lines.json';
+const g2_lines = JSON.stringify(g2_lines_required); //fs.readFileSync(`./src/plonk/mm_loop/g2_lines.json`, 'utf8');
+const tau_lines = JSON.stringify(tau_lines_required); //fs.readFileSync(`./src/plonk/mm_loop/tau_lines.json`, 'utf8');
 const args = process.argv;
 
 const hexProof = args[2]
@@ -15,9 +22,6 @@ const programVk = args[3]
 const hexPi = args[4]
 const auxWtnsPath = args[5]
 const auxWitness = AuXWitness.loadFromPath(auxWtnsPath)
-
-const g2_lines = fs.readFileSync(`./src/plonk/mm_loop/g2_lines.json`, 'utf8');
-const tau_lines = fs.readFileSync(`./src/plonk/mm_loop/tau_lines.json`, 'utf8');
 
 const Verifier = new Sp1PlonkVerifier(VK, g2_lines, tau_lines)
 

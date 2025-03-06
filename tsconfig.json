@@ -8,6 +8,7 @@
     "strict": true,
     "strictPropertyInitialization": false, // to enable generic constructors, e.g. on CircuitValue
     "skipLibCheck": true,
+    "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
     "esModuleInterop": true,
     "moduleResolution": "node",
@@ -20,5 +21,6 @@
     "allowSyntheticDefaultImports": true,
     "useDefineForClassFields": false,
   },
-  "include": ["./src"],
+  "include": ["./src", "./src/**/*.json"],
+  "exclude": ["**/*.spec.ts"]
 }

@@ -25,3 +25,9 @@ export function createDirectories(baseDir: string, structure: DirectoryStructure
         });
     }
 }
+
+// Utility function to create directory
+export function createDirectory(dirPath: string) {
+    mkdirSync(dirPath, {recursive: true});
+    console.log(`Created: ${dirPath}`)
+}

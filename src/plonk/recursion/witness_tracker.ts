@@ -10,9 +10,14 @@ import { KZGLineAccumulator } from "../mm_loop/accumulate_lines.js";
 import fs from "fs"
 import { ATE_LOOP_COUNT } from "../../towers/consts.js";
 import { make_w27 } from "../helpers.js";
-
-const g2_lines_path = fs.readFileSync(`./src/plonk/mm_loop/g2_lines.json`, 'utf8');
-const tau_lines_path = fs.readFileSync(`./src/plonk/mm_loop/tau_lines.json`, 'utf8');
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const g2_lines_required = require('../mm_loop/g2_lines.json');
+const tau_lines_required = require('../mm_loop/tau_lines.json');
+//import g2_lines_required from '../mm_loop/g2_lines.json';
+//import tau_lines_required from '../mm_loop/tau_lines.json';
+const g2_lines_path = JSON.stringify(g2_lines_required); //fs.readFileSync(`./src/plonk/mm_loop/g2_lines.json`, 'utf8');
+const tau_lines_path = JSON.stringify(tau_lines_required); //fs.readFileSync(`./src/plonk/mm_loop/tau_lines.json`, 'utf8');
 
 let parsed_g2_lines: any[] = JSON.parse(g2_lines_path);
 let g2_lines = parsed_g2_lines.map(

@@ -72,9 +72,9 @@ program
     // Execute the corresponding function with the file data
     commandFunction(fileData)
       .then((result) => {
-        const resultStr = JSON.stringify(result, null, 2);
-        logger.log(resultStr);  // Pretty-print result
-        fs.writeFileSync(`${filePath}.converted`, resultStr);
+        const resultStr = JSON.stringify(result, null, 2);  // Pretty-print result
+        logger.log(resultStr);
+        fs.writeFileSync(`${filePath}.${commandName}.json`, resultStr);
       })
       .catch((err: unknown) => {
         logger.fatal(`Error executing command: ${err}`);
@@ -85,19 +85,24 @@ program
 // Add a basic check for arguments and show help if needed
 if (process.argv.length <= 2) {
   console.log(program.helpInformation());  // Directly output help without triggering exit
+  console.log(`Available commands: ${Object.keys(commandMap).join(', ')}`);
   process.exit(0);  // Exit normally
 } else {
   try {
     // Configure exit override to handle errors without recursion
     program.exitOverride((err) => {
       console.log(program.helpInformation());  // Output help text directly
+      console.log(`Available commands: ${Object.keys(commandMap).join(', ')}`)
+      logger.fatal(err);
       process.exit(1);  // Exit manually with error code
     });
 
     // Parse the command line arguments
     program.parse(process.argv);
-  } catch (e: any) {
+  } catch (err: any) {
     console.log(program.helpInformation());
+    console.log(`Available commands: ${Object.keys(commandMap).join(', ')}`);
+    logger.fatal(err);
     process.exit(1);
   }
 }

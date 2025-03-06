@@ -81,8 +81,9 @@ export class ProcessPool {
 
             // Capture exit code
             child.on('error', (error) => {
-                this.#logger.error(`[Executor${workerId}]: Cmd '${printableProcessCmd.slice(0, 120)}' failed: ${error}`);
-                reject({code: 1, stdErr, stdOut, error});
+                const message = `[Executor${workerId}]: Cmd '${printableProcessCmd}' failed: ${error}`;
+                this.#logger.error(message);
+                reject(new Error(message));
             });
 
             // Capture process close
@@ -91,8 +92,9 @@ export class ProcessPool {
                     this.#logger.log(`[Executor${workerId}]: Cmd '${printableProcessCmd.slice(0, 120)}' succeeded in ${(Date.now()-startTime)/1000} seconds.`);
                     resolve({code, stdErr, stdOut});
                 } else {
-                    this.#logger.error(`[Executor${workerId}]: Cmd '${printableProcessCmd.slice(0, 120)}' exited non zero code '${code}'.`);
-                    reject({code, stdErr, stdOut});
+                    const message = `[Executor${workerId}]: Cmd '${printableProcessCmd}' exited non zero code '${code}'`;
+                    this.#logger.error(message);
+                    reject(new Error(message));
                 }
             });
         });

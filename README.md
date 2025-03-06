@@ -61,3 +61,7 @@ Run `npm run relink` to install proof-conversion bash command.
 Conversion examples:
 
 1. `proof-conversion sp1ToPlonk example-proofs/v4.json `
+
+# Cli Troublingshooting
+
+- If getting a permission denied check npm's awareness of linked modules `npm ls -g --depth=0 --link=true` remove symlinks manually if nessesary and run `npm run relink`

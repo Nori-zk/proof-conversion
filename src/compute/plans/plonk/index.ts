@@ -1,6 +1,6 @@
 import { resolve } from 'path';
 import { computeAuxWitness } from '../../../pairing-utils/index.js';
-import { createDirectories, DirectoryStructure } from '../../../utils/cache.js';
+import { createDirectories, createDirectory, DirectoryStructure } from '../../../utils/cache.js';
 import { getRandomString } from '../../../utils/random.js';
 import { range } from '../../../utils/range.js';
 import { ComputationalStage, ComputationPlan, ParallelComputationStage } from '../../plan.js';
@@ -53,15 +53,17 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
     async init(state: State, input: PlonkInput): Promise<void> {
         state.input = input;
         state.workingDirName = getRandomString(20);
-        state.workingDir = resolve(rootDir, 'conversion', state.workingDirName);
-        state.cacheDir = resolve(rootDir, 'conversion', 'plonk_cache');
+        const pwd = process.cwd();
+        state.workingDir = resolve(pwd, '.conversion-cache', state.workingDirName);
+        state.cacheDir = resolve(pwd, '.conversion-cache', 'plonk_cache');
     }
     stages: ComputationalStage<State>[] = [
         {
             name: 'CreateFileSystemCache',
             type: 'main-thread',
             execute: (state) => {
-                mkdirSync(state.workingDir, { recursive: true });
+                createDirectory(state.cacheDir);
+                createDirectory(state.workingDir);
                 createDirectories(state.workingDir, proofVkCacheStructure);
                 createDirectories(state.workingDir, nodeCacheStructure);
             }
@@ -87,10 +89,11 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
                     cmd: 'node',
                     args: [
                         '--max-old-space-size=6000',
-                        './build/src/compile_recursion_vks.js',
+                        resolve(rootDir, 'build', 'src', 'compile_recursion_vks.js'),
                         state.workingDir,
                         state.cacheDir
-                    ]
+                    ],
+                    emit: true
                 }
             }
         },
@@ -103,7 +106,7 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
                         cmd: 'node',
                         args: [
                             '--max-old-space-size=6000',
-                            './build/src/plonk/recursion/prove_zkps.js',
+                            resolve(rootDir, 'build', 'src', 'plonk', 'recursion', 'prove_zkps.js'),
                             `zkp${i}`,
                             state.input.encodedProof,
                             state.input.programVK,
@@ -129,7 +132,7 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
                             cmd: 'node',
                             args: [
                                 '--max-old-space-size=6000',
-                                './build/src/node_resolver.js',
+                                resolve(rootDir, 'build', 'src', 'node_resolver.js'),
                                 '24',
                                 `${i}`,
                                 `${ZKP_J}`,
