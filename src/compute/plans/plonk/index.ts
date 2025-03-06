@@ -6,7 +6,7 @@ import { range } from '../../../utils/range.js';
 import { ComputationalStage, ComputationPlan, ParallelComputationStage } from '../../plan.js';
 import { PlatformFeatures } from '../platform/index.js';
 import rootDir from '../../../utils/root_dir.js';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { readFileSync, rmSync, writeFileSync } from 'fs';
 import { getMlo } from '../../../plonk/get_mlo.js';
 
 export type PlonkInput = {
