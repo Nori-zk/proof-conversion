@@ -1,6 +1,6 @@
 import { EventEmitter } from "events";
 
-export type LogLevel = "log" | "error" | "warn" | "debug" | "verbose" | "fatal";
+export type LogLevel = "log" | "info" | "error" | "warn" | "debug" | "verbose" | "fatal";
 
 interface LogMessage {
     level: LogLevel;
@@ -28,6 +28,10 @@ export class Logger {
 
     log(message: any) {
         this.emitLog("log", message);
+    }
+
+    info(message: any) {
+        this.emitLog("info", message);
     }
 
     warn(message: any) {

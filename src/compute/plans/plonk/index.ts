@@ -93,7 +93,7 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
                         state.workingDir,
                         state.cacheDir
                     ],
-                    emit: true,
+                    capture: true,
                     printableArgs: [0,1,2]
                 }
             }
@@ -116,7 +116,7 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
                             state.workingDir,
                             state.cacheDir
                         ],
-                        emit: true,
+                        capture: true,
                         printableArgs: [0,1,2]
                     }
                 })
@@ -141,7 +141,7 @@ export class PlonkComputationalPlan implements ComputationPlan<State, PlonkOutpu
                                 state.workingDir,
                                 state.cacheDir,
                             ],
-                            emit: true,
+                            capture: true,
                             printableArgs: [0,1,2,3,4]
                         };
                     });

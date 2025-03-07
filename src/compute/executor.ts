@@ -47,13 +47,13 @@ export class ComputationalPlanExecutor {
         }
 
         if (stage.callback) {
-            const cmdResult = await this.#processPool.runCommand(processCmd).catch(err => err);
+            const cmdResult = await this.#processPool.runCommand(processCmd).catch(err => err as ProcessCmdOutput);
             const stageCallback = stage.callback(state, cmdResult);
             if (stageCallback instanceof Promise) {
                 await stageCallback;
             }
         }
-        else await this.#processPool.runCommand(processCmd);
+        else await this.#processPool.runCommand(processCmd).catch((err: ProcessCmdOutput) => {throw err.error});
     }
 
     async #performParallelStage<S extends PlatformFeatures>(stage: ParallelComputationStage<S>, state: S) {
@@ -71,7 +71,7 @@ export class ComputationalPlanExecutor {
         if (stage.callback) {
             const cmdResults = await Promise.all(
                 modifiedCommands
-                    .map((cmd) => this.#processPool.runCommand(cmd).catch((err) => err as ProcessCmdOutput))
+                    .map((cmd) => this.#processPool.runCommand(cmd).catch(err => err as ProcessCmdOutput))
             );
             const stageCallback = stage.callback(state, cmdResults);
             if (stageCallback instanceof Promise) {
@@ -80,7 +80,7 @@ export class ComputationalPlanExecutor {
         }
         else await Promise.all(
             modifiedCommands
-                .map((cmd) => this.#processPool.runCommand(cmd))
+                .map((cmd) => this.#processPool.runCommand(cmd).catch((err: ProcessCmdOutput) => {throw err.error}))
         );
     }
 
@@ -105,7 +105,7 @@ export class ComputationalPlanExecutor {
         this.#planExecutionId++;
         const planId = this.#planExecutionId;
         this.#logger.log(`Executing computational plan '${plan.name}'.`);
-        let success = false;
+        let error: Error | undefined = undefined;
         const startTime = Date.now();
         try {
             this.#activePlans.set(planId, { plan, state });
@@ -135,7 +135,7 @@ export class ComputationalPlanExecutor {
 
                 if (await this.#stagePrerequisiteIndicatesSkip(stage, state)) continue;
 
-                this.#logger.log(`[${stage.type}] Executing stage ${stage_idx} of the '${stage.name}' computational plan.`);
+                this.#logger.log(`[${stage.type}] Executing stage ${stage_idx} '${stage.name}' of the '${plan.name}' computational plan.`);
 
                 switch (stage.type) {
                     case 'main-thread': {
@@ -155,38 +155,37 @@ export class ComputationalPlanExecutor {
                     }
                 }
 
-                this.#logger.log(`[${stage.type}] Stage ${stage_idx} of '${stage.name}' computational plan completed in ${(Date.now() - stageStartTime) / 1000} seconds.`);
+                this.#logger.log(`[${stage.type}] Stage ${stage_idx} '${stage.name}' of the '${plan.name}' computational plan completed in ${(Date.now() - stageStartTime) / 1000} seconds.`);
             }
 
-            // Run collect
+            // Run then
             this.#logger.log(`Calling the 'then' function of the '${plan.name}' computational plan.`);
             const result = await plan.then(state);
-            success = true;
             return result;
         }
-        catch (error) {
-            success = false;
-            this.#logger.error(`Executing computational plan '${plan.name}' failed: ${error}`);
+        catch (err) {
+            error = err as Error;
             throw error;
         }
         finally {
+            const elapsed = (Date.now() - startTime) / 1000;
+            let finallyWorked = true;
+
             this.#activePlans.delete(planId);
-            let cleanupWorked = true;
+            
+            if (error) this.#logger.error(`Execution of the '${plan.name}' computational plan failed after ${elapsed} seconds: ${error}`);
+
             if (plan.finally) {
-                this.#logger.log(`Calling the 'finally' function of the '${plan.name}' computational plan.`);
+                this.#logger.info(`Calling the 'finally' function of the '${plan.name}' computational plan.`);
                 await plan.finally(state).catch((err) => {
-                    this.#logger.error(`Error calling the 'finally' function of the '${plan.name}' computational plan. ${err}`);
-                    cleanupWorked = false;
+                    this.#logger.error(`An error occured when calling the 'finally' function of the '${plan.name}' computational plan. ${err}`);
+                    finallyWorked = false;
                 });
             }
-            const elapsed = (Date.now() - startTime) / 1000;
-            if (success) {
-                if (cleanupWorked) this.#logger.log(`Computational plan '${plan.name}' completed in ${elapsed} seconds.`);
-                else this.#logger.warn(`Computational plan '${plan.name}' completed in ${elapsed} seconds. However the 'finally' function had an error.'`);
 
-            }
-            else {
-                this.#logger.error(`Computational plan '${plan.name}' failed after ${elapsed} seconds.`);
+            if (!error) {
+                if (finallyWorked) this.#logger.log(`Execution of the computational plan '${plan.name}' completed successfully in ${elapsed} seconds.`);
+                else this.#logger.warn(`Computational plan '${plan.name}' completed successfully in ${elapsed} seconds. However the 'finally' function had an error. Some cache cleanup logic may not have completed and left stray files on your system.'`);
             }
         }
     }

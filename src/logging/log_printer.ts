@@ -4,7 +4,7 @@ import { loggingEventEmitter, LogLevel } from "./logger.js";
 export class LogPrinter {
     private enabledLevels: Set<LogLevel>;
 
-    constructor(enabledLevels: LogLevel[] = ["log", "error", "warn", "debug", "verbose", "fatal"]) {
+    constructor(enabledLevels: LogLevel[] = ["log", "info", "error", "warn", "debug", "verbose", "fatal"]) {
         this.enabledLevels = new Set(enabledLevels);
         loggingEventEmitter.on("log", (data)=>this.handleLog(data));
     }
@@ -13,6 +13,7 @@ export class LogPrinter {
 
     private static colors: Record<LogLevel, ChalkInstance> = {
         log: chalk.green,
+        info: chalk.blue,
         error: chalk.red,
         warn: chalk.rgb(227, 71, 37),
         debug: chalk.rgb(187, 154, 247),

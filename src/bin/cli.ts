@@ -7,7 +7,7 @@ import { performSp1ToPlonk } from "../api/sp1/plonk.js";
 import { Logger } from "../logging/logger.js";
 import { LogPrinter } from "../logging/log_printer.js";
 
-const logPrinter = new LogPrinter(['log', 'warn', 'error', 'debug', 'fatal', 'verbose']);
+const logPrinter = new LogPrinter(['log', 'info', 'warn', 'error', 'debug', 'fatal', 'verbose']);
 const logger = new Logger('CLI');
 
 // Define max processes
