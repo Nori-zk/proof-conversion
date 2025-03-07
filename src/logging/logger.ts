@@ -12,7 +12,6 @@ interface LogMessage {
 export const loggingEventEmitter = new EventEmitter();
 
 export class Logger {
-    
 
     constructor(private context: string) {}
 

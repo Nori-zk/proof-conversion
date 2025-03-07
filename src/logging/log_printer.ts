@@ -4,12 +4,10 @@ import { loggingEventEmitter, LogLevel } from "./logger.js";
 export class LogPrinter {
     private enabledLevels: Set<LogLevel>;
 
-    constructor(enabledLevels: LogLevel[] = ["log", "info", "error", "warn", "debug", "verbose", "fatal"]) {
+    constructor(private header: string, enabledLevels: LogLevel[] = ["log", "info", "error", "warn", "debug", "verbose", "fatal"]) {
         this.enabledLevels = new Set(enabledLevels);
         loggingEventEmitter.on("log", (data)=>this.handleLog(data));
     }
-
-    private static header = "[NoriProofConverter]";
 
     private static colors: Record<LogLevel, ChalkInstance> = {
         log: chalk.green,
@@ -24,7 +22,7 @@ export class LogPrinter {
     private formatLog(level: LogLevel, message: any, context: string, timestamp: string): string {
         const color = LogPrinter.colors[level];
         let formattedMessage = typeof message === "object" ? JSON.stringify(message, null, 2) : message;
-        let logString = `${chalk.green(LogPrinter.header)} - ${chalk.white(timestamp)} ${color(level.toUpperCase().padStart(7))}`;
+        let logString = `${chalk.green(this.header)} - ${chalk.white(timestamp)} ${color(level.toUpperCase().padStart(7))}`;
 
         if (context) {
             logString += ` ${chalk.yellow(`[${context}]`)}`;

@@ -6,6 +6,7 @@ import { performSp1ToPlonk } from "./api/sp1/plonk.js";
 import { ComputationalPlanExecutor } from "./compute/executor.js";
 import { LogPrinter } from "./logging/log_printer.js";
 import { Sp1 } from "./api/sp1/types.js";
+import { Logger } from "./logging/logger.js";
 
 export {
     parsePlonkPublicInputsProvable,
@@ -15,5 +16,6 @@ export {
     performSp1ToPlonk,
     ComputationalPlanExecutor,
     LogPrinter,
-    Sp1
+    Sp1,
+    Logger
 }

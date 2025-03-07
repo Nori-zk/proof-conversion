@@ -7,7 +7,7 @@ import { performSp1ToPlonk } from "../api/sp1/plonk.js";
 import { Logger } from "../logging/logger.js";
 import { LogPrinter } from "../logging/log_printer.js";
 
-const logPrinter = new LogPrinter(['log', 'info', 'warn', 'error', 'debug', 'fatal', 'verbose']);
+new LogPrinter("[NoriProofConverter]", ['log', 'info', 'warn', 'error', 'debug', 'fatal', 'verbose']);
 const logger = new Logger('CLI');
 
 // Define max processes
@@ -29,6 +29,22 @@ const __dirname = path.dirname(__filename);
 // Resolve package.json dynamically
 const packageJsonPath = path.resolve(__dirname, "..", "..", "..", "package.json");
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
+
+// Utility to write output file with json extension
+function writeJsonFile(filePath: string, commandName: string, resultStr: string) {
+  let dir = path.dirname(filePath);
+  let base = path.basename(filePath);
+
+  // Case-insensitive check for .json extension
+  if (base.toLowerCase().endsWith('.json')) {
+      base = base.slice(0, -5); // Remove .json extension
+  }
+
+  let newFilePath = path.join(dir, `${base}.${commandName}.json`);
+
+  fs.writeFileSync(newFilePath, resultStr);
+  return newFilePath;
+}
 
 const program = new Command();
 
@@ -73,8 +89,8 @@ program
     commandFunction(fileData)
       .then((result) => {
         const resultStr = JSON.stringify(result, null, 2);  // Pretty-print result
-        logger.log(resultStr);
-        fs.writeFileSync(`${filePath}.${commandName}.json`, resultStr);
+        const outputFilePath = writeJsonFile(fileData, commandName, resultStr);
+        logger.log(`Wrote result of command ${commandName} to disk: ${outputFilePath}`);
       })
       .catch((err: unknown) => {
         logger.fatal(`Error executing command: ${err}`);

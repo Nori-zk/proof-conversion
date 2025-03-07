@@ -61,7 +61,7 @@ import { ComputationalPlanExecutor, performSp1ToPlonk, Sp1, LogPrinter } from '@
 import { readFileSync } from 'fs';
 
 async function main() {
-    const logPrinter = new LogPrinter(['log', 'info', 'warn', 'error', 'debug', 'fatal', 'verbose']);
+    new LogPrinter("[NoriProofConverter]", ['log', 'info', 'warn', 'error', 'debug', 'fatal', 'verbose']);
     const maxProcesses = 10;
     const executor = new ComputationalPlanExecutor(maxProcesses);
     const sp1ProofStr = readFileSync('./example-proofs/v4.json', 'utf8');
