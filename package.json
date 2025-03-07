@@ -1,6 +1,6 @@
 {
   "name": "@nori-zk/proof-conversion",
-  "version": "0.5.6",
+  "version": "0.5.7",
   "description": "Verifying zkVM proofs inside o1js circuits, to generate Mina compatible proof",
   "author": "",
   "license": "Apache-2.0",
