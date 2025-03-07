@@ -105,6 +105,16 @@ Examples:
 
 1. `proof-conversion sp1ToPlonk example-proofs/v4.json `
 
+### Updating the cli
+
+#### Local reinstallation
+
+Run `npm run relink`
+
+#### Remote reinstallation 
+
+`npm unlink -g nori-proof-converter && npm uninstall -g nori-proof-converter && npm install -g @nori-zk/proof-conversion`
+
 ### Cli Troublingshooting
 
 - If getting a permission denied check npm's awareness of linked modules `npm ls -g --depth=0 --link=true` remove symlinks manually if nessesary and run `npm run relink`
