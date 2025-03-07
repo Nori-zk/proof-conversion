@@ -89,7 +89,7 @@ program
     commandFunction(fileData)
       .then((result) => {
         const resultStr = JSON.stringify(result, null, 2);  // Pretty-print result
-        const outputFilePath = writeJsonFile(fileData, commandName, resultStr);
+        const outputFilePath = writeJsonFile(filePath, commandName, resultStr);
         logger.log(`Wrote result of command ${commandName} to disk: ${outputFilePath}`);
       })
       .catch((err: unknown) => {
