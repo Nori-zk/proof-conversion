@@ -103,7 +103,7 @@ export MAX_PROCESSES = 10
 
 Examples:
 
-1. `proof-conversion sp1ToPlonk example-proofs/v4.json `
+1. `nori-proof-converter sp1ToPlonk example-proofs/v4.json `
 
 ### Updating the cli
 
