@@ -1,13 +1,21 @@
-import { Command } from "commander";
-import * as fs from "fs";
-import * as path from "path";
-import { fileURLToPath } from "url";
-import { ComputationalPlanExecutor } from "../compute/executor.js";
-import { performSp1ToPlonk } from "../api/sp1/plonk.js";
-import { Logger } from "../logging/logger.js";
-import { LogPrinter } from "../logging/log_printer.js";
+import { Command } from 'commander';
+import * as fs from 'fs';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+import { ComputationalPlanExecutor } from '../compute/executor.js';
+import { performSp1ToPlonk } from '../api/sp1/plonk.js';
+import { Logger } from '../logging/logger.js';
+import { LogPrinter } from '../logging/log_printer.js';
 
-new LogPrinter("[NoriProofConverter]", ['log', 'info', 'warn', 'error', 'debug', 'fatal', 'verbose']);
+new LogPrinter('[NoriProofConverter]', [
+  'log',
+  'info',
+  'warn',
+  'error',
+  'debug',
+  'fatal',
+  'verbose',
+]);
 const logger = new Logger('CLI');
 
 // Define max processes
@@ -19,7 +27,7 @@ type CommandFunction = (fileData: any) => Promise<any>;
 
 // Command map where key is command name, value is async function
 const commandMap: Record<string, CommandFunction> = {
-  sp1ToPlonk: (fileData) => performSp1ToPlonk(executor, fileData)
+  sp1ToPlonk: (fileData) => performSp1ToPlonk(executor, fileData),
 };
 
 // Get the current file's directory (ESM equivalent of __dirname)
@@ -27,17 +35,27 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Resolve package.json dynamically
-const packageJsonPath = path.resolve(__dirname, "..", "..", "..", "package.json");
-const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
+const packageJsonPath = path.resolve(
+  __dirname,
+  '..',
+  '..',
+  '..',
+  'package.json'
+);
+const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
 
 // Utility to write output file with json extension
-function writeJsonFile(filePath: string, commandName: string, resultStr: string) {
+function writeJsonFile(
+  filePath: string,
+  commandName: string,
+  resultStr: string
+) {
   let dir = path.dirname(filePath);
   let base = path.basename(filePath);
 
   // Case-insensitive check for .json extension
   if (base.toLowerCase().endsWith('.json')) {
-      base = base.slice(0, -5); // Remove .json extension
+    base = base.slice(0, -5); // Remove .json extension
   }
 
   let newFilePath = path.join(dir, `${base}.${commandName}.json`);
@@ -59,7 +77,9 @@ program
   .argument('<command>', 'command to execute (e.g. sp1ToPlonk)')
   .argument('<input-json-file-path>', 'json file path to process')
   .action((commandName: string, filePath: string) => {
-    logger.log(`Command '${commandName}' received with input path '${filePath}'`);
+    logger.log(
+      `Command '${commandName}' received with input path '${filePath}'`
+    );
     // Check if the command exists in the map
     const commandFunction = commandMap[commandName];
 
@@ -88,9 +108,11 @@ program
     // Execute the corresponding function with the file data
     commandFunction(fileData)
       .then((result) => {
-        const resultStr = JSON.stringify(result, null, 2);  // Pretty-print result
+        const resultStr = JSON.stringify(result, null, 2); // Pretty-print result
         const outputFilePath = writeJsonFile(filePath, commandName, resultStr);
-        logger.log(`Wrote result of command ${commandName} to disk: ${outputFilePath}`);
+        logger.log(
+          `Wrote result of command ${commandName} to disk: ${outputFilePath}`
+        );
       })
       .catch((err: unknown) => {
         logger.fatal(`Error executing command: ${err}`);
@@ -100,15 +122,15 @@ program
 
 // Add a basic check for arguments and show help if needed
 if (process.argv.length <= 2) {
-  console.log(program.helpInformation());  // Directly output help without triggering exit
+  console.log(program.helpInformation()); // Directly output help without triggering exit
   console.log(`Available commands: ${Object.keys(commandMap).join(', ')}`);
   process.exit(0);
 } else {
   try {
     // Configure exit override to handle errors without recursion
     program.exitOverride((err) => {
-      console.log(program.helpInformation());  // Output help text directly
-      console.log(`Available commands: ${Object.keys(commandMap).join(', ')}`)
+      console.log(program.helpInformation()); // Output help text directly
+      console.log(`Available commands: ${Object.keys(commandMap).join(', ')}`);
       logger.fatal(err);
       process.exit(1);
     });
@@ -124,15 +146,14 @@ if (process.argv.length <= 2) {
 }
 
 // Handle Ctrl+C (SIGINT)
-process.on("SIGINT", async () => {
+process.on('SIGINT', async () => {
   try {
-    logger.warn("Process interrupted by user. Cleaning up.");
+    logger.warn('Process interrupted by user. Cleaning up.');
     await executor.terminate();
-    logger.fatal("Cleanup finished. Exiting now.");
+    logger.fatal('Cleanup finished. Exiting now.');
     process.exit(0);
-  }
-  finally {
-    logger.fatal("Cleanup failed. Exiting now.");
+  } finally {
+    logger.fatal('Cleanup failed. Exiting now.');
     process.exit(1);
   }
 });

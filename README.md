@@ -42,9 +42,9 @@ Depending on the CPU model, specificaly NUMA nodes setup, you may need to adjust
 
 Refer to the **[Gitbook documentation](https://o1js-blobstream.gitbook.io/o1js-blobstream)** for details on **o1js-blobstream**.
 
-# v2 API
+# New API!
 
-Version 2 is migrating away from having a mix of languages (TS, Bash, and Rust) to having a homogeneous TS-first approach utilizing WebAssembly to incorporate the Rust components and striving to deprecate Bash.
+The latest version is moving towards, migrating away from having a mix of languages (TS, Bash, and Rust) to having a homogeneous TS-first approach utilizing WebAssembly to incorporate the Rust components and striving to deprecate Bash.
 
 ## Typescript API
 
@@ -61,7 +61,7 @@ import { ComputationalPlanExecutor, performSp1ToPlonk, Sp1, LogPrinter } from '@
 import { readFileSync } from 'fs';
 
 async function main() {
-    new LogPrinter("[NoriProofConverter]", ['log', 'info', 'warn', 'error', 'debug', 'fatal', 'verbose']);
+    new LogPrinter('[NoriProofConverter]', ['log', 'info', 'warn', 'error', 'debug', 'fatal', 'verbose']);
     const maxProcesses = 10;
     const executor = new ComputationalPlanExecutor(maxProcesses);
     const sp1ProofStr = readFileSync('./example-proofs/v4.json', 'utf8');
