@@ -32,5 +32,5 @@ export {
   Logger,
 
   // Utils
-  InvertedPromise
+  InvertedPromise,
 };

@@ -8,6 +8,10 @@ While the infrastructure in this project is optimized for **SP1 proofs**, it is 
 
 Additionally, the repository provides infrastructure for **Groth16 verification**, enabling the consumption of Groth16-based proofs produced by other frameworks such as **circom, arkworks, gnark, Risc Zero**, and many others.
 
+## Overview of o1js-blobstream by Geometry Research
+
+Refer to the **[Gitbook documentation](https://o1js-blobstream.gitbook.io/o1js-blobstream)** for details on **o1js-blobstream**.
+
 ### Run PLONK Conversion Script
 
 To run the PLONK conversion script, execute:
@@ -37,10 +41,6 @@ sudo apt install parallel
 
 Depending on the CPU model, specificaly NUMA nodes setup, you may need to adjust values in
 `scrips/plonk_tree.sh`
-
-## Overview of o1js-blobstream by Geometry Research
-
-Refer to the **[Gitbook documentation](https://o1js-blobstream.gitbook.io/o1js-blobstream)** for details on **o1js-blobstream**.
 
 # New API!
 
@@ -103,7 +103,7 @@ export MAX_PROCESSES = 10
 
 Examples:
 
-1. `nori-proof-converter sp1ToPlonk example-proofs/v4.json `
+1. `nori-proof-converter sp1ToPlonk example-proofs/v4.json`
 
 ### Updating the cli
 

@@ -3,11 +3,10 @@
  - It checks if lines are correct (if point is not fixed) and evaluates them with sparse mul 
 */
 
-import { G1Affine, G2Affine } from "../ec/index.js";
-import { G2Line } from "../lines/index.js";
-import { AffineCache } from "../lines/precompute.js";
-import { ATE_LOOP_COUNT, Fp12 } from "../towers/index.js";
-
+import { G1Affine, G2Affine } from '../ec/index.js';
+import { G2Line } from '../lines/index.js';
+import { AffineCache } from '../lines/precompute.js';
+import { ATE_LOOP_COUNT, Fp12 } from '../towers/index.js';
 
 class LineAccumulator {
   static accumulate(
@@ -31,43 +30,43 @@ class LineAccumulator {
     let idx = 0;
     let line_cnt = 0;
     for (let i = 1; i < ATE_LOOP_COUNT.length; i++) {
-        idx = i - 1; 
+      idx = i - 1;
 
-        const b_line = b_lines[line_cnt]; 
-        const delta_line = delta_lines[line_cnt]; 
+      const b_line = b_lines[line_cnt];
+      const delta_line = delta_lines[line_cnt];
+      const gamma_line = gamma_lines[line_cnt];
+      line_cnt += 1;
+
+      b_line.assert_is_tangent(T);
+
+      g.push(b_line.psi(a_cache));
+      g[idx] = g[idx].sparse_mul(delta_line.psi(c_cache));
+      g[idx] = g[idx].sparse_mul(gamma_line.psi(pi_cache));
+
+      T = T.double_from_line(b_line.lambda);
+
+      if (ATE_LOOP_COUNT[i] == 1 || ATE_LOOP_COUNT[i] == -1) {
+        const b_line = b_lines[line_cnt];
+        const delta_line = delta_lines[line_cnt];
         const gamma_line = gamma_lines[line_cnt];
-        line_cnt += 1; 
+        line_cnt += 1;
 
-        b_line.assert_is_tangent(T);
+        if (ATE_LOOP_COUNT[i] == 1) {
+          b_line.assert_is_line(T, B);
+          T = T.add_from_line(b_line.lambda, B);
+        } else {
+          b_line.assert_is_line(T, negB);
+          T = T.add_from_line(b_line.lambda, negB);
+        }
 
-        g.push(b_line.psi(a_cache));
+        g[idx] = g[idx].sparse_mul(b_line.psi(a_cache));
         g[idx] = g[idx].sparse_mul(delta_line.psi(c_cache));
         g[idx] = g[idx].sparse_mul(gamma_line.psi(pi_cache));
-
-        T = T.double_from_line(b_line.lambda);
-
-        if (ATE_LOOP_COUNT[i] == 1 || ATE_LOOP_COUNT[i] == -1) {
-            const b_line = b_lines[line_cnt]; 
-            const delta_line = delta_lines[line_cnt]; 
-            const gamma_line = gamma_lines[line_cnt];
-            line_cnt += 1; 
-
-            if(ATE_LOOP_COUNT[i] == 1) {
-                b_line.assert_is_line(T, B);
-                T = T.add_from_line(b_line.lambda, B);
-            } else {
-                b_line.assert_is_line(T, negB); 
-                T = T.add_from_line(b_line.lambda, negB);
-            }
-
-            g[idx] = g[idx].sparse_mul(b_line.psi(a_cache));
-            g[idx] = g[idx].sparse_mul(delta_line.psi(c_cache));
-            g[idx] = g[idx].sparse_mul(gamma_line.psi(pi_cache));
-        }
+      }
     }
 
-    let b_line = b_lines[line_cnt]; 
-    let delta_line = delta_lines[line_cnt]; 
+    let b_line = b_lines[line_cnt];
+    let delta_line = delta_lines[line_cnt];
     let gamma_line = gamma_lines[line_cnt];
     line_cnt += 1;
     idx += 1;
@@ -80,8 +79,8 @@ class LineAccumulator {
     b_line.assert_is_line(T, piB);
     T = T.add_from_line(b_line.lambda, piB);
 
-    b_line = b_lines[line_cnt]; 
-    delta_line = delta_lines[line_cnt]; 
+    b_line = b_lines[line_cnt];
+    delta_line = delta_lines[line_cnt];
     gamma_line = gamma_lines[line_cnt];
     line_cnt += 1;
 

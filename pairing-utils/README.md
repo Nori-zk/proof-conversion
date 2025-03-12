@@ -13,7 +13,7 @@ cargo run --bin aux_witness
 
 After building for wasm `cd pkg && npm publish`
 
-# Troubleshooting 
+# Troubleshooting
 
 1. Conflicting binaryen
-    - `sudo apt remove binaryen`
+   - `sudo apt remove binaryen`

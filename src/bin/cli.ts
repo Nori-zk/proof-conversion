@@ -43,6 +43,7 @@ const packageJsonPath = path.resolve(
   'package.json'
 );
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+const version = packageJson.version as string;
 
 // Utility to write output file with json extension
 function writeJsonFile(
@@ -123,6 +124,7 @@ program
 // Add a basic check for arguments and show help if needed
 if (process.argv.length <= 2) {
   console.log(program.helpInformation()); // Directly output help without triggering exit
+  console.log(`Version: ${version}`);
   console.log(`Available commands: ${Object.keys(commandMap).join(', ')}`);
   process.exit(0);
 } else {
@@ -130,6 +132,7 @@ if (process.argv.length <= 2) {
     // Configure exit override to handle errors without recursion
     program.exitOverride((err) => {
       console.log(program.helpInformation()); // Output help text directly
+      console.log(`Version: ${version}`);
       console.log(`Available commands: ${Object.keys(commandMap).join(', ')}`);
       logger.fatal(err);
       process.exit(1);
@@ -139,6 +142,7 @@ if (process.argv.length <= 2) {
     program.parse(process.argv);
   } catch (err: any) {
     console.log(program.helpInformation());
+    console.log(`Version: ${version}`);
     console.log(`Available commands: ${Object.keys(commandMap).join(', ')}`);
     logger.fatal(err);
     process.exit(1);
