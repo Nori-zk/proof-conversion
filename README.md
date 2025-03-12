@@ -8,45 +8,9 @@ While the infrastructure in this project is optimized for **SP1 proofs**, it is 
 
 Additionally, the repository provides infrastructure for **Groth16 verification**, enabling the consumption of Groth16-based proofs produced by other frameworks such as **circom, arkworks, gnark, Risc Zero**, and many others.
 
-## Overview of o1js-blobstream by Geometry Research
-
-Refer to the **[Gitbook documentation](https://o1js-blobstream.gitbook.io/o1js-blobstream)** for details on **o1js-blobstream**.
-
-### Run PLONK Conversion Script
-
-To run the PLONK conversion script, execute:
-
-```sh
-MAX_THREADS=32 ./convert_plonk.sh
-```
-
-Replace `32` with the number of threads available on your machine.
-
-### Optional Kernel Tuning
-
-```
-sudo sysctl -w vm.zone_reclaim_mode=0
-sudo sysctl -w vm.overcommit_memory=1
-sudo sysctl -w vm.swappiness=10
-sudo cpupower frequency-set -g performance
-```
-
-## Running on server specific requirments
-
-#### Install `parallel`
-
-```sh
-sudo apt install parallel
-```
-
-Depending on the CPU model, specificaly NUMA nodes setup, you may need to adjust values in
-`scrips/plonk_tree.sh`
-
-# New API!
+# Typescript API
 
 The latest version is moving towards, migrating away from having a mix of languages (TS, Bash, and Rust) to having a homogeneous TS-first approach utilizing WebAssembly to incorporate the Rust components and striving to deprecate Bash.
-
-## Typescript API
 
 ### Installation
 
@@ -118,6 +82,32 @@ Run `npm run relink`
 ### Cli Troublingshooting
 
 - If getting a permission denied check npm's awareness of linked modules `npm ls -g --depth=0 --link=true` remove symlinks manually if nessesary and run `npm run relink`
+
+
+## Overview of o1js-blobstream by Geometry Research
+
+Refer to the **[Gitbook documentation](https://o1js-blobstream.gitbook.io/o1js-blobstream)** for details on **o1js-blobstream**.
+
+### Optional Kernel Tuning
+
+```
+sudo sysctl -w vm.zone_reclaim_mode=0
+sudo sysctl -w vm.overcommit_memory=1
+sudo sysctl -w vm.swappiness=10
+sudo cpupower frequency-set -g performance
+```
+
+## Running on server specific requirments
+
+#### Install `parallel`
+
+```sh
+sudo apt install parallel
+```
+
+Depending on the CPU model, specificaly NUMA nodes setup, you may need to adjust values in
+`scrips/plonk_tree.sh`
+
 
 # License
 
