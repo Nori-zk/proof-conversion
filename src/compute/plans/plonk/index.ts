@@ -107,10 +107,10 @@ export class PlonkComputationalPlan
             state.workingDir,
             state.cacheDir,
           ],
-          capture: true,
+          emit: true,
           printableArgs: [0, 1, 2],
         };
-      },
+      }
     },
     {
       name: 'ComputeZPK',
@@ -137,7 +137,7 @@ export class PlonkComputationalPlan
               state.workingDir,
               state.cacheDir,
             ],
-            capture: true,
+            emit: true,
             printableArgs: [0, 1, 2],
           };
         });
@@ -162,7 +162,7 @@ export class PlonkComputationalPlan
                 state.workingDir,
                 state.cacheDir,
               ],
-              capture: true,
+              emit: true,
               printableArgs: [0, 1, 2, 3, 4],
             };
           });

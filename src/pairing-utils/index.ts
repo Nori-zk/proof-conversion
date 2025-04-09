@@ -30,7 +30,7 @@ export function computeAuxWitness(f12: Fp12Type): AuxWitnessWasm {
   return wasmComputeAuxWitness(f12) as AuxWitnessWasm;
 }
 
-export function makeAlphaBeta(raw_vk: unknown, input: AlphaBetaWasm) {
+export function makeAlphaBeta(input: unknown) { // raw_vk: unknown, 
   // this is not complete
   // cargo run --bin alphabeta -- $RAW_VK_PATH $VK_PATH &
   // make_alpha_beta this function takes json_path for the $RAW_VK_PATH env var and uses this as "v"... it then
@@ -40,22 +40,28 @@ export function makeAlphaBeta(raw_vk: unknown, input: AlphaBetaWasm) {
     'This function is not implemented yet... The raw_vk type is not implemented'
   );
 
-  const v = (raw_vk || { alpha_beta: {} }) as { alpha_beta: Fp12Type };
+  const ab: AlphaBetaWasm = {alpha: input?.alpha, beta: input?.beta};
 
   const serialized_alpha_beta = wasmMakeAlphaBeta(input) as Fp12Type;
 
-  v['alpha_beta']['g00'] = serialized_alpha_beta.g00;
-  v['alpha_beta']['g01'] = serialized_alpha_beta.g01;
-  v['alpha_beta']['g10'] = serialized_alpha_beta.g10;
-  v['alpha_beta']['g11'] = serialized_alpha_beta.g11;
-  v['alpha_beta']['g20'] = serialized_alpha_beta.g20;
-  v['alpha_beta']['g21'] = serialized_alpha_beta.g21;
-  v['alpha_beta']['h00'] = serialized_alpha_beta.h00;
-  v['alpha_beta']['h01'] = serialized_alpha_beta.h01;
-  v['alpha_beta']['h10'] = serialized_alpha_beta.h10;
-  v['alpha_beta']['h11'] = serialized_alpha_beta.h11;
-  v['alpha_beta']['h20'] = serialized_alpha_beta.h20;
-  v['alpha_beta']['h21'] = serialized_alpha_beta.h21;
 
-  return v;
+  //const v = (raw_vk || { alpha_beta: {} }) as { alpha_beta: Fp12Type };
+
+ // const serialized_alpha_beta = wasmMakeAlphaBeta(input) as Fp12Type;
+  const output = input;
+
+  output['alpha_beta']['g00'] = serialized_alpha_beta.g00;
+  output['alpha_beta']['g01'] = serialized_alpha_beta.g01;
+  output['alpha_beta']['g10'] = serialized_alpha_beta.g10;
+  output['alpha_beta']['g11'] = serialized_alpha_beta.g11;
+  output['alpha_beta']['g20'] = serialized_alpha_beta.g20;
+  output['alpha_beta']['g21'] = serialized_alpha_beta.g21;
+  output['alpha_beta']['h00'] = serialized_alpha_beta.h00;
+  output['alpha_beta']['h01'] = serialized_alpha_beta.h01;
+  output['alpha_beta']['h10'] = serialized_alpha_beta.h10;
+  output['alpha_beta']['h11'] = serialized_alpha_beta.h11;
+  output['alpha_beta']['h20'] = serialized_alpha_beta.h20;
+  output['alpha_beta']['h21'] = serialized_alpha_beta.h21;
+
+  return output;
 }
