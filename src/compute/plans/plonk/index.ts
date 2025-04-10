@@ -78,7 +78,7 @@ export class PlonkComputationalPlan
         createDirectories(state.workingDir, nodeCacheStructure);
       },
     },
-    {
+    {      
       name: 'GenerateWitness',
       type: 'main-thread',
       execute: (state: State) => {
@@ -87,14 +87,17 @@ export class PlonkComputationalPlan
           state.input.programVK,
           state.input.hexPi
         ).toJSON();
+
         const witness = computeAuxWitness(JSON.parse(mlo));
         state.witnessPath = resolve(state.workingDir, 'aux_wtns.json');
+
         // Write the mlo and witness to the cache dir
         writeFileSync(resolve(state.workingDir, 'mlo.json'), mlo);
         writeFileSync(state.witnessPath, JSON.stringify(witness));
         return;
       },
     },
+    // If u wanna see stdout then you can change the capture boolean key in the plonk plan to emit
     {
       name: 'CompileRecursion',
       type: 'serial-cmd',
