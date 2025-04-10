@@ -3,6 +3,7 @@ import {
   make_alpha_beta_js as wasmMakeAlphaBeta,
 } from '@nori-zk/proof-conversion-pairing-utils';
 import { Fp12Type } from '../towers/fp12';
+import { Risc0RawVk, Risc0Vk } from '../api/sp1/types';
 
 export interface AuxWitnessWasm {
   c: Fp12Type;
@@ -30,19 +31,90 @@ export function computeAuxWitness(f12: Fp12Type): AuxWitnessWasm {
   return wasmComputeAuxWitness(f12) as AuxWitnessWasm;
 }
 
-export function makeAlphaBeta(raw_vk: unknown, input: AlphaBetaWasm) {
+export function makeAlphaBeta(raw_vk: Risc0RawVk, input: AlphaBetaWasm) {
   // this is not complete
   // cargo run --bin alphabeta -- $RAW_VK_PATH $VK_PATH &
   // make_alpha_beta this function takes json_path for the $RAW_VK_PATH env var and uses this as "v"... it then
   // extends v by overriding the alpha_beta Field12 fields
 
-  throw Error(
-    'This function is not implemented yet... The raw_vk type is not implemented'
-  );
-
-  const v = (raw_vk || { alpha_beta: {} }) as { alpha_beta: Fp12Type };
-
   const serialized_alpha_beta = wasmMakeAlphaBeta(input) as Fp12Type;
+
+  const v: Risc0Vk = {
+    delta: {
+      x_c0: raw_vk.delta.x_c0,
+      x_c1: raw_vk.delta.x_c1,
+      y_c0: raw_vk.delta.y_c0,
+      y_c1: raw_vk.delta.y_c1,
+    },
+    gamma: {
+      x_c0: raw_vk.gamma.x_c0,
+      x_c1: raw_vk.gamma.x_c1,
+      y_c0: raw_vk.gamma.y_c0,
+      y_c1: raw_vk.gamma.y_c1,
+    },
+    alpha: {
+      x: raw_vk.alpha.x,
+      y: raw_vk.alpha.y,
+    },
+    beta: {
+      x_c0: raw_vk.beta.x_c0,
+      x_c1: raw_vk.beta.x_c1,
+      y_c0: raw_vk.beta.y_c0,
+      y_c1: raw_vk.beta.y_c1,
+    },
+    ic0: {
+      x: raw_vk.ic0.x,
+      y: raw_vk.ic0.y,
+    },
+    ic1: {
+      x: raw_vk.ic1.x,
+      y: raw_vk.ic1.y,
+    },
+    ic2: {
+      x: raw_vk.ic2.x,
+      y: raw_vk.ic2.y,
+    },
+    ic3: {
+      x: raw_vk.ic3.x,
+      y: raw_vk.ic3.y,
+    },
+    ic4: {
+      x: raw_vk.ic4.x,
+      y: raw_vk.ic4.y,
+    },
+    ic5: {
+      x: raw_vk.ic5.x,
+      y: raw_vk.ic5.y,
+    },
+    w27: {
+      g00: raw_vk.w27.g00,
+      g01: raw_vk.w27.g01,
+      g10: raw_vk.w27.g10,
+      g11: raw_vk.w27.g11,
+      g20: raw_vk.w27.g20,
+      g21: raw_vk.w27.g21,
+      h00: raw_vk.w27.h00,
+      h01: raw_vk.w27.h01,
+      h10: raw_vk.w27.h10,
+      h11: raw_vk.w27.h11,
+      h20: raw_vk.w27.h20,
+      h21: raw_vk.w27.h21,
+    },
+    alpha_beta: {
+      g00: '',
+      g01: '',
+      g10: '',
+      g11: '',
+      g20: '',
+      g21: '',
+      h00: '',
+      h01: '',
+      h10: '',
+      h11: '',
+      h20: '',
+      h21: '',
+    },
+  };
 
   v['alpha_beta']['g00'] = serialized_alpha_beta.g00;
   v['alpha_beta']['g01'] = serialized_alpha_beta.g01;
