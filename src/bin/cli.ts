@@ -6,6 +6,7 @@ import { ComputationalPlanExecutor } from '../compute/executor.js';
 import { performSp1ToPlonk } from '../api/sp1/plonk.js';
 import { Logger } from '../logging/logger.js';
 import { LogPrinter } from '../logging/log_printer.js';
+import { performRisc0ToGroth16 } from '../api/sp1/groth16.js';
 
 new LogPrinter('[NoriProofConverter]', [
   'log',
@@ -23,11 +24,12 @@ const MAX_PROCESSES = parseInt(process.env.MAX_PROCESSES || '1');
 const executor = new ComputationalPlanExecutor(MAX_PROCESSES);
 
 // Define the command type for function signatures
-type CommandFunction = (fileData: any) => Promise<any>;
+type CommandFunction = (args: any) => Promise<any>;
 
 // Command map where key is command name, value is async function
 const commandMap: Record<string, CommandFunction> = {
   sp1ToPlonk: (fileData) => performSp1ToPlonk(executor, fileData),
+  risc0ToGroth16: ({ fileData1, fileData2 }) => performRisc0ToGroth16(executor, fileData1, fileData2),
 };
 
 // Get the current file's directory (ESM equivalent of __dirname)
@@ -76,50 +78,45 @@ program
 // Define the main command
 program
   .argument('<command>', 'command to execute (e.g. sp1ToPlonk)')
-  .argument('<input-json-file-path>', 'json file path to process')
-  .action((commandName: string, filePath: string) => {
-    logger.log(
-      `Command '${commandName}' received with input path '${filePath}'`
-    );
-    // Check if the command exists in the map
+  .argument('<arg1>', 'first argument')
+  .argument('[arg2]', 'second optional argument')
+  .action((commandName: string, arg1: string, arg2?: string) => {
+    logger.log(`Command '${commandName}' received with arg1 '${arg1}', arg2 '${arg2}'`);
+
     const commandFunction = commandMap[commandName];
-
-    // If command is invalid, show available commands
     if (!commandFunction) {
-      logger.fatal(`Error: Command '${commandName}' not found.`);
+      logger.fatal(`Command '${commandName}' not found.`);
       logger.fatal(`Available commands: ${Object.keys(commandMap).join(', ')}`);
-
       process.exit(1);
     }
 
-    logger.log(`Command '${commandName}' supported proceeding...`);
-
-    // Read input data from the file
-    let fileData: string;
+    let args: any;
     try {
-      fileData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      if (commandName === 'risc0ToGroth16') {
+        args = {
+          fileData1: JSON.parse(fs.readFileSync(arg1, 'utf8')),
+          fileData2: JSON.parse(fs.readFileSync(arg2!, 'utf8')),
+        };
+      } else {
+        args = JSON.parse(fs.readFileSync(arg1, 'utf8'));
+      }
     } catch (err) {
-      logger.fatal(`Error reading JSON file at ${filePath}: ${err}`);
+      logger.fatal(`Error processing arguments: ${err}`);
       process.exit(1);
     }
 
-    logger.log(`Input path correct '${filePath}', json deserialized.`);
-    logger.log(`Running ${commandName} with input data:`);
-
-    // Execute the corresponding function with the file data
-    commandFunction(fileData)
+    commandFunction(args)
       .then((result) => {
-        const resultStr = JSON.stringify(result, null, 2); // Pretty-print result
-        const outputFilePath = writeJsonFile(filePath, commandName, resultStr);
-        logger.log(
-          `Wrote result of command ${commandName} to disk: ${outputFilePath}`
-        );
+        const resultStr = JSON.stringify(result, null, 2);
+        const outputFilePath = writeJsonFile(arg1, commandName, resultStr);
+        logger.log(`Wrote result of command ${commandName} to disk: ${outputFilePath}`);
       })
-      .catch((err: unknown) => {
+      .catch((err) => {
         logger.fatal(`Error executing command: ${err}`);
         process.exit(1);
       });
   });
+
 
 // Add a basic check for arguments and show help if needed
 if (process.argv.length <= 2) {
