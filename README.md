@@ -52,22 +52,24 @@ Run `npm run relink` to install proof-conversion bash command.
 ### Usage
 
 ```
-nori-proof-converter <command> <input-json-file-path>
+nori-proof-converter <command> <input-json-file-path1> <input-json-file-path2>
 ```
 
 Currently supported commands:
  
 - sp1ToPlonk
+- risc0ToGroth16
 
 You can change the number of child processes it spawns by setting the MAX_PROCESSES environment variable before running the cli:
 
 ```
-export MAX_PROCESSES = 10
+export MAX_PROCESSES=8
 ```
 
 Examples:
 
 1. `nori-proof-converter sp1ToPlonk example-proofs/v4.json`
+2. `nori-proof-converter risc0ToGroth16 example-proofs/risc_zero_proof.json example-proofs/risc_zero_raw_vk.json`
 
 ### Updating the cli
 
