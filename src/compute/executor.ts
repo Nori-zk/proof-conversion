@@ -18,34 +18,94 @@ type InferInput<P> = P extends ComputationPlan<any, any, infer I> ? I : never;
 type InferOutput<P> = P extends ComputationPlan<any, infer R, any> ? R : never;
 type InferState<P> = P extends ComputationPlan<infer S, any, any> ? S : never;
 
-function applyNumaOptimization<S extends PlatformFeatures>(
-  stageProcessCommands: ProcessCmd[],
-  state: S
-) {
-  return stageProcessCommands.map((processCmd, idx) => {
-    const numaNode = idx % state.numaNodes!;
-    const { cmd, args } = processCmd;
+interface NumaAwareJob {
+  processCmd: ProcessCmd;
+  originalIndex: number;
+}
 
-    // replace the cmd with numactl and move the args one level down
-    const newCmd = 'numactl';
-    const newArgs = [
-      `--cpunodebind=${numaNode}`,
-      `--membind=${numaNode}`,
-      cmd,
-      ...args,
-    ];
+interface NumaJobResult {
+  result: ProcessCmdOutput | Error;
+  originalIndex: number;
+}
 
-    const newProcessCommand = { ...processCmd, cmd: newCmd, args: newArgs };
-    if (newProcessCommand.printableArgs) {
-      newProcessCommand.printableArgs = [
-        0,
-        1,
-        2,
-        ...newProcessCommand.printableArgs.map((idx: number) => idx + 3),
-      ];
+class DynamicNumaScheduler {
+  private availableNodes: Set<number>;
+  private busyNodes: Set<number>;
+  private readonly totalNodes: number;
+
+  constructor(totalNumaNodes: number) {
+    this.totalNodes = totalNumaNodes;
+    this.availableNodes = new Set(
+      Array.from({ length: totalNumaNodes }, (_, i) => i)
+    );
+    this.busyNodes = new Set();
+  }
+
+  allocateNode(): number | null {
+    if (this.availableNodes.size === 0) {
+      return null;
     }
-    return newProcessCommand;
-  });
+
+    const iterator = this.availableNodes.values();
+    const next = iterator.next();
+    if (next.done) {
+      return null;
+    }
+
+    const node = next.value;
+    this.availableNodes.delete(node);
+    this.busyNodes.add(node);
+    return node;
+  }
+
+  releaseNode(nodeId: number): void {
+    if (this.busyNodes.has(nodeId)) {
+      this.busyNodes.delete(nodeId);
+      this.availableNodes.add(nodeId);
+    }
+  }
+
+  hasAvailableNodes(): boolean {
+    return this.availableNodes.size > 0;
+  }
+
+  shouldUseNuma(jobCount: number): boolean {
+    // If we have more NUMA nodes than jobs, don't use numactl
+    return jobCount >= this.totalNodes;
+  }
+
+  reset(): void {
+    this.availableNodes = new Set(
+      Array.from({ length: this.totalNodes }, (_, i) => i)
+    );
+    this.busyNodes.clear();
+  }
+}
+
+function applyNumaToCommand(
+  processCmd: ProcessCmd,
+  numaNode: number
+): ProcessCmd {
+  const { cmd, args } = processCmd;
+
+  const newCmd = 'numactl';
+  const newArgs = [
+    `--cpunodebind=${numaNode}`,
+    `--membind=${numaNode}`,
+    cmd,
+    ...args,
+  ];
+
+  const newProcessCommand = { ...processCmd, cmd: newCmd, args: newArgs };
+  if (newProcessCommand.printableArgs) {
+    newProcessCommand.printableArgs = [
+      0,
+      1,
+      2,
+      ...newProcessCommand.printableArgs.map((idx: number) => idx + 3),
+    ];
+  }
+  return newProcessCommand;
 }
 
 let executorId = 0;
@@ -95,7 +155,7 @@ export class ComputationalPlanExecutor {
         });
   }
 
-  async #performParallelStage<S extends PlatformFeatures>(
+  async #performParallelStageWithDynamicNuma<S extends PlatformFeatures>(
     stage: ParallelComputationStage<S>,
     state: S
   ) {
@@ -104,15 +164,139 @@ export class ComputationalPlanExecutor {
       processCmds = processCmds(state);
     }
 
-    // If this is numa optimised then we should modify our commands
-    let modifiedCommands = processCmds;
-    if (stage.numaOptimized && state.numaNodes) {
-      modifiedCommands = applyNumaOptimization<S>(modifiedCommands, state);
+    const shouldUseNuma = stage.numaOptimized && state.numaNodes;
+
+    if (!shouldUseNuma) {
+      // Fall back to original parallel execution without NUMA
+      return this.#performParallelStageOriginal(stage, state, processCmds);
     }
 
+    const scheduler = new DynamicNumaScheduler(state.numaNodes!);
+    const shouldApplyNuma = scheduler.shouldUseNuma(processCmds.length);
+
+    if (!shouldApplyNuma) {
+      this.#logger.log(
+        `Stage '${stage.name}': More NUMA nodes (${state.numaNodes}) than jobs (${processCmds.length}), skipping numactl`
+      );
+      return this.#performParallelStageOriginal(stage, state, processCmds);
+    }
+
+    this.#logger.log(
+      `Stage '${stage.name}': Using dynamic NUMA scheduling for ${processCmds.length} jobs across ${state.numaNodes} nodes`
+    );
+
+    const jobs: NumaAwareJob[] = processCmds.map((cmd, idx) => ({
+      processCmd: cmd,
+      originalIndex: idx,
+    }));
+
+    const results: (ProcessCmdOutput | Error)[] = new Array(jobs.length);
+    const runningJobs = new Map<Promise<NumaJobResult>, number>(); // Promise -> NUMA node
+    const pendingJobs = [...jobs];
+
+    // Start initial batch of jobs (up to pool size or available NUMA nodes)
+    while (
+      pendingJobs.length > 0 &&
+      runningJobs.size < this.#poolSize &&
+      scheduler.hasAvailableNodes()
+    ) {
+      const job = pendingJobs.shift()!;
+      const numaNode = scheduler.allocateNode()!;
+      const numaCommand = applyNumaToCommand(job.processCmd, numaNode);
+
+      const jobPromise = this.#processPool
+        .runCommand(numaCommand)
+        .then((result) => ({ result, originalIndex: job.originalIndex }))
+        .catch((err) => ({
+          result: err as ProcessCmdOutput,
+          originalIndex: job.originalIndex,
+        }));
+
+      runningJobs.set(jobPromise, numaNode);
+    }
+
+    // Process jobs as they complete
+    while (runningJobs.size > 0) {
+      const runningPromises = Array.from(runningJobs.entries());
+      const promiseResults = runningPromises.map(
+        async ([promise, numaNode]) => ({
+          promise,
+          numaNode,
+          result: await promise,
+        })
+      );
+
+      const {
+        promise: completedPromise,
+        numaNode,
+        result: jobResult,
+      } = await Promise.race(promiseResults);
+
+      // Store result
+      results[jobResult.originalIndex] = jobResult.result;
+
+      // Clean up and release NUMA node
+      runningJobs.delete(completedPromise);
+      scheduler.releaseNode(numaNode);
+
+      // Start next job if available
+      if (pendingJobs.length > 0) {
+        const nextJob = pendingJobs.shift()!;
+        const nextNumaNode = scheduler.allocateNode();
+
+        if (nextNumaNode !== null) {
+          const numaCommand = applyNumaToCommand(
+            nextJob.processCmd,
+            nextNumaNode
+          );
+
+          const nextJobPromise = this.#processPool
+            .runCommand(numaCommand)
+            .then((result) => ({
+              result,
+              originalIndex: nextJob.originalIndex,
+            }))
+            .catch((err) => ({
+              result: err as ProcessCmdOutput,
+              originalIndex: nextJob.originalIndex,
+            }));
+
+          runningJobs.set(nextJobPromise, nextNumaNode);
+        } else {
+          // This shouldn't happen if our logic is correct, but handle gracefully
+          pendingJobs.unshift(nextJob);
+          break;
+        }
+      }
+    }
+
+    // Handle callback if present
+    if (stage.callback) {
+      const stageCallback = stage.callback(
+        state,
+        results as ProcessCmdOutput[]
+      );
+      if (stageCallback instanceof Promise) {
+        await stageCallback;
+      }
+    } else {
+      // Check for errors and throw if any occurred
+      for (const result of results) {
+        if (result && typeof result === 'object' && 'error' in result) {
+          throw (result as ProcessCmdOutput).error;
+        }
+      }
+    }
+  }
+
+  async #performParallelStageOriginal<S extends PlatformFeatures>(
+    stage: ParallelComputationStage<S>,
+    state: S,
+    processCmds: ProcessCmd[]
+  ) {
     if (stage.callback) {
       const cmdResults = await Promise.all(
-        modifiedCommands.map((cmd) =>
+        processCmds.map((cmd) =>
           this.#processPool
             .runCommand(cmd)
             .catch((err) => err as ProcessCmdOutput)
@@ -122,14 +306,32 @@ export class ComputationalPlanExecutor {
       if (stageCallback instanceof Promise) {
         await stageCallback;
       }
-    } else
+    } else {
       await Promise.all(
-        modifiedCommands.map((cmd) =>
+        processCmds.map((cmd) =>
           this.#processPool.runCommand(cmd).catch((err: ProcessCmdOutput) => {
             throw err.error;
           })
         )
       );
+    }
+  }
+
+  async #performParallelStage<S extends PlatformFeatures>(
+    stage: ParallelComputationStage<S>,
+    state: S
+  ) {
+    let processCmds = stage.processCmds;
+    if (processCmds instanceof Function) {
+      processCmds = processCmds(state);
+    }
+
+    // Use dynamic NUMA scheduling if enabled
+    if (stage.numaOptimized && state.numaNodes) {
+      await this.#performParallelStageWithDynamicNuma(stage, state);
+    } else {
+      await this.#performParallelStageOriginal(stage, state, processCmds);
+    }
   }
 
   async #stagePrerequisiteIndicatesSkip<S extends PlatformFeatures>(
