@@ -82,7 +82,7 @@ export class ComputationalPlanExecutor {
     const numaNodes = state.numaNodes || 0;
 
     // Skip NUMA if there are more NUMA nodes than tasks
-    const useNumaOptimization = Boolean(shouldUseNuma && numTasks > numaNodes);
+    const useNumaOptimization = Boolean(shouldUseNuma);
 
     if (shouldUseNuma) {
       if (useNumaOptimization) {

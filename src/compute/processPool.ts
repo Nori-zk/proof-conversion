@@ -187,13 +187,16 @@ export class ProcessPool {
     // Mark worker as free
     worker.isBusy = false;
 
-    // Decrease NUMA worker count if worker was assigned to a NUMA node
-    if (worker.numaNode !== undefined) {
-      const currentCount = this.#numaWorkerCount.get(worker.numaNode) || 0;
-      this.#numaWorkerCount.set(worker.numaNode, Math.max(0, currentCount - 1));
-      worker.numaNode = undefined;
-    }
-
+    // // Decrease NUMA worker count if worker was assigned to a NUMA node
+    // if (worker.numaNode !== undefined) {
+    //   const currentCount = this.#numaWorkerCount.get(worker.numaNode) || 0;
+    //   this.#numaWorkerCount.set(worker.numaNode, Math.max(0, currentCount - 1));
+    //   worker.numaNode = undefined;
+    // }
+    // let optimalNuma = worker.numaNode;
+    // worker.numaNode = optimalNuma;
+    // const currentCount = this.#numaWorkerCount.get(optimalNuma) || 0;
+    // this.#numaWorkerCount.set(optimalNuma, currentCount + 1);
     // Check if there are queued jobs
     const job = this.#jobQueue.shift();
     if (!job) return;
@@ -202,8 +205,10 @@ export class ProcessPool {
     worker.isBusy = true;
 
     // Use the original command (without NUMA modifications)
-    const commandToRun = job.originalCmd || job;
-
+    let commandToRun = job.originalCmd || job;
+    if (worker.numaNode !== undefined) {
+      commandToRun = this.#applyNumaToCommand(commandToRun, worker.numaNode);
+    }
     // Run the job and resolve/reject the inverted promise on completion / error
     this.#spawnWorker(commandToRun, workerId)
       .then((result) => job.invertedPromise.resolve(result))
@@ -252,8 +257,7 @@ export class ProcessPool {
     useNuma = false
   ) {
     // Determine if we should use NUMA
-    const shouldUseNuma =
-      useNuma && numaNodes && numaNodes > 0 && processCmds.length > numaNodes;
+    const shouldUseNuma = useNuma && numaNodes && numaNodes > 0;
 
     if (shouldUseNuma) {
       this.#logger.log(
