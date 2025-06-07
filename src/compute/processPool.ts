@@ -23,17 +23,89 @@ export function processCmdToString(processCmd: ProcessCmd): string {
 
 interface ProcessJob extends ProcessCmd {
   invertedPromise: InvertedPromise<ProcessCmdOutput>;
+  originalCmd?: ProcessCmd; // Store original command before NUMA modification
+}
+
+interface WorkerInfo {
+  id: number;
+  numaNode?: number;
+  isBusy: boolean;
 }
 
 let processPoolIdx = 0;
 
 export class ProcessPool {
-  #free: Set<number>;
-  #lifo: ProcessJob[] = [];
+  #workers: Map<number, WorkerInfo>;
+  #jobQueue: ProcessJob[] = [];
   #logger: Logger;
+  #maxWorkersPerNuma: number;
+  #numaWorkerCount: Map<number, number> = new Map();
 
   #jobToString(processCmd: ProcessCmd) {
     return processCmdToString(processCmd);
+  }
+
+  #getOptimalNumaNode(
+    numaNodes: number,
+    availableWorkers: WorkerInfo[]
+  ): number | null {
+    if (numaNodes === 0) return null;
+
+    // Find NUMA node with least busy workers
+    const numaUsage = new Map<number, number>();
+
+    // Initialize NUMA usage counts
+    for (let i = 0; i < numaNodes; i++) {
+      numaUsage.set(i, this.#numaWorkerCount.get(i) || 0);
+    }
+
+    // Find the NUMA node with minimum usage that hasn't exceeded max workers per NUMA
+    let bestNuma = 0;
+    let minUsage = numaUsage.get(0) || 0;
+
+    for (let i = 1; i < numaNodes; i++) {
+      const usage = numaUsage.get(i) || 0;
+      if (usage < minUsage && usage < this.#maxWorkersPerNuma) {
+        minUsage = usage;
+        bestNuma = i;
+      }
+    }
+
+    // If all NUMA nodes are at max capacity, return the one with least usage
+    if (minUsage >= this.#maxWorkersPerNuma) {
+      for (let i = 0; i < numaNodes; i++) {
+        const usage = numaUsage.get(i) || 0;
+        if (usage < minUsage) {
+          minUsage = usage;
+          bestNuma = i;
+        }
+      }
+    }
+
+    return bestNuma;
+  }
+
+  #applyNumaToCommand(processCmd: ProcessCmd, numaNode: number): ProcessCmd {
+    const { cmd, args } = processCmd;
+
+    const newCmd = 'numactl';
+    const newArgs = [
+      `--cpunodebind=${numaNode}`,
+      `--membind=${numaNode}`,
+      cmd,
+      ...args,
+    ];
+
+    const newProcessCommand = { ...processCmd, cmd: newCmd, args: newArgs };
+    if (newProcessCommand.printableArgs) {
+      newProcessCommand.printableArgs = [
+        0,
+        1,
+        2,
+        ...newProcessCommand.printableArgs.map((idx: number) => idx + 3),
+      ];
+    }
+    return newProcessCommand;
   }
 
   async #spawnWorker(processCmd: ProcessCmd, workerId: number) {
@@ -109,56 +181,179 @@ export class ProcessPool {
   }
 
   async #checkForJobsAfterWorkerFinish(workerId: number) {
-    // Free ourselves
-    this.#free.add(workerId);
-    // Check the status of the lifo queue, exit if there is nothing to do.
-    const job = this.#lifo.pop();
+    const worker = this.#workers.get(workerId);
+    if (!worker) return;
+
+    // Mark worker as free
+    worker.isBusy = false;
+
+    // Decrease NUMA worker count if worker was assigned to a NUMA node
+    if (worker.numaNode !== undefined) {
+      const currentCount = this.#numaWorkerCount.get(worker.numaNode) || 0;
+      this.#numaWorkerCount.set(worker.numaNode, Math.max(0, currentCount - 1));
+      worker.numaNode = undefined;
+    }
+
+    // Check if there are queued jobs
+    const job = this.#jobQueue.shift();
     if (!job) return;
-    // This worker is now considered busy with the taken job
-    this.#free.delete(workerId);
-    // Run the job and resolve/reject the inverted promise on completion / error.
-    this.#spawnWorker(job, workerId)
+
+    // Mark worker as busy
+    worker.isBusy = true;
+
+    // Use the original command (without NUMA modifications)
+    const commandToRun = job.originalCmd || job;
+
+    // Run the job and resolve/reject the inverted promise on completion / error
+    this.#spawnWorker(commandToRun, workerId)
       .then((result) => job.invertedPromise.resolve(result))
       .catch((err) => job.invertedPromise.reject(err))
       .finally(() => this.#checkForJobsAfterWorkerFinish(workerId));
   }
 
   async runCommand(processCmd: ProcessCmd) {
-    // Create an inverted promise to resolve the result at a later time.
+    // Create an inverted promise to resolve the result at a later time
     const invertedPromise = new InvertedPromise<ProcessCmdOutput>();
 
-    // Check for a free worker.
-    const freeFreePoolWorkerKeyValuePair = this.#free.values().next().value;
+    // Find available workers
+    const availableWorkers = Array.from(this.#workers.values()).filter(
+      (w) => !w.isBusy
+    );
 
-    // If we have a free worker queue immediately.
-    if (freeFreePoolWorkerKeyValuePair !== undefined) {
-      // Get the worker Id
-      const workerId = freeFreePoolWorkerKeyValuePair;
-      // Remove the worker from the pool
-      this.#free.delete(workerId);
-      // Run job immediately
-      this.#spawnWorker(processCmd, workerId)
+    // If we have available workers, assign immediately
+    if (availableWorkers.length > 0) {
+      const worker = availableWorkers[0];
+      worker.isBusy = true;
+
+      // Use original command directly since we handle NUMA dynamically
+      this.#spawnWorker(processCmd, worker.id)
         .then((result) => invertedPromise.resolve(result))
         .catch((err) => invertedPromise.reject(err))
-        .finally(() => this.#checkForJobsAfterWorkerFinish(workerId));
+        .finally(() => this.#checkForJobsAfterWorkerFinish(worker.id));
+
       return invertedPromise.promise;
     } else {
-      // Queue job for next free worker
+      // Queue job for next available worker
       this.#logger.debug(
         `No workers available. Job '${this.#jobToString(processCmd)}' queued.`
       );
-      this.#lifo.push({ ...processCmd, invertedPromise });
+      this.#jobQueue.push({
+        ...processCmd,
+        invertedPromise,
+        originalCmd: processCmd,
+      });
       return invertedPromise.promise;
     }
   }
 
-  workerFreeStatus() {
-    return Array.from(this.#free).sort((a, b) => a - b);
+  async runParallelCommands(
+    processCmds: ProcessCmd[],
+    numaNodes?: number,
+    useNuma = false
+  ) {
+    // Determine if we should use NUMA
+    const shouldUseNuma =
+      useNuma && numaNodes && numaNodes > 0 && processCmds.length > numaNodes;
+
+    if (shouldUseNuma) {
+      this.#logger.log(
+        `Using dynamic NUMA optimization with ${numaNodes} NUMA nodes for ${processCmds.length} tasks`
+      );
+    }
+
+    const promises = processCmds.map(async (cmd) => {
+      // Create inverted promise
+      const invertedPromise = new InvertedPromise<ProcessCmdOutput>();
+
+      // Find available worker
+      const availableWorkers = Array.from(this.#workers.values()).filter(
+        (w) => !w.isBusy
+      );
+
+      if (availableWorkers.length > 0) {
+        const worker = availableWorkers[0];
+        worker.isBusy = true;
+
+        let commandToRun = cmd;
+
+        // Apply NUMA optimization if needed
+        if (shouldUseNuma) {
+          const optimalNuma = this.#getOptimalNumaNode(
+            numaNodes!,
+            availableWorkers
+          );
+          if (optimalNuma !== null) {
+            worker.numaNode = optimalNuma;
+            const currentCount = this.#numaWorkerCount.get(optimalNuma) || 0;
+            this.#numaWorkerCount.set(optimalNuma, currentCount + 1);
+            commandToRun = this.#applyNumaToCommand(cmd, optimalNuma);
+            this.#logger.debug(
+              `Assigned task to NUMA node ${optimalNuma} (worker ${worker.id})`
+            );
+          }
+        }
+
+        this.#spawnWorker(commandToRun, worker.id)
+          .then((result) => invertedPromise.resolve(result))
+          .catch((err) => invertedPromise.reject(err))
+          .finally(() => this.#checkForJobsAfterWorkerFinish(worker.id));
+      } else {
+        // Queue the job
+        this.#jobQueue.push({
+          ...cmd,
+          invertedPromise,
+          originalCmd: cmd,
+        });
+        this.#logger.debug(`Queued job: ${this.#jobToString(cmd)}`);
+      }
+
+      return invertedPromise.promise;
+    });
+
+    return Promise.all(promises);
   }
 
-  constructor(poolSize: number) {
+  workerFreeStatus() {
+    const freeWorkers = Array.from(this.#workers.values())
+      .filter((w) => !w.isBusy)
+      .map((w) => w.id)
+      .sort((a, b) => a - b);
+    return freeWorkers;
+  }
+
+  getNumaStatus() {
+    const status = new Map<number, { busy: number; total: number }>();
+
+    this.#workers.forEach((worker) => {
+      if (worker.numaNode !== undefined) {
+        const current = status.get(worker.numaNode) || { busy: 0, total: 0 };
+        status.set(worker.numaNode, {
+          busy: current.busy + (worker.isBusy ? 1 : 0),
+          total: current.total + 1,
+        });
+      }
+    });
+
+    return status;
+  }
+
+  constructor(poolSize: number, maxWorkersPerNuma = 2) {
     processPoolIdx++;
-    this.#free = new Set(Array.from({ length: poolSize }, (_, i) => i));
+    this.#maxWorkersPerNuma = maxWorkersPerNuma;
+    this.#workers = new Map();
+
+    // Initialize workers
+    for (let i = 0; i < poolSize; i++) {
+      this.#workers.set(i, {
+        id: i,
+        isBusy: false,
+        numaNode: undefined,
+      });
+    }
+
     this.#logger = new Logger(`ProcessPool${processPoolIdx}`);
+    this.#logger.log(
+      `Initialized ProcessPool with ${poolSize} workers, max ${maxWorkersPerNuma} workers per NUMA node`
+    );
   }
 }
