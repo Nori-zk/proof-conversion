@@ -21,19 +21,19 @@
 //!    - Negates pi_a using arkworks for proper G1 point negation
 //!    - Converts pi_b to G2 format
 //!    - Converts pi_c to G1 format
-//!    - Maps public inputs to pi1-pi5 fields
+//!    - Maps public inputs to pi1-piN fields dynamically
 //!
 //! 2. **Verification key conversion**: Converts snarkjs VK to o1js-blobstream format
 //!    - Converts alpha, beta, gamma, delta points to named fields
 //!    - Computes alpha-beta pairing `e(α, β) ∈ Fp12` using arkworks `multi_miller_loop`
 //!    - Adds hardcoded w27 for pairing optimizations
-//!    - Maps IC points to ic0-ic5 format
+//!    - Maps IC points to ic0-icN format dynamically
 //!
 //! ## Input format requirements
 //!
 //! - VK nPublic must match the number of public inputs
 //! - VK IC points must equal public inputs + 1 (for the constant)
-//! - Works with circuits that have exactly 5 public inputs (due to Risc0 pi computation in o1js-blobstream format)
+//! - Works with circuits that have arbitrary number of public inputs
 //! - All files must be valid JSON
 
 use ark_bn254::{Bn254, Fq, Fq12, Fq2, G1Affine, G2Affine};
@@ -43,6 +43,7 @@ use ark_ff::{PrimeField, Zero};
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use serde_json;
+use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::str::FromStr;
@@ -74,11 +75,9 @@ struct O1jsProof {
     b: G2Point,
     #[serde(rename = "C")]
     c: G1Point,
-    pi1: String,
-    pi2: String,
-    pi3: String,
-    pi4: String,
-    pi5: String,
+    // Dynamic public inputs - will be flattened into the JSON
+    #[serde(flatten)]
+    public_inputs: HashMap<String, String>,
 }
 
 #[derive(Serialize, Debug)]
@@ -119,12 +118,9 @@ struct O1jsVK {
     delta: G2Point,
     alpha_beta: Fp12Element,
     w27: Fp12Element,
-    ic0: G1Point,
-    ic1: G1Point,
-    ic2: G1Point,
-    ic3: G1Point,
-    ic4: G1Point,
-    ic5: G1Point,
+    // Dynamic IC points - will be flattened into the JSON
+    #[serde(flatten)]
+    ic_points: HashMap<String, G1Point>,
 }
 
 fn negate_g1_point(point: &[String]) -> G1Point {
@@ -278,17 +274,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(1);
     }
 
+    // Create dynamic public inputs map
+    let mut public_inputs_map = HashMap::new();
+    for (i, input) in public_inputs.iter().enumerate() {
+        let key = format!("pi{}", i + 1);
+        public_inputs_map.insert(key, input.clone());
+    }
+
     // Convert proof to o1js format
     let o1js_proof = O1jsProof {
         neg_a: negate_g1_point(&snarkjs_proof.pi_a), // pi_a is negated here
         b: convert_g2_point(&snarkjs_proof.pi_b),
         c: convert_g1_point(&snarkjs_proof.pi_c),
-        pi1: public_inputs.get(0).unwrap_or(&"0".to_string()).clone(),
-        pi2: public_inputs.get(1).unwrap_or(&"0".to_string()).clone(),
-        pi3: public_inputs.get(2).unwrap_or(&"0".to_string()).clone(),
-        pi4: public_inputs.get(3).unwrap_or(&"0".to_string()).clone(),
-        pi5: public_inputs.get(4).unwrap_or(&"0".to_string()).clone(),
+        public_inputs: public_inputs_map,
     };
+
+    // Create dynamic IC points map
+    let mut ic_points_map = HashMap::new();
+    for (i, ic_point) in snarkjs_vk.ic.iter().enumerate() {
+        let key = format!("ic{}", i);
+        let point = convert_g1_point(ic_point);
+        ic_points_map.insert(key, point);
+    }
 
     // Convert VK to o1js format
     let o1js_vk = O1jsVK {
@@ -298,12 +305,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         delta: convert_g2_point(&snarkjs_vk.vk_delta_2),
         alpha_beta: compute_alpha_beta_pairing(&snarkjs_vk.vk_alpha_1, &snarkjs_vk.vk_beta_2),
         w27: create_default_w27(),
-        ic0: convert_g1_point(&snarkjs_vk.ic[0]),
-        ic1: convert_g1_point(&snarkjs_vk.ic[1]),
-        ic2: convert_g1_point(&snarkjs_vk.ic[2]),
-        ic3: convert_g1_point(&snarkjs_vk.ic[3]),
-        ic4: convert_g1_point(&snarkjs_vk.ic[4]),
-        ic5: convert_g1_point(&snarkjs_vk.ic[5]),
+        ic_points: ic_points_map,
     };
 
     // Write outputs
@@ -322,12 +324,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔧 Applied negation to pi_a using arkworks");
     println!("🔧 Computed alpha-beta pairing using arkworks");
     println!(
-        "🔧 Converted {} public inputs to pi1-pi5 format",
+        "🔧 Converted {} public inputs to pi1-pi{} format",
+        public_inputs.len(),
         public_inputs.len()
     );
     println!(
-        "🔧 Converted {} IC points to ic0-ic5 format",
-        snarkjs_vk.ic.len()
+        "🔧 Converted {} IC points to ic0-ic{} format",
+        snarkjs_vk.ic.len(),
+        snarkjs_vk.ic.len() - 1
     );
 
     Ok(())
