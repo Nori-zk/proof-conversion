@@ -23,6 +23,7 @@ import { zkp15 } from './zkp15.js';
 import { G1Affine } from '../../ec/index.js';
 import { FrC } from '../../towers/fr.js';
 import { VK } from '../vk_from_env.js';
+import { CONFIG } from '../config.js';
 
 // npm run build && node build/src/groth/recursion/prove_zkps.js zkp0 ./src/groth/jsons/proof.json ./src/groth/jsons/aux_witness.json ../scripts/risc_zero_example/work_dir ../scripts/risc_zero_example/cache_dir
 
@@ -368,7 +369,7 @@ async function prove_zkp15() {
 
   const pi_hash = Poseidon.hashPacked(G1Affine, proof.PI);
   const pis_hash = Poseidon.hashPacked(
-    Provable.Array(FrC.provable, 5),
+    Provable.Array(FrC.provable, CONFIG.publicInputCount),
     proof.pis
   );
   const acc_hash = Poseidon.hashPacked(G1Affine, partialPiAcc);

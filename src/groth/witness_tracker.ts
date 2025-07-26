@@ -11,6 +11,7 @@ import { VK } from './vk_from_env.js';
 import { LineParser } from '../line_parser.js';
 import { bn254 } from '../ec/g1.js';
 import { G1Affine } from '../ec/index.js';
+import { CONFIG } from './config.js';
 
 class WitnessTracker {
   proof: Proof;
@@ -327,12 +328,45 @@ class WitnessTracker {
 
   zkp14() {
     let acc = new bn254({ x: VK.ic0.x, y: VK.ic0.y });
-
-    acc = acc.add(VK.ic1.scale(this.proof.pis[0]));
-    acc = acc.add(VK.ic2.scale(this.proof.pis[1]));
-    acc = acc.add(VK.ic3.scale(this.proof.pis[2]));
-    // acc = acc.add(VK.ic4.scale(pis[3]));
-    // acc = acc.add(VK.ic5.scale(pis[4]));
+    switch (CONFIG.publicInputCount) {
+      case 0:
+        // Only ic0, no additional inputs
+        break;
+      case 1:
+        // zkp14 handles [0]: ic1*pis[0]
+        acc = acc.add(VK.ic1.scale(this.proof.pis[0]));
+        break;
+      case 2:
+        // zkp14 handles [0,1]: ic1*pis[0] + ic2*pis[1]
+        acc = acc.add(VK.ic1.scale(this.proof.pis[0]));
+        acc = acc.add(VK.ic2.scale(this.proof.pis[1]));
+        break;
+      case 3:
+        // zkp14 handles [0,1,2]: ic1*pis[0] + ic2*pis[1] + ic3*pis[2]
+        acc = acc.add(VK.ic1.scale(this.proof.pis[0]));
+        acc = acc.add(VK.ic2.scale(this.proof.pis[1]));
+        acc = acc.add(VK.ic3.scale(this.proof.pis[2]));
+        break;
+      case 4:
+        // zkp14 handles [0,1]: ic1*pis[0] + ic2*pis[1] (2+2 distribution)
+        acc = acc.add(VK.ic1.scale(this.proof.pis[0]));
+        acc = acc.add(VK.ic2.scale(this.proof.pis[1]));
+        break;
+      case 5:
+        // zkp14 handles [0,1,2]: ic1*pis[0] + ic2*pis[1] + ic3*pis[2] (3+2 distribution)
+        acc = acc.add(VK.ic1.scale(this.proof.pis[0]));
+        acc = acc.add(VK.ic2.scale(this.proof.pis[1]));
+        acc = acc.add(VK.ic3.scale(this.proof.pis[2]));
+        break;
+      case 6:
+        // zkp14 handles [0,1,2]: ic1*pis[0] + ic2*pis[1] + ic3*pis[2] (3+3 distribution)
+        acc = acc.add(VK.ic1.scale(this.proof.pis[0]));
+        acc = acc.add(VK.ic2.scale(this.proof.pis[1]));
+        acc = acc.add(VK.ic3.scale(this.proof.pis[2]));
+        break;
+      default:
+        throw new Error(`Unsupported input count: ${CONFIG.publicInputCount}`);
+    }
 
     return new G1Affine({
       x: acc.x.assertCanonical(),
