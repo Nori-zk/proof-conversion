@@ -4,7 +4,9 @@ import { Groth16Verifier } from './verifier.js';
 const grothVerifier = new Groth16Verifier('./src/groth/example_jsons/vk.json');
 
 function main() {
-  const proof = parseProof(grothVerifier.vk, './src/groth/example_jsons/proof.json');
+  const proof = Provable.witness(Proof, () =>
+    parseProof(grothVerifier.vk, './src/groth/example_jsons/proof.json')
+  );
   const aux_witness = Provable.witness(AuXWitness, () =>
     AuXWitness.parse('./src/groth/example_jsons/aux_witness.json')
   );
@@ -13,7 +15,7 @@ function main() {
 
 // npm run build && node --max-old-space-size=65536 build/src/groth/e2e_test.js
 import v8 from 'v8';
-import { parseProof } from './proof.js';
+import { parseProof, Proof } from './proof.js';
 import { AuXWitness } from '../aux_witness.js';
 (async () => {
   console.time('running Fp constant version');
