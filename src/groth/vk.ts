@@ -5,7 +5,6 @@ import { Fp12, Fp2, FpC } from '../towers/index.js';
 import fs from 'fs';
 import { bn254 } from '../ec/g1.js';
 import { ForeignCurve } from 'o1js';
-import { CONFIG } from './config.js';
 
 // Base VK structure (common fields)
 type SerializedVkBase = {
@@ -46,10 +45,10 @@ class GrothVk {
   w27: Fp12;
   w27_square: Fp12;
 
-  // IC points stored as array for flexibility, with named accessors
+  // IC points stored as array for full flexibility
   private icPoints: ForeignCurve[];
 
-  // Named accessors for compatibility with existing code
+  // Named accessors for backward compatibility
   get ic0() { return this.icPoints[0]; }
   get ic1() { return this.icPoints[1]; }
   get ic2() { return this.icPoints[2]; }
@@ -57,6 +56,10 @@ class GrothVk {
   get ic4() { return this.icPoints[4]; }
   get ic5() { return this.icPoints[5]; }
   get ic6() { return this.icPoints[6]; }
+
+  getIcPoint(index: number): ForeignCurve | undefined {
+    return this.icPoints[index];
+  }
 
   constructor(
     alpha_beta: Fp12,
@@ -72,10 +75,9 @@ class GrothVk {
     this.w27_square = w27.mul(w27);
     this.icPoints = icPoints;
 
-    // Validate we have the expected number of IC points
-    const expectedCount = CONFIG.publicInputCount + 1; // +1 for ic0
-    if (this.icPoints.length !== expectedCount) {
-      throw new Error(`Expected ${expectedCount} IC points for ${CONFIG.publicInputCount} public inputs, got ${this.icPoints.length}`);
+    // Must have at least ic0, the constant
+    if (this.icPoints.length === 0) {
+      throw new Error('VK must contain at least ic0 point');
     }
   }
 
@@ -83,11 +85,17 @@ class GrothVk {
     const data = fs.readFileSync(path, 'utf-8');
     const obj: SerializedVk = JSON.parse(data);
 
-    // Validate expected IC points are present  
-    for (const field of CONFIG.icFields) {
-      if (!(field in obj)) {
-        throw new Error(`Missing required IC point: ${field}`);
-      }
+    // Detect available IC points from VK structure
+    const availableIcFields = Object.keys(obj)
+      .filter(key => key.startsWith('ic') && /^ic\d+$/.test(key))
+      .sort((a, b) => {
+        const numA = parseInt(a.substring(2));
+        const numB = parseInt(b.substring(2));
+        return numA - numB;
+      });
+
+    if (availableIcFields.length === 0 || !availableIcFields.includes('ic0')) {
+      throw new Error('VK must contain at least ic0 point');
     }
 
     const dx = new Fp2({
@@ -113,11 +121,11 @@ class GrothVk {
     const alpha_beta = Fp12.loadFromJSON(obj.alpha_beta);
     const w27 = Fp12.loadFromJSON(obj.w27);
 
-    // Parse IC points dynamically based on configuration
-    const icPoints = CONFIG.icFields.map(field => {
+    // Parse all available IC points
+    const icPoints = availableIcFields.map(field => {
       const icData = (obj as any)[field];
-      if (!icData) {
-        throw new Error(`Missing IC point data for field: ${field}`);
+      if (!icData || !icData.x || !icData.y) {
+        throw new Error(`Invalid IC point data for field: ${field}`);
       }
       return new bn254({
         x: FpC.from(icData.x),
