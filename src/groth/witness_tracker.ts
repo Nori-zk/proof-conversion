@@ -4,23 +4,23 @@ import { ATE_LOOP_COUNT, Fp12, Fp2 } from '../towers/index.js';
 import { G2Affine } from '../ec/g2.js';
 import { G2Line, computeLineCoeffs } from '../lines/index.js';
 import { LineAccumulator } from './accumulate_lines.js';
-import { Proof } from './proof.js';
+import { ProofData } from './proof.js';
 import { AuXWitness } from '../aux_witness.js';
 import { ArrayListHasher } from '../array_list_hasher.js';
 import { VK } from './vk_from_env.js';
 import { LineParser } from '../line_parser.js';
 import { bn254 } from '../ec/g1.js';
 import { G1Affine } from '../ec/index.js';
-import { CONFIG } from './config.js';
+import { getDistribution } from './config.js';
 
 class WitnessTracker {
-  proof: Proof;
+  proof: ProofData;
   acc: Accumulator;
   line_hashes: Array<Field>;
   g: Array<Fp12>;
   b_lines: Array<G2Line>;
 
-  constructor(proof: Proof, auxWitness: AuXWitness) {
+  constructor(proof: ProofData, auxWitness: AuXWitness) {
     this.proof = proof;
     const recursionProof = new RecursionProof({
       negA: proof.negA,
@@ -328,44 +328,18 @@ class WitnessTracker {
 
   zkp14() {
     let acc = new bn254({ x: VK.ic0.x, y: VK.ic0.y });
-    switch (CONFIG.publicInputCount) {
-      case 0:
-        // Only ic0, no additional inputs
-        break;
-      case 1:
-        // zkp14 handles [0]: ic1*pis[0]
-        acc = acc.add(VK.ic1.scale(this.proof.pis[0]));
-        break;
-      case 2:
-        // zkp14 handles [0,1]: ic1*pis[0] + ic2*pis[1]
-        acc = acc.add(VK.ic1.scale(this.proof.pis[0]));
-        acc = acc.add(VK.ic2.scale(this.proof.pis[1]));
-        break;
-      case 3:
-        // zkp14 handles [0,1,2]: ic1*pis[0] + ic2*pis[1] + ic3*pis[2]
-        acc = acc.add(VK.ic1.scale(this.proof.pis[0]));
-        acc = acc.add(VK.ic2.scale(this.proof.pis[1]));
-        acc = acc.add(VK.ic3.scale(this.proof.pis[2]));
-        break;
-      case 4:
-        // zkp14 handles [0,1]: ic1*pis[0] + ic2*pis[1] (2+2 distribution)
-        acc = acc.add(VK.ic1.scale(this.proof.pis[0]));
-        acc = acc.add(VK.ic2.scale(this.proof.pis[1]));
-        break;
-      case 5:
-        // zkp14 handles [0,1,2]: ic1*pis[0] + ic2*pis[1] + ic3*pis[2] (3+2 distribution)
-        acc = acc.add(VK.ic1.scale(this.proof.pis[0]));
-        acc = acc.add(VK.ic2.scale(this.proof.pis[1]));
-        acc = acc.add(VK.ic3.scale(this.proof.pis[2]));
-        break;
-      case 6:
-        // zkp14 handles [0,1,2]: ic1*pis[0] + ic2*pis[1] + ic3*pis[2] (3+3 distribution)
-        acc = acc.add(VK.ic1.scale(this.proof.pis[0]));
-        acc = acc.add(VK.ic2.scale(this.proof.pis[1]));
-        acc = acc.add(VK.ic3.scale(this.proof.pis[2]));
-        break;
-      default:
-        throw new Error(`Unsupported input count: ${CONFIG.publicInputCount}`);
+    
+    const actualInputCount = this.proof.pis.length;
+    const distribution = getDistribution(actualInputCount);
+
+    for (let i = 0; i < distribution.zkp14.length; i++) {
+      const originalIndex = distribution.zkp14[i]; // original index in pis array
+      const icIndex = originalIndex + 1; // ic1, ic2, etc.
+      const icPoint = VK.getIcPoint(icIndex);
+      if (!icPoint) {
+        throw new Error(`Missing IC point ic${icIndex} for zkp14 input ${i}`);
+      }
+      acc = acc.add(icPoint.scale(this.proof.pis[originalIndex]));
     }
 
     return new G1Affine({
