@@ -6,7 +6,7 @@ import { ComputationalPlanExecutor } from '../compute/executor.js';
 import { performSp1ToPlonk } from '../api/sp1/plonk.js';
 import { Logger } from '../logging/logger.js';
 import { LogPrinter } from '../logging/log_printer.js';
-import { performRisc0ToGroth16 } from '../api/sp1/groth16.js';
+import { performRisc0ToGroth16 } from '../api/risc0/groth16.js';
 
 new LogPrinter('[NoriProofConverter]', [
   'log',
