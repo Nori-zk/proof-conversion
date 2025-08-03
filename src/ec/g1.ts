@@ -1,5 +1,4 @@
 import { createForeignCurve } from 'o1js';
-import { createField } from 'o1js/dist/node/bindings/crypto/finite-field';
 
 var bn254Params = {
   name: 'bn254',

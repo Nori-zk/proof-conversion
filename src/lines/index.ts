@@ -1,10 +1,9 @@
-import { Field, Struct, assert } from 'o1js';
+import { Field, Struct } from 'o1js';
 import { G1Affine, G2Affine } from '../ec/index.js';
 import { FpC, Fp2, Fp6, Fp12 } from '../towers/index.js';
 import { computeLineCoeffs } from './coeffs.js';
 import { AffineCache } from './precompute.js';
 
-const F_ONE = Field(1);
 const ZERO = Fp2.zero();
 
 class G2Line extends Struct({ lambda: Fp2, neg_mu: Fp2 }) {

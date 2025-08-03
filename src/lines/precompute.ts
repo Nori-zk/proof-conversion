@@ -2,7 +2,7 @@
 
 import { Provable } from 'o1js';
 import { G1Affine } from '../ec/index.js';
-import { Fp2, FpC } from '../towers/index.js';
+import { FpC } from '../towers/index.js';
 
 // see: https://eprint.iacr.org/2013/722.pdf
 class AffineCache {

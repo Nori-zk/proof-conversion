@@ -1,4 +1,4 @@
-import { Bytes, Hash, Gadgets, UInt8, Field, UInt32, Provable } from 'o1js';
+import { Bytes, Gadgets, UInt8, Field, UInt32, Provable } from 'o1js';
 
 /*
 we have 741 bytes to hash: 

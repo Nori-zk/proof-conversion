@@ -1,7 +1,6 @@
 import { Field, Poseidon, Provable, Struct } from 'o1js';
 import { ATE_LOOP_COUNT, Fp12, FrC } from '../towers/index.js';
 import { G1Affine } from '../ec/index.js';
-import { G2Line } from '../lines/index.js';
 
 // e(A, [1])*e(negB, [x]) = 1
 class KzgProof extends Struct({

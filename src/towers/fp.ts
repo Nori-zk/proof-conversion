@@ -1,4 +1,4 @@
-import { Crypto, Provable, Struct, createForeignField, provable } from 'o1js';
+import { createForeignField } from 'o1js';
 import { P } from './consts.js';
 // import { AnyTuple } from 'o1js/dist/node/lib/util/types';
 // const P = 21888242871839275222246405745257275088696311157297823662689037894645226208583n

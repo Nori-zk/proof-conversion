@@ -1,20 +1,14 @@
 import {
   Provable,
   Poseidon,
-  UInt64,
   verify,
-  MerkleTree,
-  Mina,
-  AccountUpdate,
   Cache,
 } from 'o1js';
 import {
   riscZeroExampleVerifier,
-  RiscZeroExampleProof,
 } from './verify_risc_zero.js';
 import { NodeProofLeft } from '../structs.js';
 import fs from 'fs';
-import { ethers } from 'ethers';
 import { Proof } from '../groth/proof.js';
 import { FrC } from '../towers/fr.js';
 import { VK } from '../groth/vk_from_env.js';
