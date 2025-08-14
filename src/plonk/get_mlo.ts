@@ -1,10 +1,9 @@
 import { Sp1PlonkVerifier } from './verifier.js';
 import { VK } from './vk.js';
-import fs from 'fs';
 import { Sp1PlonkProof, deserializeProof } from './proof.js';
 import { parsePublicInputs } from './parse_pi.js';
 import { Fp12 } from '../towers/fp12.js';
-import { createRequire } from 'node:module';
+import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const g2_lines_required = require('./mm_loop/g2_lines.json');
 const tau_lines_required = require('./mm_loop/tau_lines.json');

@@ -1,36 +1,19 @@
-import { parsePublicInputsProvable as parsePlonkPublicInputsProvable } from './plonk/parse_pi.js';
-import { wordToBytes } from './sha/utils.js';
-import { NodeProofLeft } from './structs.js';
-import { FrC } from './towers/fr.js';
-import { performSp1ToPlonk } from './api/sp1/plonk.js';
-import { ComputationalPlanExecutor } from './compute/executor.js';
-import { LogPrinter } from './logging/log_printer.js';
-import { Sp1 } from './api/sp1/types.js';
-import { Logger } from './logging/logger.js';
-import { PlatformFeatureDetectionComputationalPlan } from './compute/plans/platform/index.js';
-import { ProcessCmd, ProcessCmdOutput } from './compute/plan.js';
-import { InvertedPromise } from './utils/InvertedPromise.js';
+// Safe / side-effect-free
+export { parsePublicInputsProvable as parsePlonkPublicInputsProvable } from './plonk/parse_pi.js';
+export { wordToBytes } from './sha/utils.js';
+export { NodeProofLeft } from './structs.js';
+export { FrC } from './towers/fr.js';
+export { InvertedPromise } from './utils/InvertedPromise.js';
 
-export {
-  parsePlonkPublicInputsProvable,
-  wordToBytes,
-  NodeProofLeft,
-  FrC,
+// Api
+export { performSp1ToPlonk } from './api/sp1/plonk.js';
+export { Sp1 } from './api/sp1/types.js';
 
-  // Api
-  performSp1ToPlonk,
-  Sp1,
+// Compute
+export { ComputationalPlanExecutor } from './compute/executor.js';
+export { PlatformFeatureDetectionComputationalPlan } from './compute/plans/platform/index.js';
+export { ProcessCmd, ProcessCmdOutput } from './compute/plan.js';
 
-  // Compute
-  ComputationalPlanExecutor,
-  PlatformFeatureDetectionComputationalPlan,
-  ProcessCmd,
-  ProcessCmdOutput,
-
-  // Logging
-  LogPrinter,
-  Logger,
-
-  // Utils
-  InvertedPromise,
-};
+// Logging
+export { LogPrinter } from './logging/log_printer.js';
+export { Logger } from './logging/logger.js';

@@ -1,7 +1,6 @@
 import { ZkProgram, Field, Poseidon, Provable } from 'o1js';
 import { ArrayListHasher, KzgAccumulator } from '../../kzg/structs.js';
 import { Fp12 } from '../../towers/fp12.js';
-import fs from 'fs';
 import { ATE_LOOP_COUNT } from '../../towers/consts.js';
 import { AffineCache } from '../../lines/precompute.js';
 import { G2Line } from '../../lines/index.js';

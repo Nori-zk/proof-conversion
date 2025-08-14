@@ -1,4 +1,3 @@
-import fs from 'fs';
 import {
   get_shift_power,
   make_A,
@@ -10,7 +9,7 @@ import { KZGPairing } from './multi_miller.js';
 import { Provable } from 'o1js';
 import { G1Affine } from '../../ec/index.js';
 import { Fp12 } from '../../towers/fp12.js';
-import { createRequire } from 'node:module';
+import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const g2_lines_required = require('./g2_lines.json');
 const tau_lines_required = require('./tau_lines.json');
