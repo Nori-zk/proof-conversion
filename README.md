@@ -68,7 +68,7 @@ export MAX_PROCESSES=8
 
 Examples:
 
-1. `nori-proof-converter sp1ToPlonk example-proofs/v4.json`
+1. `nori-proof-converter sp1ToPlonk example-proofs/v5.json`
 2. `nori-proof-converter risc0ToGroth16 example-proofs/risc_zero_proof.json example-proofs/risc_zero_raw_vk.json`
 
 ### Updating the cli

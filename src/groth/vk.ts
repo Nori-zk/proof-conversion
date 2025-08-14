@@ -1,6 +1,6 @@
 import { G2Affine } from '../ec/g2.js';
 import { G2Line, computeLineCoeffs } from '../lines/index.js';
-import { Fp12Type } from '../towers/fp12';
+import { Fp12Type } from '../towers/fp12.js';
 import { Fp12, Fp2, FpC } from '../towers/index.js';
 import fs from 'fs';
 import { bn254 } from '../ec/g1.js';

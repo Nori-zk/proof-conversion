@@ -1,6 +1,6 @@
 {
   "name": "@nori-zk/proof-conversion",
-  "version": "0.5.10",
+  "version": "0.5.11",
   "description": "Verifying zkVM proofs inside o1js circuits, to generate Mina compatible proof",
   "author": "",
   "license": "Apache-2.0",
@@ -17,6 +17,14 @@
   "type": "module",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./build/src/index.js"
+    },
+    "./min": {
+      "import": "./build/src/index.min.js"
+    }
+  },
   "bin": {
     "nori-proof-converter": "./build/src/bin/cli-wrapper.js"
   },
