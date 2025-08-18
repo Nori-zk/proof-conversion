@@ -1,4 +1,4 @@
-import { Bytes, Hash, Gadgets, UInt32 } from 'o1js';
+import { Bytes, Gadgets } from 'o1js';
 
 let preimage = 'aaaabbbb';
 class Bytes8 extends Bytes(8) {}

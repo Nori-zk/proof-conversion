@@ -1,4 +1,4 @@
-import { Field, Struct, assert } from 'o1js';
+import { Field, Struct } from 'o1js';
 import { FpC } from './fp.js';
 import { Fp2 } from './fp2.js';
 import { fp2_non_residue } from './precomputed.js';

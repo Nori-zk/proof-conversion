@@ -1,7 +1,5 @@
 import { resolve } from 'path';
 import { computeAuxWitness } from '../../../pairing-utils/index.js';
-import { Alpha } from '../../../pairing-utils/index.js';
-import { Beta } from '../../../pairing-utils/index.js';
 import { AlphaBetaWasm } from '../../../pairing-utils/index.js';
 import { makeAlphaBeta } from '../../../pairing-utils/index.js';
 import {
@@ -19,7 +17,7 @@ import {
 import { PlatformFeatures } from '../platform/index.js';
 import rootDir from '../../../utils/root_dir.js';
 import { readFileSync, rmSync, writeFileSync } from 'fs';
-import { Risc0Proof, Risc0RawVk, Risc0Vk } from '../../../api/risc0/types.js';
+import { Risc0Proof, Risc0RawVk } from '../../../api/risc0/types.js';
 import { Groth16Verifier } from '../../../groth/verifier.js';
 import { Proof } from '../../../groth/proof.js';
 

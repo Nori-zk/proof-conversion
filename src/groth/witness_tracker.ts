@@ -1,6 +1,6 @@
 import { Field, Poseidon, Provable } from 'o1js';
 import { Accumulator, RecursionProof, State } from './recursion/data.js';
-import { ATE_LOOP_COUNT, Fp12, Fp2 } from '../towers/index.js';
+import { ATE_LOOP_COUNT, Fp12 } from '../towers/index.js';
 import { G2Affine } from '../ec/g2.js';
 import { G2Line, computeLineCoeffs } from '../lines/index.js';
 import { LineAccumulator } from './accumulate_lines.js';
