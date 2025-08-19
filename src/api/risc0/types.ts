@@ -1,3 +1,8 @@
+export type Risc0ToGroth16Input = {
+ risc0_proof: Risc0Proof,
+ raw_vk: Risc0RawVk,
+}
+
 export interface Risc0Proof {
   negA: {
     x: string;

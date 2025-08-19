@@ -13,7 +13,7 @@ export interface Sp1PublicValues {
   };
 }
 
-export interface Sp1 {
+export interface Sp1Input {
   proof: Sp1Proof;
   public_values: Sp1PublicValues;
   sp1_version: string;

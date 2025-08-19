@@ -8,7 +8,7 @@ While the infrastructure in this project is optimized for **SP1 proofs**, it is 
 
 Additionally, the repository provides infrastructure for **Groth16 verification**, enabling the consumption of Groth16-based proofs produced by other frameworks such as **circom, arkworks, gnark, Risc Zero**, and many others.
 
-# Typescript API
+## Typescript API
 
 The latest version is moving towards, migrating away from having a mix of languages (TS, Bash, and Rust) to having a homogeneous TS-first approach utilizing WebAssembly to incorporate the Rust components and striving to deprecate Bash.
 
@@ -55,10 +55,7 @@ Run `npm run relink` to install proof-conversion bash command.
 nori-proof-converter <command> <input-json-file-path1> <input-json-file-path2>
 ```
 
-Currently supported commands:
- 
-- sp1ToPlonk
-- risc0ToGroth16
+A command is a utility which helps conversion / verification from one type of proof format to another. Run any command with a JSON file or files according to its supported modes. Omit arguments to see metadata and required keys.
 
 You can change the number of child processes it spawns by setting the MAX_PROCESSES environment variable before running the cli:
 
@@ -66,12 +63,95 @@ You can change the number of child processes it spawns by setting the MAX_PROCES
 export MAX_PROCESSES=8
 ```
 
-Examples:
+### Overview
 
-1. `nori-proof-converter sp1ToPlonk example-proofs/v4.json`
-2. `nori-proof-converter risc0ToGroth16 example-proofs/risc_zero_proof.json example-proofs/risc_zero_raw_vk.json`
+The CLI supports two input modes for each command:
+
+1. Args-Mode:
+   - Provide multiple JSON files as separate arguments.
+   - The order and keys of the files are validated against the command’s api arguments metadata.
+   - Example:
+     nori-proof-converter sp1ToPlonk path/to/hexPi.json path/to/programVK.json path/to/encodedProof.json
+
+2. Object-Mode:
+   - Provide a single JSON file containing all required keys.
+   - The keys are validated against the command’s api object metadata.
+   - Example:
+     nori-proof-converter sp1ToPlonk path/to/sp1_obj_v5.json
+
+Note: Not all commands support both modes. The CLI will indicate supported modes and required keys if you run a command without arguments.
+
+### Supported commands
+--------
+ 
+- sp1ToPlonk
+- risc0ToGroth16
+
+#### sp1ToPlonk
+
+Convert SP1 proofs to Plonk proofs.
+
+Supported Modes and Metadata:
+
+- Args-Mode: Yes
+  - Required Json files: hexPi, programVK, encodedProof
+  - Example:
+    `nori-proof-converter sp1ToPlonk ./example-proofs/sp1_args_v5_hex_pi.json ./example-proofs/sp1_args_v5_program_vk.json ./example-proofs/sp1_args_v5_encoded_proof.json`
+
+- Object-Mode: Yes
+  - Required Json file keys: proof, public_values, sp1_version
+  - Example:
+    `nori-proof-converter sp1ToPlonk ./example-proofs/sp1_obj_v5.json`
+
+
+Example CLI metadata output (running command with no args):
+
+```
+=== sp1ToPlonk ===
+Supports args-mode (file-based): true
+  argsMetadata (files): ["hexPi","programVK","encodedProof"]
+  Example (args-mode):
+    `nori-proof-converter sp1ToPlonk path/to/hexPi.json path/to/programVK.json path/to/encodedProof.json`
+
+Supports object-mode (single file only): true
+  objMetadata (Json file must have keys): ["proof","public_values","sp1_version"]
+  Example (object-mode):
+    `nori-proof-converter sp1ToPlonk path/to/sp1_obj_v5.json`
+```
+
+#### risc0ToGroth16
+
+Convert RISC0 proofs to Groth16 proofs.
+
+Supported Modes and Metadata:
+
+- Args-Mode: Yes
+  - Required Json files: proof, raw_vk
+  - Example:
+    `nori-proof-converter risc0ToGroth16 ./example-proofs/risc_zero_args_proof.json ./example-proofs/risc_zero_args_raw_vk.json`
+
+- Object-Mode: Yes
+  - Required Json file keys: proof, raw_vk
+  - Example:
+    `nori-proof-converter risc0ToGroth16 ./example-proofs/risc_zero_obj.json`
+
+Example CLI metadata output (running command with no args):
+
+```
+=== risc0ToGroth16 ===
+Supports args-mode (file-based): true
+  argsMetadata (files required): ["risc0_proof","raw_vk"]
+  Example (args-mode):
+    nori-proof-converter risc0ToGroth16 path/to/risc0_proof.json path/to/raw_vk.json
+
+Supports object-mode (single file only): true
+  objMetadata (JSON file must have keys): ["risc0_proof","raw_vk"]
+  Example (object-mode):
+    nori-proof-converter risc0ToGroth16 path/to/risc0_obj.json
+```
 
 ### Updating the cli
+--------
 
 #### Local reinstallation
 
@@ -82,6 +162,7 @@ Run `npm run relink`
 `npm unlink -g nori-proof-converter && npm uninstall -g nori-proof-converter && npm install -g @nori-zk/proof-conversion`
 
 ### Cli Troublingshooting
+--------
 
 - If getting a permission denied check npm's awareness of linked modules `npm ls -g --depth=0 --link=true` remove symlinks manually if nessesary and run `npm run relink`
 
@@ -91,7 +172,7 @@ Run `npm run relink`
 Refer to the **[Gitbook documentation](https://o1js-blobstream.gitbook.io/o1js-blobstream)** for details on **o1js-blobstream**.
 
 ### Optional Kernel Tuning
-
+--------
 ```
 sudo sysctl -w vm.zone_reclaim_mode=0
 sudo sysctl -w vm.overcommit_memory=1
