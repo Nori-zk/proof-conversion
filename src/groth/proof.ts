@@ -6,6 +6,15 @@ import { G2Line, computeLineCoeffs } from '../lines/index.js';
 import { computePI } from './compute_pi.js';
 import { GrothVk } from './vk.js';
 
+export interface ProofData {
+  negA: G1Affine;
+  B: G2Affine;
+  C: G1Affine;
+  PI: G1Affine;
+  b_lines: G2Line[];
+  pis: FrC[];
+}
+
 const getNumOfLines = () => {
   let cnt = 0;
 
@@ -18,67 +27,95 @@ const getNumOfLines = () => {
   return cnt + 2;
 };
 
-type SerializedProof = {
-  negA: {
-    x: string;
-    y: string;
-  };
-  B: {
-    x_c0: string;
-    x_c1: string;
-    y_c0: string;
-    y_c1: string;
-  };
-  C: {
-    x: string;
-    y: string;
-  };
-  pi1: string;
-  pi2: string;
-  pi3: string;
-  pi4: string;
-  pi5: string;
-};
+// Cache for dynamically created Proof classes
+const proofClassCache = new Map<number, any>();
 
-class Proof extends Struct({
-  negA: G1Affine,
-  B: G2Affine,
-  C: G1Affine,
-  PI: G1Affine,
-  b_lines: Provable.Array(G2Line, getNumOfLines()),
-  pis: Provable.Array(FrC.provable, 5),
-}) {
-  static parse(vk: GrothVk, path: string): Proof {
-    const data = fs.readFileSync(path, 'utf-8');
-    const obj: SerializedProof = JSON.parse(data);
-
-    const negA = new G1Affine({
-      x: FpC.from(obj.negA.x),
-      y: FpC.from(obj.negA.y),
-    });
-    const C = new G1Affine({ x: FpC.from(obj.C.x), y: FpC.from(obj.C.y) });
-
-    const pis = [
-      FrC.from(obj.pi1),
-      FrC.from(obj.pi2),
-      FrC.from(obj.pi3),
-      FrC.from(obj.pi4),
-      FrC.from(obj.pi5),
-    ];
-    let piBn = computePI(vk, pis);
-    const PI = new G1Affine({
-      x: FpC.from(piBn.x).assertCanonical(),
-      y: FpC.from(piBn.y).assertCanonical(),
-    });
-
-    const bx = new Fp2({ c0: FpC.from(obj.B.x_c0), c1: FpC.from(obj.B.x_c1) });
-    const by = new Fp2({ c0: FpC.from(obj.B.y_c0), c1: FpC.from(obj.B.y_c1) });
-    const B = new G2Affine({ x: bx, y: by });
-
-    const b_lines = computeLineCoeffs(B);
-
-    return new Proof({ negA, B, C, PI, b_lines, pis });
+function createProofClass(inputCount: number) {
+  if (inputCount < 0 || inputCount > 6) {
+    throw new Error(`Unsupported input count: ${inputCount}. Supported range: 0-6`);
   }
+
+  if (proofClassCache.has(inputCount)) {
+    return proofClassCache.get(inputCount);
+  }
+
+  const ProofClass = class extends Struct({
+    negA: G1Affine,
+    B: G2Affine,
+    C: G1Affine,
+    PI: G1Affine,
+    b_lines: Provable.Array(G2Line, getNumOfLines()),
+    pis: Provable.Array(FrC.provable, inputCount),
+  }) {
+    static parse(vk: GrothVk, path: string) {
+      const json = JSON.parse(fs.readFileSync(path, 'utf-8'));
+
+      // Get public inputs (pi1, pi2, etc)
+      const publicInputs: FrC[] = [];
+      for (let i = 1; i <= inputCount; i++) {
+        const key = `pi${i}`;
+        if (json[key]) {
+          publicInputs.push(FrC.from(json[key]));
+        }
+      }
+
+      const negA = new G1Affine({
+        x: FpC.from(json.negA.x),
+        y: FpC.from(json.negA.y),
+      });
+
+      const C = new G1Affine({
+        x: FpC.from(json.C.x),
+        y: FpC.from(json.C.y),
+      });
+
+      const B = new G2Affine({
+        x: new Fp2({
+          c0: FpC.from(json.B.x_c0),
+          c1: FpC.from(json.B.x_c1),
+        }),
+        y: new Fp2({
+          c0: FpC.from(json.B.y_c0),
+          c1: FpC.from(json.B.y_c1),
+        }),
+      });
+
+      const PI = new G1Affine({
+        x: FpC.from(computePI(vk, publicInputs).x).assertCanonical(),
+        y: FpC.from(computePI(vk, publicInputs).y).assertCanonical(),
+      });
+
+      return new ProofClass({
+        negA,
+        B,
+        C,
+        PI,
+        b_lines: computeLineCoeffs(B),
+        pis: publicInputs,
+      });
+    }
+  };
+
+  proofClassCache.set(inputCount, ProofClass);
+  return ProofClass;
 }
+
+export function detectInputCountFromProof(path: string): number {
+  const json = JSON.parse(fs.readFileSync(path, 'utf-8'));
+  let count = 0;
+  for (let i = 1; i <= 6; i++) {
+    if (json[`pi${i}`]) count++;
+  }
+  return count;
+}
+
+export function parseProof(vk: GrothVk, path: string) {
+  const inputCount = detectInputCountFromProof(path);
+  const ProofClass = createProofClass(inputCount);
+  return ProofClass.parse(vk, path);
+}
+
+// Legacy Proof for backward compatibility (fixed 5 inputs)
+const Proof = createProofClass(5);
 
 export { Proof };
