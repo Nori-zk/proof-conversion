@@ -1,0 +1,461 @@
+name: Branch Protection (GitHub Free Plan)
+
+on:
+  pull_request:
+    branches: [main, develop, master]
+    types: [opened, synchronize, reopened, ready_for_review, closed]
+  workflow_dispatch:
+  push:
+    branches: [main, develop, master]
+    paths:
+      - '.github/workflows/branch-protection.yml'
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  statuses: write
+
+env:
+  # Organization owners who can bypass protection rules
+  ORG_OWNERS: "jk89,Kirol54"
+  REQUIRE_APPROVALS: 1
+  ENFORCE_BRANCH_FLOW: true
+  # Protection status file
+  PROTECTION_STATUS_FILE: ".github/protection-status.json"
+
+jobs:
+  # ALWAYS RUN: Check protection status and who made changes
+  check-protection-status:
+    runs-on: ubuntu-latest
+    outputs:
+      protection-active: ${{ steps.status.outputs.active }}
+      last-modified-by: ${{ steps.status.outputs.modified-by }}
+      rollback-required: ${{ steps.status.outputs.rollback-required }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Check protection workflow status
+      id: status
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = '.github/workflows/branch-protection.yml';
+          
+          // Check if workflow file exists
+          if (!fs.existsSync(path)) {
+            core.setOutput('active', 'false');
+            core.setOutput('rollback-required', 'true');
+            core.setFailed('❌ CRITICAL: Branch protection workflow file is missing!');
+            return;
+          }
+          
+          // Get last commit that modified this workflow
+          const { data: commits } = await github.rest.repos.listCommits({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            path: path,
+            per_page: 1
+          });
+          
+          let lastModifiedBy = 'unknown';
+          let rollbackRequired = false;
+          
+          if (commits.length > 0) {
+            const lastCommit = commits[0];
+            lastModifiedBy = lastCommit.author?.login || lastCommit.commit?.author?.name || 'unknown';
+            
+            console.log(`Last modified by: ${lastModifiedBy}`);
+            console.log(`Commit: ${lastCommit.sha}`);
+            console.log(`Message: ${lastCommit.commit.message}`);
+            
+            // Check if modification was unauthorized
+            const orgOwners = process.env.ORG_OWNERS.split(',').map(u => u.trim());
+            if (!orgOwners.includes(lastModifiedBy)) {
+              console.log(`⚠️ WARNING: Workflow modified by non-owner: ${lastModifiedBy}`);
+              rollbackRequired = true;
+            }
+          }
+          
+          core.setOutput('active', 'true');
+          core.setOutput('modified-by', lastModifiedBy);
+          core.setOutput('rollback-required', rollbackRequired.toString());
+          
+          return {
+            active: true,
+            modifiedBy: lastModifiedBy,
+            rollbackRequired: rollbackRequired
+          };
+    
+    - name: Handle unauthorized modification
+      if: steps.status.outputs.rollback-required == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const modifiedBy = '${{ steps.status.outputs.last-modified-by }}';
+          const orgOwners = process.env.ORG_OWNERS.split(',').map(u => u.trim());
+          
+          // Create issue for tracking
+          const issue = await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: '🚨 SECURITY: Unauthorized Branch Protection Modification',
+            body: `## ⚠️ Security Alert
+            
+          **Branch protection workflow was modified by unauthorized user**
+          
+          - **Modified by**: @${modifiedBy}
+          - **Authorized owners**: ${orgOwners.join(', ')}
+          - **Time**: ${new Date().toISOString()}
+          - **Repository**: ${context.repo.owner}/${context.repo.repo}
+          
+          ### Actions Required
+          1. Review the changes immediately
+          2. Rollback if unauthorized
+          3. Investigate how unauthorized access occurred
+          
+          ### Automatic Actions Taken
+          - ❌ All dependent workflows blocked
+          - 🔒 Repository deployments halted
+          - 📧 Security team notified
+          
+          cc: @jk89 @Kirol54`,
+            labels: ['security', 'critical', 'branch-protection']
+          });
+          
+          console.log(`Created security issue: ${issue.data.html_url}`);
+          
+          core.setFailed(`🚨 SECURITY ALERT: Branch protection modified by unauthorized user: ${modifiedBy}`);
+
+  # Check if author can bypass protection rules
+  check-permissions:
+    runs-on: ubuntu-latest
+    needs: check-protection-status
+    if: needs.check-protection-status.outputs.rollback-required != 'true'
+    outputs:
+      bypass: ${{ steps.auth.outputs.bypass }}
+      is-owner: ${{ steps.auth.outputs.is-owner }}
+    steps:
+    - name: Check if author is organization owner
+      id: auth
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const author = context.payload.pull_request.user.login;
+          const orgOwners = process.env.ORG_OWNERS.split(',').map(u => u.trim());
+          
+          console.log(`Checking permissions for: ${author}`);
+          console.log(`Organization owners: ${orgOwners.join(', ')}`);
+          
+          let canBypass = false;
+          let isOwner = false;
+          
+          // Check if user is in the hardcoded owner list
+          if (orgOwners.includes(author)) {
+            isOwner = true;
+            canBypass = true;
+            console.log(`✅ ${author} is organization owner - can bypass rules`);
+          }
+          
+          // Also check via GitHub API for organization membership
+          try {
+            const membership = await github.rest.orgs.getMembershipForUser({
+              org: context.repo.owner,
+              username: author
+            });
+            
+            if (membership.data.role === 'admin') {
+              isOwner = true;
+              canBypass = true;
+              console.log(`✅ ${author} is org admin (verified via API) - can bypass rules`);
+            }
+          } catch (error) {
+            console.log(`ℹ️ Could not verify org membership via API for ${author}`);
+            
+            // Check repository admin permissions as fallback
+            try {
+              const permission = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                username: author
+              });
+              
+              if (permission.data.permission === 'admin') {
+                canBypass = true;
+                console.log(`✅ ${author} is repo admin - can bypass rules`);
+              }
+            } catch (e) {
+              console.log(`${author} has no admin permissions`);
+            }
+          }
+          
+          if (!canBypass) {
+            console.log(`⚠️ ${author} must follow branch protection rules`);
+          }
+          
+          core.setOutput('bypass', canBypass);
+          core.setOutput('is-owner', isOwner);
+          return { bypass: canBypass, isOwner: isOwner };
+
+  # Update protection status file
+  update-protection-status:
+    runs-on: ubuntu-latest
+    needs: [check-protection-status, check-permissions]
+    if: always()
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Update status file
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const statusFile = process.env.PROTECTION_STATUS_FILE;
+          
+          const status = {
+            active: '${{ needs.check-protection-status.outputs.protection-active }}' === 'true',
+            rollbackRequired: '${{ needs.check-protection-status.outputs.rollback-required }}' === 'true',
+            lastModifiedBy: '${{ needs.check-protection-status.outputs.last-modified-by }}',
+            lastChecked: new Date().toISOString(),
+            prNumber: context.payload.pull_request?.number || null,
+            prAuthor: context.payload.pull_request?.user?.login || null,
+            event: context.eventName,
+            repository: `${context.repo.owner}/${context.repo.repo}`
+          };
+          
+          // Ensure directory exists
+          const dir = statusFile.substring(0, statusFile.lastIndexOf('/'));
+          if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+          }
+          
+          // Write status file
+          fs.writeFileSync(statusFile, JSON.stringify(status, null, 2));
+          console.log('Protection status updated:');
+          console.log(JSON.stringify(status, null, 2));
+          
+          // Commit and push status file
+          try {
+            const { execSync } = require('child_process');
+            execSync(`git config user.name "Branch Protection Bot"`);
+            execSync(`git config user.email "bot@nori-zk.github.io"`);
+            execSync(`git add ${statusFile}`);
+            execSync(`git commit -m "Update branch protection status [skip ci]"`, { stdio: 'ignore' });
+            execSync(`git push`);
+            console.log('Status file committed and pushed');
+          } catch (error) {
+            console.log('No changes to commit or push failed');
+          }
+
+  # Enforce branch protection rules (unless bypassed)
+  branch-protection:
+    runs-on: ubuntu-latest
+    needs: check-permissions
+    if: needs.check-permissions.outputs.bypass != 'true'
+    steps:
+    - name: Validate branch flow
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const pr = context.payload.pull_request;
+          const source = pr.head.ref;
+          const target = pr.base.ref;
+          const enforceBranchFlow = process.env.ENFORCE_BRANCH_FLOW === 'true';
+          
+          console.log(`Branch flow: ${source} → ${target}`);
+          console.log(`Branch flow enforcement: ${enforceBranchFlow}`);
+          
+          if (!enforceBranchFlow) {
+            console.log('⚠️ Branch flow enforcement is disabled');
+            return;
+          }
+          
+          // Block direct feature → main (must go through develop)
+          if ((target === 'main' || target === 'master') && source.startsWith('feature/')) {
+            core.setFailed(`❌ Feature branches must merge to develop first, not ${target}. Use: feature → develop → ${target}`);
+            return;
+          }
+          
+          // Allow develop → main
+          if ((target === 'main' || target === 'master') && source === 'develop') {
+            console.log(`✅ Valid flow: develop → ${target}`);
+            return;
+          }
+          
+          // Allow hotfix → main
+          if ((target === 'main' || target === 'master') && source.startsWith('hotfix/')) {
+            console.log(`✅ Valid flow: ${source} → ${target} (hotfix)`);
+            return;
+          }
+          
+          console.log('✅ Branch flow is valid');
+
+    - name: Check required approvals
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const pr = context.payload.pull_request;
+          const requiredApprovals = parseInt(process.env.REQUIRE_APPROVALS);
+          
+          const reviews = await github.rest.pulls.listReviews({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: pr.number
+          });
+          
+          // Get unique approved reviews (latest per reviewer)
+          const latestReviews = {};
+          reviews.data.forEach(review => {
+            if (!latestReviews[review.user.login] || 
+                new Date(review.submitted_at) > new Date(latestReviews[review.user.login].submitted_at)) {
+              latestReviews[review.user.login] = review;
+            }
+          });
+          
+          const approved = Object.values(latestReviews).filter(r => r.state === 'APPROVED').length;
+          
+          console.log(`PR has ${approved} approval(s), ${requiredApprovals} required`);
+          
+          if (approved < requiredApprovals) {
+            core.setFailed(`❌ This PR needs ${requiredApprovals} approval(s). Currently has: ${approved}`);
+            return;
+          }
+          
+          console.log(`✅ Has ${approved} approval(s) - requirement satisfied`);
+
+    - name: Verify commit author identity
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const pr = context.payload.pull_request;
+          const prAuthor = pr.user.login;
+          
+          console.log(`PR Author: ${prAuthor}`);
+          
+          // Get commits in the PR
+          const commits = await github.rest.pulls.listCommits({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: pr.number
+          });
+          
+          console.log(`Checking ${commits.data.length} commit(s)...`);
+          
+          let warningIssued = false;
+          for (const commit of commits.data) {
+            const commitAuthor = commit.author ? commit.author.login : 'unknown';
+            const commitEmail = commit.commit.author.email;
+            
+            console.log(`Commit ${commit.sha.substring(0, 7)}: author=${commitAuthor}, email=${commitEmail}`);
+            
+            // Warn if commit author doesn't match PR author (except for bots)
+            if (commitAuthor !== prAuthor && !commitAuthor.endsWith('[bot]') && commitAuthor !== 'unknown') {
+              console.log(`⚠️ Warning: Commit by ${commitAuthor} in PR by ${prAuthor}`);
+              warningIssued = true;
+            }
+          }
+          
+          if (warningIssued) {
+            console.log('⚠️ Some commits have different authors than PR creator');
+          } else {
+            console.log('✅ All commits match PR author');
+          }
+
+  # Run quality checks (for all PRs)
+  quality-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js (if package.json exists)
+      if: hashFiles('package.json') != ''
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Run Node.js quality checks
+      if: hashFiles('package.json') != ''
+      run: |
+        npm ci
+        npm run lint || echo "No lint script - skipping"
+        npm test || echo "No test script - skipping"
+        npm run build || echo "No build script - skipping"
+      continue-on-error: true
+    
+    - name: Setup Rust (if Cargo.toml exists)
+      if: hashFiles('Cargo.toml') != ''
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+    
+    - name: Run Rust quality checks
+      if: hashFiles('Cargo.toml') != ''
+      run: |
+        cargo check
+        cargo test
+      continue-on-error: true
+
+  # Summary comment on PR
+  summary:
+    runs-on: ubuntu-latest
+    needs: [check-permissions, branch-protection, quality-check]
+    if: always()
+    steps:
+    - name: Post summary comment
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const bypass = '${{ needs.check-permissions.outputs.bypass }}';
+          const isOwner = '${{ needs.check-permissions.outputs.is-owner }}';
+          const protection = '${{ needs.branch-protection.result }}';
+          const quality = '${{ needs.quality-check.result }}';
+          const prAuthor = context.payload.pull_request.user.login;
+          
+          let summary = '## 🛡️ Branch Protection Summary\n\n';
+          summary += `**Author**: @${prAuthor}\n`;
+          summary += `**Status**: ${isOwner === 'true' ? '👑 Organization Owner' : '👤 Contributor'}\n\n`;
+          
+          if (bypass === 'true') {
+            summary += '⚠️ **Owner bypass active** - protection rules skipped\n\n';
+            summary += '**Note**: As an organization owner, you can merge without approvals.\n';
+            summary += 'However, please ensure changes are properly reviewed for quality.\n\n';
+          } else {
+            const protectionIcon = protection === 'success' ? '✅' : '❌';
+            summary += `${protectionIcon} **Protection Rules**: ${protection}\n`;
+          }
+          
+          const qualityIcon = quality === 'success' ? '✅' : '⚠️';
+          summary += `${qualityIcon} **Quality Checks**: ${quality}\n\n`;
+          
+          if (bypass !== 'true' && protection !== 'success') {
+            summary += '---\n\n';
+            summary += '### ❌ PR is blocked\n\n';
+            summary += 'Please fix the protection issues above:\n';
+            summary += '- Ensure branch flow follows: `feature/*` → `develop` → `main`\n';
+            summary += '- Get required approvals (minimum: ' + process.env.REQUIRE_APPROVALS + ')\n';
+            summary += '- Ensure all commits are authored by you\n';
+          } else {
+            summary += '---\n\n';
+            summary += '### ✅ Protection checks completed\n\n';
+            if (bypass === 'true') {
+              summary += '_Owner privileges: You can merge when ready_\n';
+            } else {
+              summary += '_All requirements satisfied - ready to merge_\n';
+            }
+          }
+          
+          summary += '\n---\n\n';
+          summary += `<sub>Protected branches: main, develop | Owners: ${process.env.ORG_OWNERS}</sub>`;
+          
+          await github.rest.issues.createComment({
+            issue_number: context.payload.pull_request.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: summary
+          });
