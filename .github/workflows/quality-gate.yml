@@ -1,0 +1,404 @@
+name: Quality Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  push:
+    branches:
+      - develop
+
+jobs:
+  quality-check:
+    name: quality-check
+    runs-on: [self-hosted, nori, standard]
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    
+    env:
+      # Enable/disable checks
+      CHECK_BUILD: true
+      CHECK_SCRIPTS: true
+      CHECK_AUDIT: true
+      CHECK_PRETTIER: true
+      CHECK_LINT: true
+      CHECK_TEST_UNIT: true
+      
+      # Required vs optional (true = blocks merge)
+      REQUIRE_BUILD: true
+      REQUIRE_SCRIPTS: false
+      REQUIRE_AUDIT: true
+      REQUIRE_PRETTIER: false
+      REQUIRE_LINT: false
+      REQUIRE_TEST_UNIT: false
+      
+      # Tool dependencies
+      PRETTIER_DEP: "prettier"
+      LINT_DEP: "eslint"
+      
+      # Expected scripts
+      EXPECT_SCRIPTS: "test:unit,test:integration,test:e2e"
+      
+      # Audit severity threshold
+      AUDIT_LEVEL: "moderate"
+    
+    steps:
+      - name: Fix workspace permissions
+        run: sudo chown -R runner:runner $GITHUB_WORKSPACE
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        continue-on-error: true
+        
+      - name: Run Quality Gate and Post to PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const { execSync } = require('child_process');
+            
+            // Configuration
+            const config = {
+              checks: {
+                build: { enabled: process.env.CHECK_BUILD === 'true', required: process.env.REQUIRE_BUILD === 'true' },
+                scripts: { enabled: process.env.CHECK_SCRIPTS === 'true', required: process.env.REQUIRE_SCRIPTS === 'true' },
+                audit: { enabled: process.env.CHECK_AUDIT === 'true', required: process.env.REQUIRE_AUDIT === 'true' },
+                prettier: { enabled: process.env.CHECK_PRETTIER === 'true', required: process.env.REQUIRE_PRETTIER === 'true' },
+                lint: { enabled: process.env.CHECK_LINT === 'true', required: process.env.REQUIRE_LINT === 'true' },
+                testUnit: { enabled: process.env.CHECK_TEST_UNIT === 'true', required: process.env.REQUIRE_TEST_UNIT === 'true' }
+              },
+              prettierDep: process.env.PRETTIER_DEP || 'prettier',
+              lintDep: process.env.LINT_DEP || 'eslint',
+              expectScripts: (process.env.EXPECT_SCRIPTS || '').split(',').filter(Boolean),
+              auditLevel: process.env.AUDIT_LEVEL || 'moderate'
+            };
+            
+            // Results tracking
+            const results = {
+              timestamp: new Date().toISOString(),
+              passed: 0,
+              failed: 0,
+              skipped: 0,
+              hardFailures: [],
+              sections: []
+            };
+            
+            // Helper functions
+            function addPass(name, message, required) {
+              results.passed++;
+              results.sections.push({ name, status: 'PASS', type: required ? 'REQUIRED' : 'Optional', message });
+              console.log(`✓ ${name}: PASS`);
+            }
+            
+            function addFail(name, message, required, hint = '', details = '') {
+              results.failed++;
+              if (required) results.hardFailures.push(name);
+              results.sections.push({ name, status: 'FAIL', type: required ? 'REQUIRED' : 'Optional', message, hint, details });
+              console.log(`✗ ${name}: FAIL - ${message}`);
+            }
+            
+            function addSkip(name, reason) {
+              results.skipped++;
+              results.sections.push({ name, status: 'SKIPPED', type: 'Info', message: reason });
+              console.log(`○ ${name}: SKIPPED - ${reason}`);
+            }
+            
+            function run(cmd) {
+              try {
+                return { success: true, output: execSync(cmd, { encoding: 'utf8', stdio: 'pipe' }) };
+              } catch (error) {
+                return { success: false, output: error.stdout || error.stderr || error.message };
+              }
+            }
+            
+            function hasPackageJson() {
+              return fs.existsSync('package.json');
+            }
+            
+            function getPackageJson() {
+              return JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            }
+            
+            console.log('========================================');
+            console.log('Quality Gate Starting');
+            console.log('========================================\n');
+            
+            // Check scripts
+            if (config.checks.scripts.enabled) {
+              if (!hasPackageJson()) {
+                addSkip('Scripts Check', 'package.json not found');
+              } else {
+                const pkg = getPackageJson();
+                const found = [];
+                const missing = [];
+                
+                config.expectScripts.forEach(script => {
+                  (pkg.scripts?.[script] ? found : missing).push(script);
+                });
+                
+                if (missing.length === 0) {
+                  addPass('Scripts Check', `All expected scripts present: ${found.join(', ')}`, config.checks.scripts.required);
+                } else {
+                  addFail('Scripts Check', `Missing scripts: ${missing.join(', ')}`, config.checks.scripts.required, '', 
+                    `Expected: ${config.expectScripts.join(', ')}\nFound: ${found.join(', ')}\nMissing: ${missing.join(', ')}`);
+                }
+              }
+            } else {
+              addSkip('Scripts Check', 'Disabled via CHECK_SCRIPTS=false');
+            }
+            
+            // Check npm audit
+            if (config.checks.audit.enabled) {
+              if (!hasPackageJson()) {
+                addSkip('npm audit', 'package.json not found');
+              } else {
+                const result = run(`npm audit --audit-level=${config.auditLevel}`);
+                
+                if (result.success) {
+                  addPass('npm audit', `No vulnerabilities found at ${config.auditLevel} level or above`, config.checks.audit.required);
+                } else {
+                  addFail('npm audit', `Vulnerabilities found (threshold: ${config.auditLevel})`, 
+                    config.checks.audit.required, 'npm audit fix', result.output);
+                }
+              }
+            } else {
+              addSkip('npm audit', 'Disabled via CHECK_AUDIT=false');
+            }
+            
+            // Check build
+            if (config.checks.build.enabled) {
+              if (!hasPackageJson()) {
+                addSkip('Build', 'package.json not found');
+              } else {
+                const pkg = getPackageJson();
+                if (!pkg.scripts?.build) {
+                  addFail('Build', 'build script not found in package.json', config.checks.build.required);
+                } else {
+                  const result = run('npm run build');
+                  if (result.success) {
+                    addPass('Build', 'Build completed successfully', config.checks.build.required);
+                  } else {
+                    addFail('Build', 'Build failed', config.checks.build.required, 'Check build errors', result.output.substring(0, 1000));
+                  }
+                }
+              }
+            } else {
+              addSkip('Build', 'Disabled via CHECK_BUILD=false');
+            }
+            
+            // Check prettier
+            if (config.checks.prettier.enabled) {
+              if (!hasPackageJson()) {
+                addSkip('Prettier', 'package.json not found');
+              } else {
+                const pkg = getPackageJson();
+                const hasDep = pkg.dependencies?.[config.prettierDep] || pkg.devDependencies?.[config.prettierDep];
+                
+                if (!hasDep) {
+                  if (config.checks.prettier.required) {
+                    addFail('Prettier', `${config.prettierDep} not installed`, config.checks.prettier.required, 
+                      `npm install --save-dev ${config.prettierDep}`);
+                  } else {
+                    addSkip('Prettier', `${config.prettierDep} not installed`);
+                  }
+                } else {
+                  const result = run('npx prettier --check "**/*.{ts,js,json,md}" --ignore-path .gitignore');
+                  if (result.success) {
+                    addPass('Prettier', 'All files properly formatted', config.checks.prettier.required);
+                  } else {
+                    const fileCount = result.output.split('\n').filter(l => l.trim() && !l.includes('Checking formatting')).length;
+                    if (fileCount === 0) {
+                      addPass('Prettier', 'All files properly formatted', config.checks.prettier.required);
+                    } else {
+                      addFail('Prettier', `${fileCount} file(s) need formatting`, config.checks.prettier.required, 'npm run format');
+                    }
+                  }
+                }
+              }
+            } else {
+              addSkip('Prettier', 'Disabled via CHECK_PRETTIER=false');
+            }
+            
+            // Check linter
+            if (config.checks.lint.enabled) {
+              if (!hasPackageJson()) {
+                addSkip('Linter', 'package.json not found');
+              } else {
+                const pkg = getPackageJson();
+                const hasDep = pkg.dependencies?.[config.lintDep] || pkg.devDependencies?.[config.lintDep];
+                
+                if (!hasDep) {
+                  if (config.checks.lint.required) {
+                    addFail('Linter', `${config.lintDep} not installed`, config.checks.lint.required, 
+                      `npm install --save-dev ${config.lintDep}`);
+                  } else {
+                    addSkip('Linter', `${config.lintDep} not installed`);
+                  }
+                } else if (!pkg.scripts?.lint) {
+                  addSkip('Linter', 'lint script not found in package.json');
+                } else {
+                  const result = run('npm run lint');
+                  if (result.success) {
+                    addPass('Linter', 'No linting errors', config.checks.lint.required);
+                  } else {
+                    const errorMatch = result.output.match(/(\d+)\s+error/);
+                    const warningMatch = result.output.match(/(\d+)\s+warning/);
+                    const errors = errorMatch ? parseInt(errorMatch[1]) : 0;
+                    const warnings = warningMatch ? parseInt(warningMatch[1]) : 0;
+                    
+                    if (errors === 0 && warnings === 0) {
+                      addPass('Linter', 'No linting errors', config.checks.lint.required);
+                    } else {
+                      addFail('Linter', `${errors} error(s), ${warnings} warning(s)`, config.checks.lint.required, 
+                        'npm run lint', result.output.substring(0, 1000));
+                    }
+                  }
+                }
+              }
+            } else {
+              addSkip('Linter', 'Disabled via CHECK_LINT=false');
+            }
+            
+            // Check unit Tests
+            if (config.checks.testUnit.enabled) {
+              if (!hasPackageJson()) {
+                addSkip('Unit Tests', 'package.json not found');
+              } else {
+                const pkg = getPackageJson();
+                if (!pkg.scripts?.['test:unit']) {
+                  addSkip('Unit Tests', 'test:unit script not found');
+                } else {
+                  const result = run('npm run test:unit');
+                  if (result.success) {
+                    addPass('Unit Tests', 'All unit tests passed', config.checks.testUnit.required);
+                  } else {
+                    addFail('Unit Tests', 'Unit tests failed', config.checks.testUnit.required, 
+                      'Check test output', result.output.substring(0, 1000));
+                  }
+                }
+              }
+            } else {
+              addSkip('Unit Tests', 'Disabled via CHECK_TEST_UNIT=false');
+            }
+            
+            // Generate summary
+            console.log('\n========================================');
+            console.log('Quality Gate Complete');
+            console.log('========================================');
+            console.log(`Passed: ${results.passed}`);
+            console.log(`Failed: ${results.failed}`);
+            console.log(`Skipped: ${results.skipped}`);
+            
+            // Build markdown report
+            let report = `# Quality Gate Report\n\n**Generated:** ${new Date(results.timestamp).toLocaleString()}\n\n`;
+            
+            if (results.hardFailures.length === 0) {
+              report += '## Overall Status: PASS\n\n';
+              if (results.failed > 0) {
+                report += `**Warnings:** ${results.failed} optional check(s) failed\n\n`;
+              }
+            } else {
+              report += '## Overall Status: FAIL\n\n**Required checks failed:**\n';
+              results.hardFailures.forEach(f => report += `- ${f}\n`);
+              report += '\n';
+            }
+            
+            report += `---\n\n## Summary\n\n- **Passed:** ${results.passed}\n- **Failed:** ${results.failed}\n- **Skipped:** ${results.skipped}\n\n---\n\n## Detailed Results\n\n`;
+            
+            results.sections.forEach(section => {
+              report += `### ${section.name} - ${section.status}\n\n**Type:** ${section.type}\n\n**Message:** ${section.message}\n\n`;
+              if (section.hint) report += `**Hint:** \`${section.hint}\`\n\n`;
+              if (section.details) report += `<details>\n<summary>Details</summary>\n\n\`\`\`\n${section.details}\n\`\`\`\n\n</details>\n\n`;
+            });
+            
+            // Generate actionable insights
+            const insights = [];
+            results.sections.forEach(section => {
+              if (section.status === 'FAIL') {
+                if (section.name === 'Prettier' && section.message.includes('not installed')) {
+                  insights.push(`Install formatter: \`npm install --save-dev ${config.prettierDep}\``);
+                } else if (section.name === 'Linter' && section.message.includes('not installed')) {
+                  insights.push(`Install linter: \`npm install --save-dev ${config.lintDep}\``);
+                } else if (section.name === 'Prettier' && section.message.includes('need formatting')) {
+                  insights.push(`Auto-fix formatting: \`npx ${config.prettierDep} --write "**/*.{ts,js,json,md}"\``);
+                } else if (section.name === 'npm audit' && section.message.includes('Vulnerabilities')) {
+                  insights.push(`Fix vulnerabilities: \`npm audit fix\` (or \`npm audit fix --force\` for breaking changes)`);
+                } else if (section.name === 'Build' && section.message.includes('not found')) {
+                  insights.push(`Add build script to package.json: \`"build": "tsc"\` or appropriate build command`);
+                } else if (section.name === 'Scripts Check' && section.message.includes('Missing')) {
+                  const missing = section.details?.match(/Missing: (.+)/)?.[1];
+                  const pkg = hasPackageJson() ? getPackageJson() : null;
+                  const hasBaseTest = pkg?.scripts?.test;
+                  
+                  if (missing && !hasBaseTest) {
+                    insights.push(`Add base test script first: \`"test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --forceExit --"\` (adjust for your test runner)`);
+                  }
+                  
+                  if (missing?.includes('test:unit')) {
+                    insights.push(`Add unit tests: \`"test:unit": "for file in $(find . -name '*.unit.spec.ts'); do npm run test -- \\"$file\\" || exit 1; done"\``);
+                  }
+                  if (missing?.includes('test:integration')) {
+                    insights.push(`Add integration tests: \`"test:integration": "for file in $(find . -name '*.integration.spec.ts'); do npm run test -- \\"$file\\" || exit 1; done"\``);
+                  }
+                  if (missing?.includes('test:e2e')) {
+                    insights.push(`Add E2E tests: \`"test:e2e": "for file in $(find . -name '*.e2e.spec.ts'); do npm run test -- \\"$file\\" || exit 1; done"\``);
+                  }
+                }
+              } else if (section.status === 'SKIPPED' && section.name === 'Linter' && section.message.includes('lint script not found')) {
+                insights.push(`Add lint script to package.json (adjust for your linter): \`"lint": "${config.lintDep} ."\``);
+              }
+            });
+            
+            if (insights.length > 0) {
+              report += `---\n\n## Actionable Insights\n\n`;
+              insights.forEach(insight => report += `- ${insight}\n`);
+              report += '\n';
+            }
+            
+            report += `---\n\n## Configuration\n\nQuality gate configured via environment variables.\n\n`;
+            report += `| Check | Enabled | Required |\n|-------|---------|----------|\n`;
+            report += `| Build | ${config.checks.build.enabled} | ${config.checks.build.required} |\n`;
+            report += `| Scripts | ${config.checks.scripts.enabled} | ${config.checks.scripts.required} |\n`;
+            report += `| npm audit | ${config.checks.audit.enabled} | ${config.checks.audit.required} (level: ${config.auditLevel}) |\n`;
+            report += `| Prettier | ${config.checks.prettier.enabled} | ${config.checks.prettier.required} (dep: ${config.prettierDep}) |\n`;
+            report += `| Linter | ${config.checks.lint.enabled} | ${config.checks.lint.required} (dep: ${config.lintDep}) |\n`;
+            report += `| Unit Tests | ${config.checks.testUnit.enabled} | ${config.checks.testUnit.required} |\n\n`;
+            report += `**Note:** Integration and E2E tests are checked for existence but run in CI/CD pipeline.\n`;
+            
+            // Always write to GitHub Actions Job Summary (visible in the Actions tab)
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, report);
+            console.log('Quality gate report written to job summary');
+            
+            // Additionally, try to post as PR comment if this is a PR
+            if (context.issue.number) {
+              try {
+                await github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: report
+                });
+                console.log('Posted quality gate comment to PR');
+              } catch (error) {
+                console.log('Failed to post PR comment (likely fork PR with read-only token):', error.message);
+              }
+            }
+            
+            // Fail if required checks failed
+            if (results.hardFailures.length > 0) {
+              console.log('\nOVERALL: FAIL');
+              console.log('Required checks failed:', results.hardFailures.join(', '));
+              process.exit(1);
+            } else {
+              console.log('\nOVERALL: PASS');
+            }

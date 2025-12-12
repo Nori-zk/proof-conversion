@@ -1,0 +1,107 @@
+name: Build proof-conversion
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - build
+
+jobs:
+  build-proof-conversion:
+    name: Build proof-conversion is a REN release, based on a pull request close (merge=true) event, with the branch 'build' as the PR target.
+    if: github.event.pull_request.merged == true
+    runs-on: [self-hosted, nori, standard]
+    permissions:
+      contents: read
+      pull-requests: write
+    container:
+      image: docker.nori.it.com/stacksmith:1.0.0
+      volumes:
+        # SSH for git operations
+        - /home/runner/.ssh:/root/.ssh:ro
+        
+        # NPM registry auth
+        - /home/runner/.npmrc:/github/home/.npmrc:ro
+
+        # This makes the path consistent across parent and sibling containers
+        - /tmp/stacksmith_repos:/tmp/stacksmith_repos
+
+    timeout-minutes: 30
+
+    steps:
+      - name: Comment on PR - Build Started
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            const commitUrl = `${{ github.server_url }}/${{ github.repository }}/commit/${{ github.event.pull_request.merge_commit_sha }}`;
+            const repoName = context.repo.repo;
+            const message = `🔨 **Build started** for ${repoName}\n\n**Commit:** [\`${{ github.event.pull_request.merge_commit_sha }}\`](${commitUrl})\n**Workflow:** [View run details](${runUrl})`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            })
+
+      - name: Cleanup job home cache
+        run: |
+          echo "Cleaning job home directory cache..."
+          if [ -d "/__w/_temp/_github_home/.cache" ]; then
+            rm -rf /__w/_temp/_github_home/.cache
+            echo "Home cache cleaned"
+          else
+            echo "No cache found to clean"
+          fi
+
+      - name: Run the proof-conversion workflow, build and publish to npm.
+        shell: bash
+        run: |
+          mkdir -p /tmp/stacksmith_repos
+          stacksmith run proof-conversion \
+            --pr-number ${{ github.event.pull_request.number }} \
+            --build-id "proof-conversion-${{ github.event.pull_request.number }}-${{ github.run_id }}-${{ github.run_number }}" \
+            --target-branch build \
+            --envs-dir /root/.stacksmith.envs \
+            --working-dir /tmp/stacksmith_repos
+
+      - name: Comment on PR - Build Complete
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const runUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            const commitUrl = `${{ github.server_url }}/${{ github.repository }}/commit/${{ github.event.pull_request.merge_commit_sha }}`;
+            const repoName = context.repo.repo;
+            let message;
+            
+            if ('${{ job.status }}' === 'success') {
+              message = `✅ **Build succeeded** for ${repoName}\n\n**Commit:** [\`${{ github.event.pull_request.merge_commit_sha }}\`](${commitUrl})\n**Workflow:** [View run details](${runUrl})`;
+            } else {
+              message = `❌ **Build failed** for ${repoName}\n\n**Commit:** [\`${{ github.event.pull_request.merge_commit_sha }}\`](${commitUrl})\n**Workflow:** Check the [workflow run](${runUrl}) for details.\n\n⚠️ Review the logs to identify the failure cause.`;
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            })
+
+      - name: Cleanup stacksmith working dir
+        if: always()
+        run: |
+          stacksmith cleanup --working-dir /tmp/stacksmith_repos
+          echo "Cleanup completed"
+
+      - name: Cleanup job home cache
+        if: always()
+        run: |
+          echo "Cleaning job home directory cache..."
+          if [ -d "/__w/_temp/_github_home/.cache" ]; then
+            rm -rf /__w/_temp/_github_home/.cache
+            echo "Home cache cleaned"
+          else
+            echo "No cache found to clean"
+          fi
