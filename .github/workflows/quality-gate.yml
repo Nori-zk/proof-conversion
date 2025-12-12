@@ -45,7 +45,9 @@ jobs:
     
     steps:
       - name: Fix workspace permissions
-        run: sudo chown -R runner:runner $GITHUB_WORKSPACE
+        run: |
+          sudo chown -R runner:runner $GITHUB_WORKSPACE
+          sudo chown -R runner:runner /home/runner/actions/_work/_tool
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -53,12 +55,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
-          
-      - name: Install dependencies
-        run: npm ci
-        continue-on-error: true
         
       - name: Run Quality Gate and Post to PR
         uses: actions/github-script@v7
@@ -90,7 +88,11 @@ jobs:
               failed: 0,
               skipped: 0,
               hardFailures: [],
-              sections: []
+              sections: [],
+              usedLegacyPeerDeps: false,
+              installOutput: '',
+              installSucceeded: false,
+              hasDeprecationWarnings: false
             };
             
             // Helper functions
@@ -113,11 +115,23 @@ jobs:
               console.log(`○ ${name}: SKIPPED - ${reason}`);
             }
             
+            function addWarning(name, message, hint = '', details = '') {
+              results.sections.push({ name, status: 'WARNING', type: 'Warning', message, hint, details });
+              console.log(`⚠ ${name}: WARNING - ${message}`);
+            }
+            
             function run(cmd) {
               try {
-                return { success: true, output: execSync(cmd, { encoding: 'utf8', stdio: 'pipe' }) };
+                const output = execSync(cmd, { encoding: 'utf8', stdio: 'pipe', maxBuffer: 10 * 1024 * 1024 });
+                // Strip ANSI color codes
+                return { success: true, output: output.replace(/\x1b\[[0-9;]*m/g, '') };
               } catch (error) {
-                return { success: false, output: error.stdout || error.stderr || error.message };
+                // Combine both stdout and stderr
+                const stdout = error.stdout || '';
+                const stderr = error.stderr || '';
+                const combined = (stdout + '\n' + stderr).trim();
+                // Strip ANSI color codes
+                return { success: false, output: combined.replace(/\x1b\[[0-9;]*m/g, '') || error.message };
               }
             }
             
@@ -129,9 +143,67 @@ jobs:
               return JSON.parse(fs.readFileSync('package.json', 'utf8'));
             }
             
+            function hasOverrides() {
+              if (!hasPackageJson()) return false;
+              const pkg = getPackageJson();
+              return !!(pkg.overrides && Object.keys(pkg.overrides).length > 0);
+            }
+            
             console.log('========================================');
             console.log('Quality Gate Starting');
             console.log('========================================\n');
+            
+            // Install dependencies - try without legacy first, then with if needed
+            console.log('Installing dependencies...');
+            let installResult = run('npm ci');
+            let firstAttemptOutput = '';
+            
+            if (!installResult.success) {
+              firstAttemptOutput = installResult.output;
+              console.log('Standard npm ci failed, trying with --legacy-peer-deps...');
+              installResult = run('npm ci --legacy-peer-deps');
+              
+              if (installResult.success) {
+                results.usedLegacyPeerDeps = true;
+                results.installOutput = firstAttemptOutput;
+                results.installSucceeded = true;
+                
+                // Check for deprecation warnings
+                if (installResult.output.includes('deprecated')) {
+                  results.hasDeprecationWarnings = true;
+                }
+                
+                addWarning('Dependencies', 
+                  'Dependencies installed with --legacy-peer-deps due to peer dependency conflicts', 
+                  'Consider resolving peer dependencies to avoid using --legacy-peer-deps',
+                  firstAttemptOutput);
+                addPass('Dependencies', 'Dependencies installed successfully (with --legacy-peer-deps)', true);
+              } else {
+                results.installOutput = installResult.output;
+                results.installSucceeded = false;
+                addFail('Dependencies', 'npm ci failed even with --legacy-peer-deps', true, 
+                  'Check npm error logs and resolve dependency conflicts', 
+                  installResult.output);
+              }
+            } else {
+              results.installOutput = installResult.output;
+              results.installSucceeded = true;
+              
+              // Check for deprecation warnings
+              if (installResult.output.includes('deprecated')) {
+                results.hasDeprecationWarnings = true;
+              }
+              
+              // Verify node_modules exists and has content
+              if (!fs.existsSync('node_modules') || fs.readdirSync('node_modules').length === 0) {
+                results.installSucceeded = false;
+                addFail('Dependencies', 'npm ci reported success but node_modules is empty or missing', true, 
+                  'This is unusual - check filesystem permissions and npm cache', 
+                  installResult.output);
+              } else {
+                addPass('Dependencies', 'Dependencies installed successfully', true);
+              }
+            }
             
             // Check scripts
             if (config.checks.scripts.enabled) {
@@ -188,7 +260,18 @@ jobs:
                   if (result.success) {
                     addPass('Build', 'Build completed successfully', config.checks.build.required);
                   } else {
-                    addFail('Build', 'Build failed', config.checks.build.required, 'Check build errors', result.output.substring(0, 1000));
+                    // ALWAYS include install output when build fails
+                    let buildDetails = '=== Build Error ===\n' + result.output;
+                    buildDetails += '\n\n=== npm ci output ===\n';
+                    if (results.usedLegacyPeerDeps) {
+                      buildDetails += '(Standard npm ci failed, had to use --legacy-peer-deps)\n\n';
+                      buildDetails += 'Standard npm ci error:\n' + results.installOutput;
+                    } else if (results.installSucceeded) {
+                      buildDetails += results.installOutput;
+                    } else {
+                      buildDetails += '(npm ci failed completely - see Dependencies failure above)';
+                    }
+                    addFail('Build', 'Build failed', config.checks.build.required, 'Check build errors and npm install output', buildDetails);
                   }
                 }
               }
@@ -260,7 +343,7 @@ jobs:
                       addPass('Linter', 'No linting errors', config.checks.lint.required);
                     } else {
                       addFail('Linter', `${errors} error(s), ${warnings} warning(s)`, config.checks.lint.required, 
-                        'npm run lint', result.output.substring(0, 1000));
+                        'npm run lint', result.output);
                     }
                   }
                 }
@@ -283,7 +366,7 @@ jobs:
                     addPass('Unit Tests', 'All unit tests passed', config.checks.testUnit.required);
                   } else {
                     addFail('Unit Tests', 'Unit tests failed', config.checks.testUnit.required, 
-                      'Check test output', result.output.substring(0, 1000));
+                      'Check test output', result.output);
                   }
                 }
               }
@@ -323,18 +406,45 @@ jobs:
             
             // Generate actionable insights
             const insights = [];
+            
+            // Check for deprecation warnings
+            if (results.hasDeprecationWarnings && results.installSucceeded) {
+              insights.push(`**Deprecation Warnings:** Some installed packages are deprecated. Review the npm install output above and consider updating to maintained alternatives.`);
+            }
+            
+            // Check for legacy peer deps usage
+            if (results.usedLegacyPeerDeps) {
+              insights.push(`**Peer Dependency Conflicts:** Dependencies required \`--legacy-peer-deps\` to install. This indicates peer dependency version conflicts.`);
+              
+              if (hasOverrides()) {
+                insights.push(`**Overrides Detected:** Your package.json contains dependency overrides. When using --legacy-peer-deps with overrides, you should aim to remove the overrides when possible by updating dependencies to compatible versions.`);
+              } else {
+                insights.push(`**Resolve Peer Dependencies:** Update dependencies to compatible versions: \`npm update\` and check for breaking changes. Consider using \`npm ls <package-name>\` to identify conflict sources.`);
+              }
+            }
+            
             results.sections.forEach(section => {
               if (section.status === 'FAIL') {
-                if (section.name === 'Prettier' && section.message.includes('not installed')) {
+                if (section.name === 'Dependencies' && section.message.includes('failed even with')) {
+                  insights.push(`**Critical:** Dependencies cannot be installed. Check error details above and resolve package.json issues or network problems.`);
+                } else if (section.name === 'Dependencies' && section.message.includes('node_modules is empty')) {
+                  insights.push(`**Critical:** npm ci succeeded but node_modules is missing. Check filesystem permissions and npm cache integrity.`);
+                } else if (section.name === 'Prettier' && section.message.includes('not installed')) {
                   insights.push(`Install formatter: \`npm install --save-dev ${config.prettierDep}\``);
                 } else if (section.name === 'Linter' && section.message.includes('not installed')) {
                   insights.push(`Install linter: \`npm install --save-dev ${config.lintDep}\``);
                 } else if (section.name === 'Prettier' && section.message.includes('need formatting')) {
                   insights.push(`Auto-fix formatting: \`npx ${config.prettierDep} --write "**/*.{ts,js,json,md}"\``);
                 } else if (section.name === 'npm audit' && section.message.includes('Vulnerabilities')) {
-                  insights.push(`Fix vulnerabilities: \`npm audit fix\` (or \`npm audit fix --force\` for breaking changes)`);
+                  insights.push(`**Fix Vulnerabilities:** \`npm audit fix\` (or \`npm audit fix --force\` for breaking changes)`);
                 } else if (section.name === 'Build' && section.message.includes('not found')) {
                   insights.push(`Add build script to package.json: \`"build": "tsc"\` or appropriate build command`);
+                } else if (section.name === 'Build' && section.message.includes('Build failed')) {
+                  insights.push(`**Build Failed:** Check the build error details above. Fix the errors shown in the build output and run \`npm run build\` locally to verify.`);
+                } else if (section.name === 'Linter' && section.message.match(/\d+ error/)) {
+                  insights.push(`**Linting Errors:** Fix the linting errors shown above and run \`npm run lint\` locally to verify.`);
+                } else if (section.name === 'Unit Tests' && section.message.includes('failed')) {
+                  insights.push(`**Unit Tests Failed:** Fix the failing tests shown above and run \`npm run test:unit\` locally to verify.`);
                 } else if (section.name === 'Scripts Check' && section.message.includes('Missing')) {
                   const missing = section.details?.match(/Missing: (.+)/)?.[1];
                   const pkg = hasPackageJson() ? getPackageJson() : null;
@@ -367,6 +477,7 @@ jobs:
             
             report += `---\n\n## Configuration\n\nQuality gate configured via environment variables.\n\n`;
             report += `| Check | Enabled | Required |\n|-------|---------|----------|\n`;
+            report += `| Dependencies | true | true |\n`;
             report += `| Build | ${config.checks.build.enabled} | ${config.checks.build.required} |\n`;
             report += `| Scripts | ${config.checks.scripts.enabled} | ${config.checks.scripts.required} |\n`;
             report += `| npm audit | ${config.checks.audit.enabled} | ${config.checks.audit.required} (level: ${config.auditLevel}) |\n`;
