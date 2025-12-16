@@ -57,6 +57,8 @@ jobs:
 
       - name: Run the proof-conversion workflow, build and publish to npm.
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
         run: |
           mkdir -p /tmp/stacksmith_repos
           stacksmith run proof-conversion \
