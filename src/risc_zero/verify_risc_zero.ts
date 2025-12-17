@@ -1,19 +1,9 @@
 import {
   Field,
-  PrivateKey,
   Provable,
-  SmartContract,
-  State,
   VerificationKey,
-  method,
-  state,
   Poseidon,
-  UInt8,
-  Bytes,
-  Gadgets,
   ZkProgram,
-  Struct,
-  UInt64,
   Undefined,
 } from 'o1js';
 import { FrC } from '../towers/index.js';

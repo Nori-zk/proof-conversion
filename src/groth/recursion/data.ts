@@ -1,4 +1,4 @@
-import { Field, Provable, Struct } from 'o1js';
+import { Field, Struct } from 'o1js';
 import { G1Affine, G2Affine } from '../../ec/index.js';
 import { Fp12 } from '../../towers/index.js';
 

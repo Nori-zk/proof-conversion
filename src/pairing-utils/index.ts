@@ -3,7 +3,7 @@ import {
   make_alpha_beta_js as wasmMakeAlphaBeta,
 } from '@nori-zk/proof-conversion-pairing-utils';
 import { Fp12Type } from '../towers/fp12';
-import { Risc0RawVk, Risc0Vk } from '../api/sp1/types';
+import { Risc0RawVk, Risc0Vk } from '../api/risc0/types.js';
 
 export interface AuxWitnessWasm {
   c: Fp12Type;

@@ -1,33 +1,15 @@
 import {
   Field,
   PrivateKey,
-  Provable,
   SmartContract,
   State,
-  VerificationKey,
   method,
   state,
   Poseidon,
-  UInt8,
-  Bytes,
-  Gadgets,
-  MerkleTree,
   MerkleWitness,
-  Undefined,
-  Proof,
 } from 'o1js';
-import { FrC } from '../towers/index.js';
-import { NodeProofLeft } from '../structs.js';
-import fs from 'fs';
 import {
-  parsePublicInputs,
-  parsePublicInputsProvable,
-} from '../plonk/parse_pi.js';
-import { provableBn254ScalarFieldToBytes } from '../sha/utils.js';
-import {
-  BlobstreamInput,
   BlobstreamProof,
-  blobstreamVerifier,
   Bytes32,
 } from './verify_blobstream.js';
 
