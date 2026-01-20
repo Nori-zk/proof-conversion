@@ -121,9 +121,8 @@ function printDescribeDirect(commandName: string) {
   if (meta.supportsArgs) {
     logger.log(`  argsMetadata (files): ${JSON.stringify(meta.argsMeta)}`);
     logger.log('  Example (args-mode):');
-    logger.log(
-      `    $ nori-proof-converter ${commandName} path/to/hexPi.json path/to/programVK.json path/to/encodedProof.json`
-    );
+    const argsExamplePaths = meta.argsMeta.map((arg: string) => `path/to/${commandName}_args_${arg}.json`).join(' ');
+    logger.log(`    $ nori-proof-converter ${commandName} ${argsExamplePaths}`);
   } else {
     logger.log('  args-mode: not supported');
   }
@@ -137,7 +136,7 @@ function printDescribeDirect(commandName: string) {
     );
     logger.log('  Example (object-mode):');
     logger.log(
-      `    $ nori-proof-converter ${commandName} path/to/input-file.json`
+      `    $ nori-proof-converter ${commandName} path/to/${commandName}_obj.json`
     );
   } else {
     logger.log('  object-mode: not supported');
