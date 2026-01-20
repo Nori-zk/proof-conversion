@@ -20,6 +20,8 @@ npm install @nori-zk/proof-conversion --save
 
 ### Usage:
 
+Ensure you have o1js as a peer dependency.
+
 ```
 import { ComputationalPlanExecutor, performSp1ToPlonk, Sp1, LogPrinter } from '@nori-zk/proof-conversion';
 import { readFileSync } from 'fs';

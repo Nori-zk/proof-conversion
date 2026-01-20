@@ -1,5 +1,5 @@
 import { spawn } from 'child_process';
-import { ProcessCmd, ProcessCmdOutput } from './plan';
+import { ProcessCmd, ProcessCmdOutput } from './plan.js';
 import { Logger } from '../logging/logger.js';
 import { InvertedPromise } from '../utils/InvertedPromise.js';
 
