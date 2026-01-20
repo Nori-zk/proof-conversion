@@ -1,4 +1,3 @@
-import { FpC } from './fp.js';
 import { Fp2 } from './fp2.js';
 import fs from 'fs';
 import { GAMMA_1S, GAMMA_2S, GAMMA_3S, NEG_GAMMA_13 } from './precomputed.js';

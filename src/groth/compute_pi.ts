@@ -1,5 +1,4 @@
 import { GrothVk } from './vk.js';
-import { Proof } from './proof.js';
 import { bn254 } from '../ec/g1.js';
 import { FrC } from '../towers/fr.js';
 import { ForeignCurve } from 'o1js';

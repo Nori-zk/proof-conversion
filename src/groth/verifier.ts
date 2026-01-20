@@ -1,5 +1,4 @@
 import { Field, Provable } from 'o1js';
-import { G2Line } from '../lines/index.js';
 import { ATE_LOOP_COUNT, Fp12 } from '../towers/index.js';
 import { LineAccumulator } from './accumulate_lines.js';
 import { GrothVk } from './vk.js';

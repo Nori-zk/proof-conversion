@@ -8,9 +8,6 @@ import {
   Cache,
   Bytes,
   Field,
-  Undefined,
-  ZkProgram,
-  Provable,
 } from 'o1js';
 import {
   blobstreamVerifier,
@@ -41,11 +38,9 @@ import {
   BlobstreamProcessor,
   adminPrivateKey,
 } from './blobstream_contract.js';
-import { HelloWorldRollup, StateBytes } from './rollup.js';
+import { HelloWorldRollup } from './rollup.js';
 import {
   parseDigestProvable,
-  parsePublicInputs,
-  parsePublicInputsProvable,
 } from '../plonk/parse_pi.js';
 
 const args = process.argv;

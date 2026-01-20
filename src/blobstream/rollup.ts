@@ -1,33 +1,19 @@
 import {
   Field,
   PrivateKey,
-  Provable,
   SmartContract,
   State,
-  VerificationKey,
   method,
   state,
   Poseidon,
-  UInt8,
   Bytes,
-  Gadgets,
   PublicKey,
-  Proof,
 } from 'o1js';
-import { FrC } from '../towers/index.js';
-import { NodeProofLeft } from '../structs.js';
-import fs from 'fs';
-import {
-  parsePublicInputs,
-  parsePublicInputsProvable,
-} from '../plonk/parse_pi.js';
-import { provableBn254ScalarFieldToBytes } from '../sha/utils.js';
-import { BlobInclusionProof } from './verify_blob_inclusion.js';
 import {
   BlobstreamMerkleWitness,
   BlobstreamProcessor,
 } from './blobstream_contract.js';
-import { BatcherInput, BatcherOutput, BatcherProof } from './batcher.js';
+import { BatcherProof } from './batcher.js';
 
 export const adminPrivateKey = PrivateKey.fromBase58(
   'EKFcef5HKXAn7V2rQntLiXtJr15dkxrsrQ1G4pnYemhMEAWYbkZW'

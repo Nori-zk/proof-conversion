@@ -1,16 +1,10 @@
 import {
   Field,
-  PrivateKey,
   Provable,
-  SmartContract,
-  State,
   VerificationKey,
-  method,
-  state,
   Poseidon,
   UInt8,
   Bytes,
-  Gadgets,
   ZkProgram,
   Struct,
   UInt64,
@@ -19,10 +13,9 @@ import {
 import { FrC } from '../towers/index.js';
 import { NodeProofLeft } from '../structs.js';
 import {
-  parsePublicInputs,
   parsePublicInputsProvable,
 } from '../plonk/parse_pi.js';
-import { provableBn254ScalarFieldToBytes, wordToBytes } from '../sha/utils.js';
+import { wordToBytes } from '../sha/utils.js';
 import fs from 'fs';
 
 class Bytes32 extends Bytes(32) {}

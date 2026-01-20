@@ -1,31 +1,19 @@
 import {
   Field,
-  PrivateKey,
   Provable,
-  SmartContract,
-  State,
   VerificationKey,
-  method,
-  state,
   Poseidon,
-  UInt8,
   Bytes,
-  Gadgets,
   ZkProgram,
   Struct,
-  UInt64,
   Undefined,
 } from 'o1js';
 import { FrC } from '../towers/index.js';
 import { NodeProofLeft } from '../structs.js';
 import {
   parseDigestProvable,
-  parsePublicInputs,
-  parsePublicInputsProvable,
 } from '../plonk/parse_pi.js';
-import { provableBn254ScalarFieldToBytes, wordToBytes } from '../sha/utils.js';
 import fs from 'fs';
-import { blob } from 'stream/consumers';
 import { Bytes32 } from './verify_blobstream.js';
 
 class BlobInclusionInput extends Struct({

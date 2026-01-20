@@ -1,7 +1,5 @@
 import { Field, Poseidon, Provable, ZkProgram } from 'o1js';
-import { Accumulator } from './data.js';
 import { Fp12, FrC } from '../../towers/index.js';
-import { ArrayListHasher } from '../../array_list_hasher.js';
 import { VK } from '../vk_from_env.js';
 import { G1Affine } from '../../ec/index.js';
 import { bn254 } from '../../ec/g1.js';

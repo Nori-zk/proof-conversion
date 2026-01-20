@@ -6,7 +6,6 @@ import { ATE_LOOP_COUNT } from '../../towers/consts.js';
 import { ArrayListHasher } from '../../array_list_hasher.js';
 import { AffineCache } from '../../lines/precompute.js';
 import { VK } from '../vk_from_env.js';
-import { G2Affine } from '../../ec/g2.js';
 import { G2Line } from '../../lines/index.js';
 import { LineParser } from '../../line_parser.js';
 
