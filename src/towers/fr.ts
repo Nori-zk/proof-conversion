@@ -5,7 +5,10 @@ class Fr extends createForeignField(
 
 class FrU extends Fr.Unreduced {}
 class FrA extends Fr.AlmostReduced {}
-class FrC extends Fr.Canonical {}
+class FrC extends Fr.Canonical {
+  declare static provable: typeof Fr.Canonical.provable;
+  declare static from: typeof Fr.Canonical.from;
+}
 
 function powFr(x: FrC, exp: Array<number>) {
   let r = Fr.from(x).assertCanonical();

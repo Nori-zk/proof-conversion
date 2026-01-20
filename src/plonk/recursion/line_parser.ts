@@ -1,7 +1,6 @@
 import { G2Line } from '../../lines/index.js';
-import fs from 'fs';
 import { ATE_LOOP_COUNT } from '../../towers/consts.js';
-import { createRequire } from 'node:module';
+import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const g2_lines_required = require('../mm_loop/g2_lines.json');
 const tau_lines_required = require('../mm_loop/tau_lines.json');

@@ -1,4 +1,4 @@
-import { PlatformFeatures } from './plans/platform';
+import { PlatformFeatures } from './plans/platform/index.js';
 
 export interface ProcessCmd {
   cmd: string;
