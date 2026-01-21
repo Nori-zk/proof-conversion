@@ -1,5 +1,5 @@
 import { PlonkComputationalPlan } from '../../compute/plans/plonk/index.js';
-import { Logger } from '../../logging/logger.js';
+import { Logger } from 'esm-iso-logger';
 import { ApiMethod } from '../methodDecorator.js';
 import { Sp1Input } from './types.js';
 

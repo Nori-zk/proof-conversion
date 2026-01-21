@@ -1,5 +1,5 @@
 import { Groth16ComputationalPlan } from '../../compute/plans/groth16/index.js';
-import { Logger } from '../../logging/logger.js';
+import { Logger } from 'esm-iso-logger';
 import { ApiMethod } from '../methodDecorator.js';
 import { Risc0ToGroth16Input } from './types.js';
 

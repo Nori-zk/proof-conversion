@@ -13,7 +13,3 @@ export { Sp1Input as Sp1 } from './api/sp1/types.js';
 export { ComputationalPlanExecutor } from './compute/executor.js';
 export { PlatformFeatureDetectionComputationalPlan } from './compute/plans/platform/index.js';
 export { ProcessCmd, ProcessCmdOutput } from './compute/plan.js';
-
-// Logging
-export { LogPrinter } from './logging/log_printer.js';
-export { Logger } from './logging/logger.js';

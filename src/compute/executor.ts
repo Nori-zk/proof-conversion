@@ -1,4 +1,4 @@
-import { Logger } from '../logging/logger.js';
+import { Logger } from 'esm-iso-logger';
 import {
   ComputationalStage,
   ComputationPlan,

@@ -15,7 +15,7 @@ The latest version is moving towards, migrating away from having a mix of langua
 ### Installation
 
 ```
-npm install @nori-zk/proof-conversion --save
+npm ci @nori-zk/proof-conversion --save
 ```
 
 ### Usage:
@@ -23,11 +23,12 @@ npm install @nori-zk/proof-conversion --save
 Ensure you have o1js as a peer dependency.
 
 ```
-import { ComputationalPlanExecutor, performSp1ToPlonk, Sp1, LogPrinter } from '@nori-zk/proof-conversion';
+import { ComputationalPlanExecutor, performSp1ToPlonk, Sp1 } from '@nori-zk/proof-conversion';
+import { LogPrinter } from 'esm-iso-logger';
 import { readFileSync } from 'fs';
 
 async function main() {
-    new LogPrinter('[NoriProofConverter]', ['log', 'info', 'warn', 'error', 'debug', 'fatal', 'verbose']);
+    new LogPrinter('NoriProofConverter');
     const maxProcesses = 10;
     const executor = new ComputationalPlanExecutor(maxProcesses);
     const sp1ProofStr = readFileSync('./example-proofs/v4.json', 'utf8');

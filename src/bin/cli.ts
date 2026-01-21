@@ -5,18 +5,10 @@ import { fileURLToPath } from 'url';
 import { ComputationalPlanExecutor } from '../compute/executor.js';
 import { performSp1ToPlonk } from '../api/sp1/plonk.js';
 import { performRisc0ToGroth16 } from '../api/risc0/groth16.js';
-import { Logger } from '../logging/logger.js';
-import { LogPrinter } from '../logging/log_printer.js';
+import { Logger } from 'esm-iso-logger';
+import { LogPrinter } from 'esm-iso-logger';
 
-new LogPrinter('[NoriProofConverter]', [
-  'log',
-  'info',
-  'warn',
-  'error',
-  'debug',
-  'fatal',
-  'verbose',
-]);
+new LogPrinter('NoriProofConverter');
 const logger = new Logger('CLI');
 
 const MAX_PROCESSES = parseInt(process.env.MAX_PROCESSES || '1', 10);
