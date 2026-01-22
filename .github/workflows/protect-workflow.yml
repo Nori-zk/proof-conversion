@@ -1,0 +1,83 @@
+name: Protect Workflows
+
+on:
+  pull_request_target:
+    types: [opened, synchronize]
+
+jobs:
+  protect-workflows:
+    name: protect-workflows
+    runs-on: [self-hosted, nori, standard]
+    permissions:
+      contents: read
+      pull-requests: write
+    
+    steps:
+      - name: Check for workflow changes
+        id: check
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Get list of changed files in the PR
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            // Check if any workflow files changed
+            const workflowFiles = files.filter(f => f.filename.startsWith('.github/workflows/'));
+            
+            if (workflowFiles.length > 0) {
+              console.log('Workflow files modified:');
+              const filenames = workflowFiles.map(f => f.filename).join('\n');
+              console.log(filenames);
+              fs.writeFileSync('/tmp/workflow_files.txt', filenames);
+              core.setOutput('workflow_changed', 'true');
+            } else {
+              console.log('No workflow files changed');
+              core.setOutput('workflow_changed', 'false');
+            }
+      
+      - name: Write job summary
+        if: always()
+        run: |
+          if [ -z "$GITHUB_STEP_SUMMARY" ]; then
+            echo "ERROR: GITHUB_STEP_SUMMARY not set"
+            exit 1
+          fi
+          
+          if [ "${{ steps.check.outputs.workflow_changed }}" == "true" ]; then
+            echo "## ⚠️ Workflow Protection Alert" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Workflow files have been modified in this PR:" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/workflow_files.txt >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "For security reasons, workflow changes require additional review." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## ✅ Workflow Protection: PASS" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "No workflow files changed in this PR." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          
+      - name: Fail if workflows changed
+        if: steps.check.outputs.workflow_changed == 'true'
+        run: exit 1
+          
+      - name: Comment on PR if workflows changed
+        if: failure() && steps.check.outputs.workflow_changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '⚠️ **Workflow Protection Alert**\n\nThis PR attempts to modify workflow files in `.github/workflows/`. For security reasons, workflow changes require additional review.\n\nWorkflow modifications can introduce security vulnerabilities or bypass branch protections. Please have a repository administrator review these changes.'
+            });
