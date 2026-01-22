@@ -41,11 +41,13 @@
     "build": "tsc",
     "buildw": "tsc --watch",
     "coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
-    "format": "prettier --write --ignore-unknown **/*",
+    "format": "prettier --check --ignore-unknown --ignore-path .prettierignore **/*",
+    "format:fix": "prettier --write --ignore-unknown --ignore-path .prettierignore **/*",
     "test": "npm run build && node --max-old-space-size=65536 build/src/plonk/e2e_test.js && node --max-old-space-size=65536 build/src/plonk/mm_loop/e2e_test.js && node --max-old-space-size=65536 build/src/plonk/piop/e2e_test.js && node --max-old-space-size=65536 build/src/plonk/piop/e2e_test.js && node --max-old-space-size=65536 build/src/groth/e2e_test.js",
     "testw": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:compute": "npm run build && node --experimental-vm-modules ./build/src/compute/test.js",
-    "lint": "npx eslint src/* --fix",
+    "lint": "eslint src/*",
+    "lint:fix": "eslint src/* --fix",
     "relink": "npm unlink nori-proof-converter && npm run build && npm link"
   },
   "dependencies": {
@@ -60,17 +62,16 @@
   "devDependencies": {
     "@babel/preset-env": "^7.28.6",
     "@babel/preset-typescript": "^7.28.5",
+    "@eslint/js": "^9.39.2",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.0.10",
-    "@typescript-eslint/eslint-plugin": "^8.53.1",
-    "@typescript-eslint/parser": "^8.53.1",
     "eslint": "^9.39.2",
     "eslint-plugin-o1js": "^0.4.0",
     "jest": "^30.2.0",
     "prettier": "^3.8.1",
     "ts-jest": "^29.4.6",
-    "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.53.1"
   },
   "files": [
     "build/",
