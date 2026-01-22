@@ -6,7 +6,8 @@ import fs from 'fs';
 import { bn254 } from '../ec/g1.js';
 import { ForeignCurve } from 'o1js';
 
-type SerializedVk = {
+// Base VK structure (common fields)
+type SerializedVkBase = {
   delta: {
     x_c0: string;
     x_c1: string;
@@ -21,32 +22,20 @@ type SerializedVk = {
   };
   alpha_beta: Fp12Type;
   w27: Fp12Type;
+};
 
-  // points for PI
-  ic0: {
-    x: string;
-    y: string;
-  };
-  ic1: {
-    x: string;
-    y: string;
-  };
-  ic2: {
-    x: string;
-    y: string;
-  };
-  ic3: {
-    x: string;
-    y: string;
-  };
-  ic4: {
-    x: string;
-    y: string;
-  };
-  ic5: {
-    x: string;
-    y: string;
-  };
+// Generate IC point type based on input count
+type ICPointType = { x: string; y: string };
+
+// Flexible SerializedVk type supporting all possible IC points
+type SerializedVk = SerializedVkBase & {
+  ic0: ICPointType; // Always present (base case)
+  ic1?: ICPointType;
+  ic2?: ICPointType;
+  ic3?: ICPointType;
+  ic4?: ICPointType;
+  ic5?: ICPointType;
+  ic6?: ICPointType;
 };
 
 class GrothVk {
@@ -55,41 +44,59 @@ class GrothVk {
   alpha_beta: Fp12;
   w27: Fp12;
   w27_square: Fp12;
-  ic0: ForeignCurve;
-  ic1: ForeignCurve;
-  ic2: ForeignCurve;
-  ic3: ForeignCurve;
-  ic4: ForeignCurve;
-  ic5: ForeignCurve;
+
+  // IC points stored as array for full flexibility
+  private icPoints: ForeignCurve[];
+
+  // Named accessors for backward compatibility
+  get ic0() { return this.icPoints[0]; }
+  get ic1() { return this.icPoints[1]; }
+  get ic2() { return this.icPoints[2]; }
+  get ic3() { return this.icPoints[3]; }
+  get ic4() { return this.icPoints[4]; }
+  get ic5() { return this.icPoints[5]; }
+  get ic6() { return this.icPoints[6]; }
+
+  getIcPoint(index: number): ForeignCurve | undefined {
+    return this.icPoints[index];
+  }
 
   constructor(
     alpha_beta: Fp12,
     w27: Fp12,
     delta: G2Affine,
     gamma: G2Affine,
-    ic0: ForeignCurve,
-    ic1: ForeignCurve,
-    ic2: ForeignCurve,
-    ic3: ForeignCurve,
-    ic4: ForeignCurve,
-    ic5: ForeignCurve
+    icPoints: ForeignCurve[]
   ) {
     this.delta_lines = computeLineCoeffs(delta);
     this.gamma_lines = computeLineCoeffs(gamma);
     this.alpha_beta = alpha_beta;
     this.w27 = w27;
     this.w27_square = w27.mul(w27);
-    this.ic0 = ic0;
-    this.ic1 = ic1;
-    this.ic2 = ic2;
-    this.ic3 = ic3;
-    this.ic4 = ic4;
-    this.ic5 = ic5;
+    this.icPoints = icPoints;
+
+    // Must have at least ic0, the constant
+    if (this.icPoints.length === 0) {
+      throw new Error('VK must contain at least ic0 point');
+    }
   }
 
   static parse(path: string): GrothVk {
     const data = fs.readFileSync(path, 'utf-8');
     const obj: SerializedVk = JSON.parse(data);
+
+    // Detect available IC points from VK structure
+    const availableIcFields = Object.keys(obj)
+      .filter(key => key.startsWith('ic') && /^ic\d+$/.test(key))
+      .sort((a, b) => {
+        const numA = parseInt(a.substring(2));
+        const numB = parseInt(b.substring(2));
+        return numA - numB;
+      });
+
+    if (availableIcFields.length === 0 || !availableIcFields.includes('ic0')) {
+      throw new Error('VK must contain at least ic0 point');
+    }
 
     const dx = new Fp2({
       c0: FpC.from(obj.delta.x_c0),
@@ -114,24 +121,24 @@ class GrothVk {
     const alpha_beta = Fp12.loadFromJSON(obj.alpha_beta);
     const w27 = Fp12.loadFromJSON(obj.w27);
 
-    const ic0 = new bn254({ x: FpC.from(obj.ic0.x), y: FpC.from(obj.ic0.y) });
-    const ic1 = new bn254({ x: FpC.from(obj.ic1.x), y: FpC.from(obj.ic1.y) });
-    const ic2 = new bn254({ x: FpC.from(obj.ic2.x), y: FpC.from(obj.ic2.y) });
-    const ic3 = new bn254({ x: FpC.from(obj.ic3.x), y: FpC.from(obj.ic3.y) });
-    const ic4 = new bn254({ x: FpC.from(obj.ic4.x), y: FpC.from(obj.ic4.y) });
-    const ic5 = new bn254({ x: FpC.from(obj.ic5.x), y: FpC.from(obj.ic5.y) });
+    // Parse all available IC points
+    const icPoints = availableIcFields.map(field => {
+      const icData = (obj as any)[field];
+      if (!icData || !icData.x || !icData.y) {
+        throw new Error(`Invalid IC point data for field: ${field}`);
+      }
+      return new bn254({
+        x: FpC.from(icData.x),
+        y: FpC.from(icData.y)
+      });
+    });
 
     return new GrothVk(
       alpha_beta,
       w27,
       delta,
       gamma,
-      ic0,
-      ic1,
-      ic2,
-      ic3,
-      ic4,
-      ic5
+      icPoints
     );
   }
 }
