@@ -1,6 +1,6 @@
 import { spawn } from 'child_process';
 import { ProcessCmd, ProcessCmdOutput } from './plan.js';
-import { Logger } from '../logging/logger.js';
+import { Logger } from 'esm-iso-logger';
 import { InvertedPromise } from '../utils/InvertedPromise.js';
 
 export function processCmdToString(processCmd: ProcessCmd): string {

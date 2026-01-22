@@ -27,3 +27,8 @@ const child = spawn(
 child.on('exit', (code) => {
   process.exit(code);
 });
+
+// Interrupt SIGINT and allow the child to exit first
+process.on('SIGINT', () => {
+  child.kill('SIGINT');
+});

@@ -51,8 +51,8 @@
   "dependencies": {
     "@nori-zk/proof-conversion-pairing-utils": "^0.4.0",
     "bytebuffer": "^5.0.1",
-    "chalk": "^5.4.1",
     "commander": "^13.1.0",
+    "esm-iso-logger": "1.0.2",
     "ethers": "^6.13.1",
     "typescript": "^5.4.5"
   },
