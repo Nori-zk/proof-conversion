@@ -11,7 +11,8 @@ use wasm_bindgen::{prelude::*, JsError};
 use crate::gnark::{load_ark_proof_from_bytes, load_ark_groth16_verifying_key_from_bytes, GROTH16_VK_5_0_0_BYTES};
 use crate::kzg::{assert_o1js_mlo, compute_aux_witness};
 use crate::serialize::{serialize_fq12, AuxWitness, Field12};
-use crate::snarkjs::{O1jsGroth16, O1jsProof, O1jsVK, SnarkjsProof, SnarkjsVK};
+use crate::o1js::{O1jsGroth16, O1jsProof, O1jsVK};
+use crate::snarkjs::{SnarkjsProof, SnarkjsVK};
 use crate::sp1::SP1ProofWithPublicValues;
 use crate::types::{AffinePoint2d, ComplexAffinePoint2d};
 

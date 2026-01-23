@@ -10,6 +10,7 @@ pub mod gnark;
 pub mod kzg;
 mod risc0_vk;
 pub mod serialize;
+pub mod o1js;
 pub mod snarkjs;
 pub mod sp1;
 pub mod tonelli_shanks;
@@ -24,7 +25,7 @@ pub use wasm::{compute_and_serialize_aux_witness_js, compute_pairing_js};
 
 // Re-export commonly used types
 pub use serialize::{AuxWitness, Field12};
-pub use snarkjs::{O1jsProof, O1jsVK, SnarkjsProof, SnarkjsVK};
+pub use snarkjs::{SnarkjsProof, SnarkjsVK};
 pub use types::{AffinePoint2d, ComplexAffinePoint2d, ComplexProjectivePoint, ProjectivePoint};
 
 pub fn display_fq12(x: Fq12, label: &str) {
