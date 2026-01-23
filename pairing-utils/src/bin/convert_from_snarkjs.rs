@@ -201,6 +201,7 @@ fn serialize_fq12(f: Fq12) -> Fp12Element {
     }
 }
 
+// Redundancy with make_alpha_beta_js
 fn compute_alpha_beta_pairing(alpha: &[String], beta: &[Vec<String>]) -> Fp12Element {
     // Parse alpha (G1)
     let alpha_x: Fq = Fq::from_str(alpha[0].as_str()).unwrap();
