@@ -1,0 +1,301 @@
+//! Snarkjs/circom format types and o1js format conversions.
+//!
+//! This module provides types for reading proofs and verification keys from snarkjs
+//! and converting them to o1js format for verification in Mina.
+
+use ark_bn254::Bn254;
+use ark_ec::pairing::Pairing;
+use serde::{Deserialize, Serialize};
+use serde_wasm_bindgen::from_value;
+use wasm_bindgen::prelude::*;
+
+use crate::serialize::{serialize_fq12, Field12};
+use crate::types::{AffinePoint2d, ComplexAffinePoint2d, ComplexProjectivePoint, ProjectivePoint};
+
+/// Groth16 proof in snarkjs/circom format.
+///
+/// This is the input format produced by snarkjs when generating proofs.
+/// Points are in projective coordinates (with z component).
+///
+/// - `pi_a`: A point (G1 projective)
+/// - `pi_b`: B point (G2 projective)
+/// - `pi_c`: C point (G1 projective)
+#[derive(Deserialize, Debug)]
+pub struct SnarkjsProof {
+    pub pi_a: ProjectivePoint,
+    pub pi_b: ComplexProjectivePoint,
+    pub pi_c: ProjectivePoint,
+}
+
+impl SnarkjsProof {
+    /// Parses from a JavaScript value into `SnarkjsProof`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the JsValue doesn't match the expected structure.
+    pub fn from_js(js: JsValue) -> Result<Self, String> {
+        from_value(js).map_err(|e| format!("SnarkjsProof <- JsValue: {}", e))
+    }
+}
+
+/// Groth16 verification key in snarkjs/circom format.
+///
+/// This is the input format produced by snarkjs when compiling circom circuits.
+/// Points are in projective coordinates (with z component).
+///
+/// - `n_public`: Number of public inputs in the circuit
+/// - `vk_alpha_1`: Alpha point (G1 projective)
+/// - `vk_beta_2`, `vk_gamma_2`, `vk_delta_2`: Setup points (G2 projective)
+/// - `ic`: Input commitment points, one per public input plus a constant term
+#[derive(Deserialize, Debug)]
+pub struct SnarkjsVK {
+    #[serde(rename = "nPublic")]
+    pub n_public: usize,
+    pub vk_alpha_1: ProjectivePoint,
+    pub vk_beta_2: ComplexProjectivePoint,
+    pub vk_gamma_2: ComplexProjectivePoint,
+    pub vk_delta_2: ComplexProjectivePoint,
+    #[serde(rename = "IC")]
+    pub ic: Vec<ProjectivePoint>,
+}
+
+impl SnarkjsVK {
+    /// Parses from a JavaScript value into `SnarkjsVK`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the JsValue doesn't match the expected structure.
+    pub fn from_js(js: JsValue) -> Result<Self, String> {
+        from_value(js).map_err(|e| format!("SnarkjsVK <- JsValue: {}", e))
+    }
+
+    /// Validates the verification key against the given number of public inputs.
+    ///
+    /// # Validation Rules
+    ///
+    /// - `n_public` must match `public_input_count`
+    /// - `ic.len()` must equal `public_input_count + 1` (IC includes constant term ic0)
+    /// - `n_public` must not exceed 6 (max supported)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error describing which validation rule failed.
+    pub fn validate(&self, public_input_count: usize) -> Result<(), String> {
+        if self.n_public != public_input_count {
+            return Err(format!(
+                "SnarkjsVK validation: nPublic ({}) doesn't match public input count ({})",
+                self.n_public, public_input_count
+            ));
+        }
+
+        let expected_ic_count = public_input_count + 1;
+        if self.ic.len() != expected_ic_count {
+            return Err(format!(
+                "SnarkjsVK validation: IC count ({}) should be {} (public inputs + 1)",
+                self.ic.len(), expected_ic_count
+            ));
+        }
+
+        if self.n_public > 6 {
+            return Err(format!(
+                "SnarkjsVK validation: nPublic ({}) exceeds max supported (6)",
+                self.n_public
+            ));
+        }
+
+        Ok(())
+    }
+}
+
+/// Groth16 proof in o1js format.
+///
+/// Contains the three proof curve points plus public inputs:
+/// - `negA`: Negated A point (G1)
+/// - `B`: B point (G2 - complex coordinates)
+/// - `C`: C point (G1)
+/// - `pi1` through `pi6`: Public inputs (max 6 supported)
+#[derive(Serialize, Debug)]
+pub struct O1jsProof {
+    #[serde(rename = "negA")]
+    pub neg_a: AffinePoint2d,
+    #[serde(rename = "B")]
+    pub b: ComplexAffinePoint2d,
+    #[serde(rename = "C")]
+    pub c: AffinePoint2d,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pi1: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pi2: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pi3: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pi4: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pi5: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pi6: Option<String>,
+}
+
+impl O1jsProof {
+    /// Converts from `SnarkjsProof` format with the given public inputs.
+    ///
+    /// - `pi_a` is negated to produce `negA` (arkworks `G1Affine` negation)
+    /// - `pi_b` → `B` (converted to `ComplexAffinePoint2d`)
+    /// - `pi_c` → `C` (converted to `AffinePoint2d`)
+    ///
+    /// # Arguments
+    ///
+    /// - `proof`: The snarkjs-formatted proof
+    /// - `public_inputs`: The public inputs (max 6 supported)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - More than 6 public inputs are provided
+    /// - Any point coordinate cannot be parsed as a valid `Fq` field element
+    pub fn from_snarkjs(proof: &SnarkjsProof, public_inputs: &[String]) -> Result<Self, String> {
+        use ark_ec::AffineRepr;
+        use ark_ff::PrimeField;
+
+        if public_inputs.len() > 6 {
+            return Err(format!(
+                "O1jsProof <- SnarkjsProof: too many public inputs ({}, max 6)",
+                public_inputs.len()
+            ));
+        }
+
+        // Negate pi_a using arkworks
+        let a_g1 = proof.pi_a.to_g1_affine()
+            .map_err(|e| format!("O1jsProof <- SnarkjsProof: pi_a: {}", e))?;
+        let neg_a_g1 = -a_g1;
+        let neg_a = AffinePoint2d {
+            x: neg_a_g1.x().unwrap().into_bigint().to_string(),
+            y: neg_a_g1.y().unwrap().into_bigint().to_string(),
+        };
+
+        // Convert B and C (no negation needed)
+        let b = proof.pi_b.to_affine_2d();
+        let c = proof.pi_c.to_affine_2d();
+
+        // Map public inputs to pi1-pi6
+        let get_pi = |i: usize| -> Option<String> {
+            public_inputs.get(i).cloned()
+        };
+
+        Ok(O1jsProof {
+            neg_a,
+            b,
+            c,
+            pi1: get_pi(0),
+            pi2: get_pi(1),
+            pi3: get_pi(2),
+            pi4: get_pi(3),
+            pi5: get_pi(4),
+            pi6: get_pi(5),
+        })
+    }
+}
+
+/// Groth16 verification key in o1js format.
+///
+/// Contains the verification key parameters needed for proof verification:
+///
+/// - `alpha`: Alpha point from trusted setup (G1)
+/// - `beta`, `gamma`, `delta`: Curve points from the trusted setup (G2)
+/// - `alpha_beta`: Precomputed pairing e(alpha, beta) as a 12-element field value
+/// - `w27`: A 27th root of unity used for pairing optimizations
+/// - `ic0` through `ic6`: Input commitment points for public input verification.
+///   `ic0` is always present (the constant term). `ic1`-`ic6` are optional based on
+///   how many public inputs the circuit has (max 6 supported).
+///
+/// The Groth16 verification equation uses: `PI = ic0 + Σ(public_input[i] * ic[i+1])`
+#[derive(Serialize, Debug)]
+pub struct O1jsVK {
+    pub alpha: AffinePoint2d,
+    pub beta: ComplexAffinePoint2d,
+    pub gamma: ComplexAffinePoint2d,
+    pub delta: ComplexAffinePoint2d,
+    pub alpha_beta: Field12,
+    pub w27: Field12,
+    pub ic0: AffinePoint2d,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ic1: Option<AffinePoint2d>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ic2: Option<AffinePoint2d>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ic3: Option<AffinePoint2d>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ic4: Option<AffinePoint2d>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ic5: Option<AffinePoint2d>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ic6: Option<AffinePoint2d>,
+}
+
+impl O1jsVK {
+    /// Converts from `SnarkjsVK` format.
+    ///
+    /// - `vk_alpha_1` → `alpha` (G1)
+    /// - `vk_beta_2` → `beta` (G2)
+    /// - `vk_gamma_2` → `gamma` (G2)
+    /// - `vk_delta_2` → `delta` (G2)
+    /// - Computes `alpha_beta` pairing using arkworks `multi_miller_loop`
+    /// - Adds hardcoded `w27` (27th root of unity for pairing optimizations)
+    /// - Maps IC points to `ic0`-`ic6`
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any coordinate cannot be parsed as a valid field element.
+    pub fn from_snarkjs(vk: &SnarkjsVK) -> Result<Self, String> {
+        // Convert alpha and beta, then compute pairing
+        let alpha_g1 = vk.vk_alpha_1.to_g1_affine()
+            .map_err(|e| format!("O1jsVK <- SnarkjsVK: vk_alpha_1: {}", e))?;
+        let beta_g2 = vk.vk_beta_2.to_g2_affine()
+            .map_err(|e| format!("O1jsVK <- SnarkjsVK: vk_beta_2: {}", e))?;
+
+        // Compute alpha_beta pairing
+        let alpha_beta_fq12 = Bn254::multi_miller_loop(&[alpha_g1], &[beta_g2]).0;
+        let alpha_beta = serialize_fq12(alpha_beta_fq12);
+
+        // Hardcoded w27 (27th root of unity for pairing optimizations)
+        // https://eprint.iacr.org/2024/640
+        let w27 = Field12 {
+            g00: "0".to_string(),
+            g01: "0".to_string(),
+            g10: "0".to_string(),
+            g11: "0".to_string(),
+            g20: "8204864362109909869166472767738877274689483185363591877943943203703805152849".to_string(),
+            g21: "17912368812864921115467448876996876278487602260484145953989158612875588124088".to_string(),
+            h00: "0".to_string(),
+            h01: "0".to_string(),
+            h10: "0".to_string(),
+            h11: "0".to_string(),
+            h20: "0".to_string(),
+            h21: "0".to_string(),
+        };
+
+        // Map IC points (ic0 is always present, ic1-ic6 are optional)
+        let get_ic = |i: usize| -> Option<AffinePoint2d> {
+            vk.ic.get(i).map(|p| p.to_affine_2d())
+        };
+
+        // ic0 must exist
+        let ic0 = get_ic(0).ok_or("O1jsVK <- SnarkjsVK: missing ic0 (constant term)")?;
+
+        Ok(O1jsVK {
+            alpha: vk.vk_alpha_1.to_affine_2d(),
+            beta: vk.vk_beta_2.to_affine_2d(),
+            gamma: vk.vk_gamma_2.to_affine_2d(),
+            delta: vk.vk_delta_2.to_affine_2d(),
+            alpha_beta,
+            w27,
+            ic0,
+            ic1: get_ic(1),
+            ic2: get_ic(2),
+            ic3: get_ic(3),
+            ic4: get_ic(4),
+            ic5: get_ic(5),
+            ic6: get_ic(6),
+        })
+    }
+}

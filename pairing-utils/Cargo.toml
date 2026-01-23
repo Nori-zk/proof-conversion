@@ -29,7 +29,9 @@ serde_tuple = "1.1"
 num-bigint = "0.4"
 num-traits = "0.2"
 sp1-sdk = { version = "5.0.0", optional = true }
+sp1-verifier = { version = "5.2.4", features = ["ark"], optional = true }
 thiserror = "1.0"
+getrandom = { version = "0.2", features = ["js"], optional = true }
 
 # WebAssembly-specific output (for wasm-pack)
 # [target.wasm32-unknown-unknown.dependencies]
@@ -39,6 +41,7 @@ serde-wasm-bindgen = "0.4"
 [features]
 wasm = ["wasm-bindgen", "serde-wasm-bindgen"]
 sp1-bin = ["sp1-sdk"]
+sp1-wasm = ["sp1-verifier", "getrandom"]
 
 # Conditional dependencies for Wasm
 [target.'cfg(target_arch = "wasm32")'.dependencies]
