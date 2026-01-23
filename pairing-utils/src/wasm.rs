@@ -65,34 +65,34 @@ impl Fq12JSValue {
     ///
     /// Returns an error if any string cannot be parsed as a valid field element.
     pub fn to_fq12(&self) -> Result<Fq12, String> {
-        let parse_fq = |s: &str, name: &str| -> Result<Fq, String> {
-            Fq::from_str(s).map_err(|_| format!("Fq12JSValue -> Fq12: {} is not a valid Fq '{}'", name, s))
+        let parse_fq = |s: &str| -> Result<Fq, String> {
+            Fq::from_str(s).map_err(|_| format!("not a valid Fq '{}'", s))
         };
 
-        let g00 = parse_fq(&self.g00, "g00")?;
-        let g01 = parse_fq(&self.g01, "g01")?;
+        let g00 = parse_fq(&self.g00).map_err(|e| format!("Fq12JSValue -> Fq12: g00: {}", e))?;
+        let g01 = parse_fq(&self.g01).map_err(|e| format!("Fq12JSValue -> Fq12: g01: {}", e))?;
         let g0 = Fq2::new(g00, g01);
 
-        let g10 = parse_fq(&self.g10, "g10")?;
-        let g11 = parse_fq(&self.g11, "g11")?;
+        let g10 = parse_fq(&self.g10).map_err(|e| format!("Fq12JSValue -> Fq12: g10: {}", e))?;
+        let g11 = parse_fq(&self.g11).map_err(|e| format!("Fq12JSValue -> Fq12: g11: {}", e))?;
         let g1 = Fq2::new(g10, g11);
 
-        let g20 = parse_fq(&self.g20, "g20")?;
-        let g21 = parse_fq(&self.g21, "g21")?;
+        let g20 = parse_fq(&self.g20).map_err(|e| format!("Fq12JSValue -> Fq12: g20: {}", e))?;
+        let g21 = parse_fq(&self.g21).map_err(|e| format!("Fq12JSValue -> Fq12: g21: {}", e))?;
         let g2 = Fq2::new(g20, g21);
 
         let g = Fq6::new(g0, g1, g2);
 
-        let h00 = parse_fq(&self.h00, "h00")?;
-        let h01 = parse_fq(&self.h01, "h01")?;
+        let h00 = parse_fq(&self.h00).map_err(|e| format!("Fq12JSValue -> Fq12: h00: {}", e))?;
+        let h01 = parse_fq(&self.h01).map_err(|e| format!("Fq12JSValue -> Fq12: h01: {}", e))?;
         let h0 = Fq2::new(h00, h01);
 
-        let h10 = parse_fq(&self.h10, "h10")?;
-        let h11 = parse_fq(&self.h11, "h11")?;
+        let h10 = parse_fq(&self.h10).map_err(|e| format!("Fq12JSValue -> Fq12: h10: {}", e))?;
+        let h11 = parse_fq(&self.h11).map_err(|e| format!("Fq12JSValue -> Fq12: h11: {}", e))?;
         let h1 = Fq2::new(h10, h11);
 
-        let h20 = parse_fq(&self.h20, "h20")?;
-        let h21 = parse_fq(&self.h21, "h21")?;
+        let h20 = parse_fq(&self.h20).map_err(|e| format!("Fq12JSValue -> Fq12: h20: {}", e))?;
+        let h21 = parse_fq(&self.h21).map_err(|e| format!("Fq12JSValue -> Fq12: h21: {}", e))?;
         let h2 = Fq2::new(h20, h21);
 
         let h = Fq6::new(h0, h1, h2);
@@ -197,9 +197,9 @@ impl AffinePoint2d {
     /// Returns an error if x or y cannot be parsed as valid `Fq` field elements.
     pub fn to_g1_affine(&self) -> Result<G1Affine, String> {
         let x = Fq::from_str(&self.x)
-            .map_err(|_| format!("AffinePoint2d -> G1Affine: x is not a valid Fq '{}'", self.x))?;
+            .map_err(|_| format!("AffinePoint2d -> G1Affine: x: not a valid Fq '{}'", self.x))?;
         let y = Fq::from_str(&self.y)
-            .map_err(|_| format!("AffinePoint2d -> G1Affine: y is not a valid Fq '{}'", self.y))?;
+            .map_err(|_| format!("AffinePoint2d -> G1Affine: y: not a valid Fq '{}'", self.y))?;
         Ok(G1Affine::new(x, y))
     }
 
@@ -242,13 +242,13 @@ impl ComplexAffinePoint2d {
     /// Returns an error if any component cannot be parsed as a valid `Fq` field element.
     pub fn to_g2_affine(&self) -> Result<G2Affine, String> {
         let x_c0 = Fq::from_str(&self.x_c0)
-            .map_err(|_| format!("ComplexAffinePoint2d -> G2Affine: x_c0 is not a valid Fq '{}'", self.x_c0))?;
+            .map_err(|_| format!("ComplexAffinePoint2d -> G2Affine: x_c0: not a valid Fq '{}'", self.x_c0))?;
         let x_c1 = Fq::from_str(&self.x_c1)
-            .map_err(|_| format!("ComplexAffinePoint2d -> G2Affine: x_c1 is not a valid Fq '{}'", self.x_c1))?;
+            .map_err(|_| format!("ComplexAffinePoint2d -> G2Affine: x_c1: not a valid Fq '{}'", self.x_c1))?;
         let y_c0 = Fq::from_str(&self.y_c0)
-            .map_err(|_| format!("ComplexAffinePoint2d -> G2Affine: y_c0 is not a valid Fq '{}'", self.y_c0))?;
+            .map_err(|_| format!("ComplexAffinePoint2d -> G2Affine: y_c0: not a valid Fq '{}'", self.y_c0))?;
         let y_c1 = Fq::from_str(&self.y_c1)
-            .map_err(|_| format!("ComplexAffinePoint2d -> G2Affine: y_c1 is not a valid Fq '{}'", self.y_c1))?;
+            .map_err(|_| format!("ComplexAffinePoint2d -> G2Affine: y_c1: not a valid Fq '{}'", self.y_c1))?;
 
         let x = Fq2::new(x_c0, x_c1);
         let y = Fq2::new(y_c0, y_c1);
@@ -297,9 +297,9 @@ impl ProjectivePoint {
     /// Returns an error if x or y cannot be parsed as valid `Fq` field elements.
     pub fn to_g1_affine(&self) -> Result<G1Affine, String> {
         let x = Fq::from_str(&self.x)
-            .map_err(|_| format!("ProjectivePoint -> G1Affine: x is not a valid Fq '{}'", self.x))?;
+            .map_err(|_| format!("ProjectivePoint -> G1Affine: x: not a valid Fq '{}'", self.x))?;
         let y = Fq::from_str(&self.y)
-            .map_err(|_| format!("ProjectivePoint -> G1Affine: y is not a valid Fq '{}'", self.y))?;
+            .map_err(|_| format!("ProjectivePoint -> G1Affine: y: not a valid Fq '{}'", self.y))?;
         Ok(G1Affine::new(x, y))
     }
 
@@ -340,13 +340,13 @@ impl ComplexProjectivePoint {
     /// Returns an error if any component cannot be parsed as a valid `Fq` field element.
     pub fn to_g2_affine(&self) -> Result<G2Affine, String> {
         let x_c0 = Fq::from_str(&self.x.0)
-            .map_err(|_| format!("ComplexProjectivePoint -> G2Affine: x.0 is not a valid Fq '{}'", self.x.0))?;
+            .map_err(|_| format!("ComplexProjectivePoint -> G2Affine: x.0: not a valid Fq '{}'", self.x.0))?;
         let x_c1 = Fq::from_str(&self.x.1)
-            .map_err(|_| format!("ComplexProjectivePoint -> G2Affine: x.1 is not a valid Fq '{}'", self.x.1))?;
+            .map_err(|_| format!("ComplexProjectivePoint -> G2Affine: x.1: not a valid Fq '{}'", self.x.1))?;
         let y_c0 = Fq::from_str(&self.y.0)
-            .map_err(|_| format!("ComplexProjectivePoint -> G2Affine: y.0 is not a valid Fq '{}'", self.y.0))?;
+            .map_err(|_| format!("ComplexProjectivePoint -> G2Affine: y.0: not a valid Fq '{}'", self.y.0))?;
         let y_c1 = Fq::from_str(&self.y.1)
-            .map_err(|_| format!("ComplexProjectivePoint -> G2Affine: y.1 is not a valid Fq '{}'", self.y.1))?;
+            .map_err(|_| format!("ComplexProjectivePoint -> G2Affine: y.1: not a valid Fq '{}'", self.y.1))?;
 
         let x = Fq2::new(x_c0, x_c1);
         let y = Fq2::new(y_c0, y_c1);
@@ -402,9 +402,9 @@ impl PairingInput {
     /// Returns an error if any coordinate cannot be parsed as a valid field element.
     pub fn to_pairing_points(&self) -> Result<(G1Affine, G2Affine), String> {
         let g1 = self.alpha.to_g1_affine()
-            .map_err(|e| format!("PairingInput -> (G1Affine, G2Affine): {}", e))?;
+            .map_err(|e| format!("PairingInput -> (G1Affine, G2Affine): alpha: {}", e))?;
         let g2 = self.beta.to_g2_affine()
-            .map_err(|e| format!("PairingInput -> (G1Affine, G2Affine): {}", e))?;
+            .map_err(|e| format!("PairingInput -> (G1Affine, G2Affine): beta: {}", e))?;
         Ok((g1, g2))
     }
 }
@@ -489,63 +489,6 @@ impl SnarkjsProof {
     pub fn from_js(js: JsValue) -> Result<Self, String> {
         from_value(js).map_err(|e| format!("SnarkjsProof <- JsValue: {}", e))
     }
-
-    /// Converts to `O1jsProof` format with the given public inputs.
-    ///
-    /// - `pi_a` is negated to produce `negA` (arkworks `G1Affine` negation)
-    /// - `pi_b` → `B` (converted to `ComplexAffinePoint2d`)
-    /// - `pi_c` → `C` (converted to `AffinePoint2d`)
-    ///
-    /// # Arguments
-    ///
-    /// - `public_inputs`: The public inputs (max 6 supported)
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - More than 6 public inputs are provided
-    /// - Any point coordinate cannot be parsed as a valid `Fq` field element
-    pub fn to_o1js_proof(&self, public_inputs: &[String]) -> Result<O1jsProof, String> {
-        use ark_ec::AffineRepr;
-        use ark_ff::PrimeField;
-
-        if public_inputs.len() > 6 {
-            return Err(format!(
-                "SnarkjsProof -> O1jsProof: too many public inputs ({}, max 6)",
-                public_inputs.len()
-            ));
-        }
-
-        // Negate pi_a using arkworks
-        let a_g1 = self.pi_a.to_g1_affine()
-            .map_err(|e| format!("SnarkjsProof -> O1jsProof: pi_a: {}", e))?;
-        let neg_a_g1 = -a_g1;
-        let neg_a = AffinePoint2d {
-            x: neg_a_g1.x().unwrap().into_bigint().to_string(),
-            y: neg_a_g1.y().unwrap().into_bigint().to_string(),
-        };
-
-        // Convert B and C (no negation needed)
-        let b = self.pi_b.to_affine_2d();
-        let c = self.pi_c.to_affine_2d();
-
-        // Map public inputs to pi1-pi6
-        let get_pi = |i: usize| -> Option<String> {
-            public_inputs.get(i).cloned()
-        };
-
-        Ok(O1jsProof {
-            neg_a,
-            b,
-            c,
-            pi1: get_pi(0),
-            pi2: get_pi(1),
-            pi3: get_pi(2),
-            pi4: get_pi(3),
-            pi5: get_pi(4),
-            pi6: get_pi(5),
-        })
-    }
 }
 
 /// Groth16 verification key in snarkjs/circom format.
@@ -615,72 +558,6 @@ impl SnarkjsVK {
 
         Ok(())
     }
-
-    /// Converts to `O1jsVK` format.
-    ///
-    /// - `vk_alpha_1` → `alpha` (G1)
-    /// - `vk_beta_2` → `beta` (G2)
-    /// - `vk_gamma_2` → `gamma` (G2)
-    /// - `vk_delta_2` → `delta` (G2)
-    /// - Computes `alpha_beta` pairing using arkworks `multi_miller_loop`
-    /// - Adds hardcoded `w27` (27th root of unity for pairing optimizations)
-    /// - Maps IC points to `ic0`-`ic6`
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if any coordinate cannot be parsed as a valid field element.
-    pub fn to_o1js_vk(&self) -> Result<O1jsVK, String> {
-        // Convert alpha and beta, then compute pairing
-        let alpha_g1 = self.vk_alpha_1.to_g1_affine()
-            .map_err(|e| format!("SnarkjsVK -> O1jsVK: vk_alpha_1: {}", e))?;
-        let beta_g2 = self.vk_beta_2.to_g2_affine()
-            .map_err(|e| format!("SnarkjsVK -> O1jsVK: vk_beta_2: {}", e))?;
-
-        // Compute alpha_beta pairing
-        let alpha_beta_fq12 = Bn254::multi_miller_loop(&[alpha_g1], &[beta_g2]).0;
-        let alpha_beta = serialize_fq12(alpha_beta_fq12);
-
-        // Hardcoded w27 (27th root of unity for pairing optimizations)
-        // https://eprint.iacr.org/2024/640
-        let w27 = Field12 {
-            g00: "0".to_string(),
-            g01: "0".to_string(),
-            g10: "0".to_string(),
-            g11: "0".to_string(),
-            g20: "8204864362109909869166472767738877274689483185363591877943943203703805152849".to_string(),
-            g21: "17912368812864921115467448876996876278487602260484145953989158612875588124088".to_string(),
-            h00: "0".to_string(),
-            h01: "0".to_string(),
-            h10: "0".to_string(),
-            h11: "0".to_string(),
-            h20: "0".to_string(),
-            h21: "0".to_string(),
-        };
-
-        // Map IC points (ic0 is always present, ic1-ic6 are optional)
-        let get_ic = |i: usize| -> Option<AffinePoint2d> {
-            self.ic.get(i).map(|p| p.to_affine_2d())
-        };
-
-        // ic0 must exist
-        let ic0 = get_ic(0).ok_or("SnarkjsVK -> O1jsVK: missing ic0 (constant term)")?;
-
-        Ok(O1jsVK {
-            alpha: self.vk_alpha_1.to_affine_2d(),
-            beta: self.vk_beta_2.to_affine_2d(),
-            gamma: self.vk_gamma_2.to_affine_2d(),
-            delta: self.vk_delta_2.to_affine_2d(),
-            alpha_beta,
-            w27,
-            ic0,
-            ic1: get_ic(1),
-            ic2: get_ic(2),
-            ic3: get_ic(3),
-            ic4: get_ic(4),
-            ic5: get_ic(5),
-            ic6: get_ic(6),
-        })
-    }
 }
 
 /// Groth16 proof in o1js format.
@@ -710,6 +587,66 @@ pub struct O1jsProof {
     pub pi5: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pi6: Option<String>,
+}
+
+impl O1jsProof {
+    /// Converts from `SnarkjsProof` format with the given public inputs.
+    ///
+    /// - `pi_a` is negated to produce `negA` (arkworks `G1Affine` negation)
+    /// - `pi_b` → `B` (converted to `ComplexAffinePoint2d`)
+    /// - `pi_c` → `C` (converted to `AffinePoint2d`)
+    ///
+    /// # Arguments
+    ///
+    /// - `proof`: The snarkjs-formatted proof
+    /// - `public_inputs`: The public inputs (max 6 supported)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - More than 6 public inputs are provided
+    /// - Any point coordinate cannot be parsed as a valid `Fq` field element
+    pub fn from_snarkjs(proof: &SnarkjsProof, public_inputs: &[String]) -> Result<Self, String> {
+        use ark_ec::AffineRepr;
+        use ark_ff::PrimeField;
+
+        if public_inputs.len() > 6 {
+            return Err(format!(
+                "O1jsProof <- SnarkjsProof: too many public inputs ({}, max 6)",
+                public_inputs.len()
+            ));
+        }
+
+        // Negate pi_a using arkworks
+        let a_g1 = proof.pi_a.to_g1_affine()
+            .map_err(|e| format!("O1jsProof <- SnarkjsProof: pi_a: {}", e))?;
+        let neg_a_g1 = -a_g1;
+        let neg_a = AffinePoint2d {
+            x: neg_a_g1.x().unwrap().into_bigint().to_string(),
+            y: neg_a_g1.y().unwrap().into_bigint().to_string(),
+        };
+
+        // Convert B and C (no negation needed)
+        let b = proof.pi_b.to_affine_2d();
+        let c = proof.pi_c.to_affine_2d();
+
+        // Map public inputs to pi1-pi6
+        let get_pi = |i: usize| -> Option<String> {
+            public_inputs.get(i).cloned()
+        };
+
+        Ok(O1jsProof {
+            neg_a,
+            b,
+            c,
+            pi1: get_pi(0),
+            pi2: get_pi(1),
+            pi3: get_pi(2),
+            pi4: get_pi(3),
+            pi5: get_pi(4),
+            pi6: get_pi(5),
+        })
+    }
 }
 
 /// Groth16 verification key in o1js format.
@@ -746,4 +683,72 @@ pub struct O1jsVK {
     pub ic5: Option<AffinePoint2d>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ic6: Option<AffinePoint2d>,
+}
+
+impl O1jsVK {
+    /// Converts from `SnarkjsVK` format.
+    ///
+    /// - `vk_alpha_1` → `alpha` (G1)
+    /// - `vk_beta_2` → `beta` (G2)
+    /// - `vk_gamma_2` → `gamma` (G2)
+    /// - `vk_delta_2` → `delta` (G2)
+    /// - Computes `alpha_beta` pairing using arkworks `multi_miller_loop`
+    /// - Adds hardcoded `w27` (27th root of unity for pairing optimizations)
+    /// - Maps IC points to `ic0`-`ic6`
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any coordinate cannot be parsed as a valid field element.
+    pub fn from_snarkjs(vk: &SnarkjsVK) -> Result<Self, String> {
+        // Convert alpha and beta, then compute pairing
+        let alpha_g1 = vk.vk_alpha_1.to_g1_affine()
+            .map_err(|e| format!("O1jsVK <- SnarkjsVK: vk_alpha_1: {}", e))?;
+        let beta_g2 = vk.vk_beta_2.to_g2_affine()
+            .map_err(|e| format!("O1jsVK <- SnarkjsVK: vk_beta_2: {}", e))?;
+
+        // Compute alpha_beta pairing
+        let alpha_beta_fq12 = Bn254::multi_miller_loop(&[alpha_g1], &[beta_g2]).0;
+        let alpha_beta = serialize_fq12(alpha_beta_fq12);
+
+        // Hardcoded w27 (27th root of unity for pairing optimizations)
+        // https://eprint.iacr.org/2024/640
+        let w27 = Field12 {
+            g00: "0".to_string(),
+            g01: "0".to_string(),
+            g10: "0".to_string(),
+            g11: "0".to_string(),
+            g20: "8204864362109909869166472767738877274689483185363591877943943203703805152849".to_string(),
+            g21: "17912368812864921115467448876996876278487602260484145953989158612875588124088".to_string(),
+            h00: "0".to_string(),
+            h01: "0".to_string(),
+            h10: "0".to_string(),
+            h11: "0".to_string(),
+            h20: "0".to_string(),
+            h21: "0".to_string(),
+        };
+
+        // Map IC points (ic0 is always present, ic1-ic6 are optional)
+        let get_ic = |i: usize| -> Option<AffinePoint2d> {
+            vk.ic.get(i).map(|p| p.to_affine_2d())
+        };
+
+        // ic0 must exist
+        let ic0 = get_ic(0).ok_or("O1jsVK <- SnarkjsVK: missing ic0 (constant term)")?;
+
+        Ok(O1jsVK {
+            alpha: vk.vk_alpha_1.to_affine_2d(),
+            beta: vk.vk_beta_2.to_affine_2d(),
+            gamma: vk.vk_gamma_2.to_affine_2d(),
+            delta: vk.vk_delta_2.to_affine_2d(),
+            alpha_beta,
+            w27,
+            ic0,
+            ic1: get_ic(1),
+            ic2: get_ic(2),
+            ic3: get_ic(3),
+            ic4: get_ic(4),
+            ic5: get_ic(5),
+            ic6: get_ic(6),
+        })
+    }
 }
