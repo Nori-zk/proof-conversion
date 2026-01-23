@@ -8,9 +8,11 @@ use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::{from_value, to_value};
 use wasm_bindgen::{prelude::*, JsError};
 
+use crate::gnark::{load_ark_proof_from_bytes, load_ark_groth16_verifying_key_from_bytes, GROTH16_VK_5_0_0_BYTES};
 use crate::kzg::{assert_o1js_mlo, compute_aux_witness};
 use crate::serialize::{serialize_fq12, AuxWitness, Field12};
-use crate::snarkjs::{O1jsProof, O1jsVK, SnarkjsProof, SnarkjsVK};
+use crate::snarkjs::{O1jsGroth16, O1jsProof, O1jsVK, SnarkjsProof, SnarkjsVK};
+use crate::sp1::SP1ProofWithPublicValues;
 use crate::types::{AffinePoint2d, ComplexAffinePoint2d};
 
 /// Input for computing a pairing operation.
@@ -144,15 +146,6 @@ pub fn compute_pairing_js(input: JsValue) -> Result<JsValue, JsError> {
     to_value(&serialized).map_err(|e| JsError::new(&format!("compute_pairing_js: failed to serialize result: {}", e)))
 }
 
-/// Result of converting snarkjs format to o1js format.
-///
-/// Contains both the converted proof and verification key.
-#[derive(Serialize, Debug)]
-pub struct ConversionResult {
-    pub proof: O1jsProof,
-    pub vk: O1jsVK,
-}
-
 /// Converts a snarkjs Groth16 proof and verification key to o1js format.
 ///
 /// # What This Does
@@ -175,7 +168,7 @@ pub struct ConversionResult {
 ///
 /// # Output
 ///
-/// A [`ConversionResult`] object containing:
+/// A [`O1jsGroth16`] object containing:
 /// - `proof`: o1js proof with `negA`, `B`, `C`, `pi1`-`pi6`
 /// - `vk`: o1js VK with `alpha`, `beta`, `gamma`, `delta`, `alpha_beta`, `w27`, `ic0`-`ic6`
 ///
@@ -215,10 +208,85 @@ pub fn convert_snarkjs_to_o1js_js(
         .map_err(|e| JsError::new(&format!("convert_snarkjs_to_o1js_js: {}", e)))?;
 
     // Return both
-    let result = ConversionResult {
+    let result = O1jsGroth16 {
         proof: o1js_proof,
         vk: o1js_vk,
     };
 
     to_value(&result).map_err(|e| JsError::new(&format!("convert_snarkjs_to_o1js_js: failed to serialize result: {}", e)))
+}
+
+/// Converts an SP1 Groth16 proof to o1js format.
+///
+/// # What This Does
+///
+/// This is a holistic conversion function that takes an SP1 proof (in JSON format)
+/// and produces o1js-formatted outputs ready for verification in Mina.
+///
+/// The conversion includes:
+/// - **Proof extraction**: Extracts gnark-formatted proof bytes from the SP1 proof
+/// - **Proof decompression**: Decompresses gnark format to arkworks format
+/// - **Proof conversion**: Negates A point, converts to o1js format
+/// - **VK conversion**: Uses embedded SP1 v5.0.0 verification key
+///
+/// # Input
+///
+/// - `sp1_proof`: SP1ProofWithPublicValues JSON object containing:
+///   - `proof`: SP1Proof with `Groth16` variant containing `encoded_proof`, `public_inputs`
+///   - `public_values`: SP1PublicValues
+///   - `sp1_version`: Version string
+///
+/// # Output
+///
+/// A [`O1jsGroth16`] object containing:
+/// - `proof`: o1js proof with `negA`, `B`, `C`, `pi1`, `pi2`
+/// - `vk`: o1js VK with `alpha`, `beta`, `gamma`, `delta`, `alpha_beta`, `w27`, `ic0`-`ic2`
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Input parsing fails
+/// - Proof is not Groth16 variant
+/// - Hex decoding of encoded_proof fails
+/// - gnark decompression fails
+#[wasm_bindgen]
+pub fn convert_sp1_to_o1js_js(sp1_proof: JsValue) -> Result<JsValue, JsError> {
+    // Parse SP1 proof from JSON
+    let sp1 = SP1ProofWithPublicValues::from_js(sp1_proof)
+        .map_err(|e| JsError::new(&format!("convert_sp1_to_o1js_js: {}", e)))?;
+
+    // Get the Groth16 proof
+    let groth16_proof = sp1.proof.try_as_groth_16()
+        .ok_or_else(|| JsError::new("convert_sp1_to_o1js_js: proof is not Groth16 variant"))?;
+
+    // Get proof bytes (this hex-decodes encoded_proof and prepends vkey hash)
+    let proof_bytes = sp1.bytes();
+    if proof_bytes.is_empty() {
+        return Err(JsError::new("convert_sp1_to_o1js_js: empty proof (mock proof not supported)"));
+    }
+
+    // Skip the first 4 bytes (vkey hash prefix) and load arkworks proof
+    let ark_proof = load_ark_proof_from_bytes(&proof_bytes[4..])
+        .map_err(|e| JsError::new(&format!("convert_sp1_to_o1js_js: failed to load proof: {}", e)))?;
+
+    // Load the embedded SP1 v5.0.0 verification key
+    let ark_vk = load_ark_groth16_verifying_key_from_bytes(GROTH16_VK_5_0_0_BYTES)
+        .map_err(|e| JsError::new(&format!("convert_sp1_to_o1js_js: failed to load VK: {}", e)))?;
+
+    // Convert proof to o1js format
+    let public_inputs: Vec<String> = groth16_proof.public_inputs.to_vec();
+    let o1js_proof = O1jsProof::from_groth16(&ark_proof, &public_inputs)
+        .map_err(|e| JsError::new(&format!("convert_sp1_to_o1js_js: {}", e)))?;
+
+    // Convert VK to o1js format
+    let o1js_vk = O1jsVK::from_groth16(&ark_vk)
+        .map_err(|e| JsError::new(&format!("convert_sp1_to_o1js_js: {}", e)))?;
+
+    // Return both
+    let result = O1jsGroth16 {
+        proof: o1js_proof,
+        vk: o1js_vk,
+    };
+
+    to_value(&result).map_err(|e| JsError::new(&format!("convert_sp1_to_o1js_js: failed to serialize result: {}", e)))
 }

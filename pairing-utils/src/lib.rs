@@ -6,10 +6,12 @@ use serialize::{deserialize_fq12, serialize_aux_witness};
 
 pub mod constants;
 pub mod eth_root;
+pub mod gnark;
 pub mod kzg;
 mod risc0_vk;
 pub mod serialize;
 pub mod snarkjs;
+pub mod sp1;
 pub mod tonelli_shanks;
 pub mod types;
 pub mod utils;
