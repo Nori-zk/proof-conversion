@@ -1,7 +1,8 @@
 import { resolve } from 'path';
-import { computeAuxWitness, computePairingRisc0 } from '../../../pairing-utils/index.js';
-import { AlphaBetaWasm } from '../../../pairing-utils/index.js';
-import { makeAlphaBeta } from '../../../pairing-utils/index.js';
+import {
+  computeAuxWitness,
+  computePairingRisc0,
+} from '../../../pairing-utils/index.js';
 import {
   createDirectories,
   createDirectory,
@@ -17,7 +18,7 @@ import {
 import { PlatformFeatures } from '../platform/index.js';
 import rootDir from '../../../utils/root_dir.js';
 import { readFileSync, rmSync, writeFileSync } from 'fs';
-import { Risc0Proof, Risc0RawVk } from '../../../api/risc0/types.js';
+import { Risc0Groth16Proof, Risc0Groth16RawVk } from '../../../api/risc0/types.js';
 import { Groth16Verifier } from '../../../groth/verifier.js';
 import { Proof } from '../../../groth/proof.js';
 import {
@@ -25,11 +26,10 @@ import {
   ProofDataOutput,
   VkDataOutput,
 } from '../../types.js';
-import { compute_pairing_js } from 'pairing-utils/pkg/pairing_utils.js';
 
 export type Risc0Groth16Input = {
-  risc0_proof: Risc0Proof;
-  raw_vk: Risc0RawVk;
+  risc0_proof: Risc0Groth16Proof;
+  raw_vk: Risc0Groth16RawVk;
 };
 
 interface State extends PlatformFeatures, ConversionOutput {
@@ -81,27 +81,12 @@ export class Risc0Groth16ComputationalPlan implements ComputationPlan<
       name: 'makeAlphaBeta',
       type: 'main-thread',
       execute: (state: State) => {
-        const raw_vk = state.input.raw_vk;
-
-        /*const input: AlphaBetaWasm = {
-          alpha: {
-            x: raw_vk.alpha.x,
-            y: raw_vk.alpha.y,
-          },
-          beta: {
-            x_c0: raw_vk.beta.x_c0,
-            x_c1: raw_vk.beta.x_c1,
-            y_c0: raw_vk.beta.y_c0,
-            y_c1: raw_vk.beta.y_c1,
-          },
-        };*/
-        // const risc0_vk = makeAlphaBeta(raw_vk, input);
-
-        const risc0_vk = computePairingRisc0(raw_vk);
+        const { raw_vk: rawVk } = state.input;
+        const risc0Vk = computePairingRisc0(rawVk);
 
         writeFileSync(
           resolve(state.workingDir, 'risc_zero_vk.json'),
-          JSON.stringify(risc0_vk)
+          JSON.stringify(risc0Vk)
         );
 
         writeFileSync(
@@ -117,12 +102,10 @@ export class Risc0Groth16ComputationalPlan implements ComputationPlan<
       name: 'GenerateWitness',
       type: 'main-thread',
       execute: (state: State) => {
-        // args = [vk_path, proof_path, mlo_write_path]
-        const vk_path = state.vkPath;
-        const proof_path = state.proofPath;
+        const { vkPath, proofPath } = state;
 
-        const groth16 = new Groth16Verifier(vk_path);
-        const proof = Proof.parse(groth16.vk, proof_path);
+        const groth16 = new Groth16Verifier(vkPath);
+        const proof = Proof.parse(groth16.vk, proofPath);
         const mlo = groth16.multiMillerLoop(proof).toJSON();
 
         const witness = computeAuxWitness(JSON.parse(mlo));

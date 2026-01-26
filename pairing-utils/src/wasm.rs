@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use tsify::Tsify;
 use wasm_bindgen::{prelude::*, JsError};
 
-use crate::kzg::{assert_o1js_mlo, compute_aux_witness};
+use crate::kzg::{assert_o1js_mlo, compute_aux_witness as compute_aux_witness_internal};
 use crate::o1js::O1jsGroth16;
 use crate::serialize::{serialize_fq12, AuxWitness, Field12};
 use crate::snarkjs::{SnarkjsProof, SnarkjsVK};
@@ -23,7 +23,7 @@ use crate::types::{AffinePoint2d, ComplexAffinePoint2d};
 /// - `alpha`: G1 curve point (simple 2D coordinates)
 /// - `beta`: G2 curve point (complex 2D coordinates, each coordinate is a pair)
 ///
-/// See [`compute_pairing_js`] for the computation.
+/// See [`compute_pairing`] for the computation.
 #[derive(Serialize, Deserialize, Debug, Tsify)]
 #[tsify(into_wasm_abi, from_wasm_abi)]
 pub struct PairingInput {
@@ -75,15 +75,15 @@ impl PairingInput {
 ///
 /// Panics if the input is not a valid Miller loop output (fails internal assertion).
 #[wasm_bindgen]
-pub fn compute_and_serialize_aux_witness_js(input: Field12) -> Result<AuxWitness, JsError> {
+pub fn compute_aux_witness(input: Field12) -> Result<AuxWitness, JsError> {
     let mlo = input.to_fq12()
-        .map_err(|e| JsError::new(&format!("compute_and_serialize_aux_witness_js: {}", e)))?;
+        .map_err(|e| JsError::new(&format!("compute_aux_witness: {}", e)))?;
 
     // Validate Miller loop output
     assert_o1js_mlo(mlo);
 
     // Compute
-    let (shift_pow, c) = compute_aux_witness(mlo);
+    let (shift_pow, c) = compute_aux_witness_internal(mlo);
 
     // Return
     let c_serialized = serialize_fq12(c);
@@ -118,9 +118,9 @@ pub fn compute_and_serialize_aux_witness_js(input: Field12) -> Result<AuxWitness
 ///
 /// Returns a JS error if input parsing or coordinate conversion fails.
 #[wasm_bindgen]
-pub fn compute_pairing_js(input: PairingInput) -> Result<Field12, JsError> {
+pub fn compute_pairing(input: PairingInput) -> Result<Field12, JsError> {
     let (alpha, beta) = input.to_pairing_points()
-        .map_err(|e| JsError::new(&format!("compute_pairing_js: {}", e)))?;
+        .map_err(|e| JsError::new(&format!("compute_pairing: {}", e)))?;
 
     // Perform the multi-miller loop
     let alpha_beta = Bn254::multi_miller_loop(&[alpha], &[beta]).0;
@@ -198,19 +198,19 @@ pub fn compute_pairing_js(input: PairingInput) -> Result<Field12, JsError> {
 /// - Point coordinate parsing fails (invalid field element strings)
 /// - More than 6 public inputs are provided
 #[wasm_bindgen]
-pub fn convert_snarkjs_groth16_to_o1js_js(
+pub fn convert_snarkjs_groth16_to_o1js(
     proof: SnarkjsProof,
     public_inputs: Vec<String>,
     vk: SnarkjsVK,
 ) -> Result<O1jsGroth16, JsError> {
     // Validate VK nPublic matches provided public inputs count
     vk.validate(public_inputs.len())
-        .map_err(|e| JsError::new(&format!("convert_snarkjs_groth16_to_o1js_js: {}", e)))?;
+        .map_err(|e| JsError::new(&format!("convert_snarkjs_groth16_to_o1js: {}", e)))?;
 
     // Convert proof to o1js format (negates A point, converts to affine) and VK to o1js format
     // (computes alpha_beta pairing, adds w27)
     O1jsGroth16::from_snarkjs_groth16(&vk, &proof, &public_inputs)
-        .map_err(|e| JsError::new(&format!("convert_snarkjs_groth16_to_o1js_js: {}", e)))
+        .map_err(|e| JsError::new(&format!("convert_snarkjs_groth16_to_o1js: {}", e)))
 }
 
 /// Converts an SP1 Groth16 proof to o1js format.
@@ -272,8 +272,8 @@ pub fn convert_snarkjs_groth16_to_o1js_js(
 /// - Hex decoding of `encoded_proof` fails
 /// - gnark point decompression fails (invalid curve points)
 #[wasm_bindgen]
-pub fn convert_sp1_groth16_to_o1js_js(sp1_proof: SP1ProofWithPublicValues) -> Result<O1jsGroth16, JsError> {
+pub fn convert_sp1_groth16_to_o1js(sp1_proof: SP1ProofWithPublicValues) -> Result<O1jsGroth16, JsError> {
     // Convert to o1js format (extracts proof bytes, decompresses gnark format, negates A)
     O1jsGroth16::from_sp1_groth16(&sp1_proof)
-        .map_err(|e| JsError::new(&format!("convert_sp1_groth16_to_o1js_js: {}", e)))
+        .map_err(|e| JsError::new(&format!("convert_sp1_groth16_to_o1js: {}", e)))
 }

@@ -1,5 +1,5 @@
 use ark_bn254::Fq12;
-use kzg::{assert_o1js_mlo, compute_aux_witness};
+use kzg::{assert_o1js_mlo, compute_aux_witness as compute_aux_witness_internal};
 use serde_json::Value;
 use serialize::serialize_fq12;
 use serialize::{deserialize_fq12, serialize_aux_witness};
@@ -21,7 +21,12 @@ pub mod write;
 //#[cfg(feature = "wasm")]
 pub mod wasm;
 //#[cfg(feature = "wasm")]
-pub use wasm::{compute_and_serialize_aux_witness_js, compute_pairing_js};
+pub use wasm::{
+    compute_aux_witness,
+    compute_pairing,
+    convert_snarkjs_groth16_to_o1js,
+    convert_sp1_groth16_to_o1js,
+};
 
 // Re-export commonly used types
 pub use serialize::{AuxWitness, Field12};
@@ -50,7 +55,7 @@ pub fn compute_and_serialize_aux_witness(path_to_mlo: &str, path_to_aux_witness:
     // make sure that it is indeed r-th residue
     assert_o1js_mlo(mlo);
 
-    let (shift_pow, c) = compute_aux_witness(mlo);
+    let (shift_pow, c) = compute_aux_witness_internal(mlo);
     serialize_aux_witness(c, shift_pow, path_to_aux_witness);
 }
 

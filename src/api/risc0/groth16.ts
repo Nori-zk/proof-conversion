@@ -2,16 +2,16 @@ import { Risc0Groth16ComputationalPlan } from '../../compute/plans/risc0/groth16
 import { Logger } from 'esm-iso-logger';
 import { ApiMethod } from '../methodDecorator.js';
 import {
-  risc0ArgsKeys,
-  risc0ObjKeys,
-  Risc0ToGroth16Input,
+  risc0Groth16ArgsKeys,
+  risc0Groth16ObjKeys,
+  Risc0Groth16Input,
 } from './types.js';
 import { assertExactStructure } from '../validation/validation.js';
 import { risc0ObjInputSchema } from '../validation/risc0/schema.js';
 
 const logger = new Logger('API');
 
-const fromRisc0Object = (obj: Risc0ToGroth16Input): Risc0ToGroth16Input => {
+const fromRisc0Object = (obj: Risc0Groth16Input): Risc0Groth16Input => {
   // Validate structure
   assertExactStructure(obj, risc0ObjInputSchema, 'Risc0ToGroth16Input');
 
@@ -22,13 +22,13 @@ const fromRisc0Object = (obj: Risc0ToGroth16Input): Risc0ToGroth16Input => {
 };
 
 export const performRisc0Groth16 = ApiMethod<
-  Risc0ToGroth16Input, // TInput (what executor expects)
-  typeof risc0ArgsKeys, // TKeys (what arguments mode expects to be provided) performRisc0ToGroth16.fromArgs(risc0_proof, raw_vk)
-  Risc0ToGroth16Input // TObject (what object mode expects as a single object) performRisc0ToGroth16.fromObject({} as Risc0ToGroth16Input)
+  Risc0Groth16Input, // TInput (what executor expects)
+  typeof risc0Groth16ArgsKeys, // TKeys (what arguments mode expects to be provided) performRisc0ToGroth16.fromArgs(risc0_proof, raw_vk)
+  Risc0Groth16Input // TObject (what object mode expects as a single object) performRisc0ToGroth16.fromObject({} as Risc0ToGroth16Input)
 >(
-  risc0ArgsKeys,
+  risc0Groth16ArgsKeys,
   fromRisc0Object,
-  risc0ObjKeys
+  risc0Groth16ObjKeys
 )(async (executor, input) => {
   logger.log('Performing Risc0 to Groth16 conversion...');
   return executor.execute(new Risc0Groth16ComputationalPlan(), input);
