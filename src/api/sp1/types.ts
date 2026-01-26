@@ -12,7 +12,7 @@ export interface Sp1PublicValues {
     data: number[];
   };
 }
-
+// BIND THIS TO THIS SP1ProofWithPublicValues
 export interface Sp1Input {
   proof: Sp1Proof;
   public_values: Sp1PublicValues;

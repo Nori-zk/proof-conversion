@@ -5,6 +5,8 @@ import { Sp1Input } from './types.js';
 
 const logger = new Logger('API');
 
+// TODO PREVENT TEE option
+
 const sp1ArgKeys = ['hexPi', 'programVK', 'encodedProof'] as const;
 const sp1ObjKeys = ['proof', 'public_values', 'sp1_version'] as const;
 

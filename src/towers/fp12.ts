@@ -4,8 +4,11 @@ import { FpC } from './fp.js';
 import { Fp2 } from './fp2.js';
 import { Fp6 } from './fp6.js';
 import { GAMMA_1S, GAMMA_2S, GAMMA_3S } from './precomputed.js';
+import { Field12 } from '@nori-zk/proof-conversion-pairing-utils';
 
-type Fp12Type = {
+type Fp12Type = Field12;
+
+/*type Fp12Type = {
   g00: string;
   g01: string;
   g10: string;
@@ -19,7 +22,7 @@ type Fp12Type = {
   h11: string;
   h20: string;
   h21: string;
-};
+};*/
 
 // Fp6^2[w]/(w^2 - v)
 class Fp12 extends Struct({ c0: Fp6, c1: Fp6 }) {
