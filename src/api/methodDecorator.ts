@@ -3,7 +3,7 @@ import { ComputationalPlanExecutor } from '../compute/executor.js';
 export function ApiMethod<
   TInput,
   TKeys extends readonly (keyof TInput)[] | false = false,
-  TObject extends object = any
+  TObject extends object = object,
 >(
   keys: TKeys,
   fromObject: (obj: TObject) => TInput,
@@ -21,7 +21,7 @@ export function ApiMethod<
         ? (...args: Args) => TInput
         : false;
 
-    return ((...args: any[]) => {
+    return ((...args: unknown[]) => {
       // runtime guard
       if (!Array.isArray(keys))
         throw new Error('keys must be an array when args-mode enabled');
@@ -38,7 +38,7 @@ export function ApiMethod<
         if (v === undefined)
           throw new Error(`Argument for "${String(k)}" is undefined`);
         // safe assignment: key is keyof TInput by constraint
-        (input as any)[k] = v;
+        input[k as keyof TInput] = v as TInput[keyof TInput];
       });
 
       return input;
@@ -60,7 +60,7 @@ export function ApiMethod<
     F extends (
       executor: ComputationalPlanExecutor,
       input: TInput
-    ) => Promise<any>
+    ) => Promise<object>,
   >(
     fn: F
   ): F & {
