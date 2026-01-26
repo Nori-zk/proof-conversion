@@ -1,5 +1,7 @@
 import { resolve } from 'path';
-import { computeAuxWitness } from '../../../pairing-utils/index.js';
+import { computeAuxWitness, computePairingRisc0 } from '../../../pairing-utils/index.js';
+import { AlphaBetaWasm } from '../../../pairing-utils/index.js';
+import { makeAlphaBeta } from '../../../pairing-utils/index.js';
 import {
   createDirectories,
   createDirectory,
@@ -15,60 +17,57 @@ import {
 import { PlatformFeatures } from '../platform/index.js';
 import rootDir from '../../../utils/root_dir.js';
 import { readFileSync, rmSync, writeFileSync } from 'fs';
-import { getMlo } from '../../../plonk/get_mlo.js';
+import { Risc0Proof, Risc0RawVk } from '../../../api/risc0/types.js';
+import { Groth16Verifier } from '../../../groth/verifier.js';
+import { Proof } from '../../../groth/proof.js';
+import {
+  ConversionOutput,
+  ProofDataOutput,
+  VkDataOutput,
+} from '../../types.js';
+import { compute_pairing_js } from 'pairing-utils/pkg/pairing_utils.js';
 
-export type PlonkInput = {
-  hexPi: string;
-  programVK: string;
-  encodedProof: string;
+export type Risc0Groth16Input = {
+  risc0_proof: Risc0Proof;
+  raw_vk: Risc0RawVk;
 };
 
-export interface PlonkProofData {
-  maxProofsVerified: 0 | 1 | 2;
-  proof: string;
-  publicInput: string[];
-  publicOutput: string[];
-}
-
-export interface PlonkVkData {
-  data: string;
-  hash: string;
-}
-
-export interface PlonkOutput {
-  vkData: PlonkVkData;
-  proofData: PlonkProofData;
-}
-
-interface State extends PlatformFeatures, PlonkOutput {
+interface State extends PlatformFeatures, ConversionOutput {
   workingDirName: string;
   workingDir: string;
   cacheDir: string;
-  input: PlonkInput;
+  input: Risc0Groth16Input;
   witnessPath: string;
+  proofPath: string;
+  vkPath: string;
 }
 
 const proofVkCacheStructure: DirectoryStructure = {
-  proofs: range(6).map((i) => `layer${i}`),
-  vks: range(6).map((i) => `layer${i}`),
+  proofs: range(5).map((i) => `layer${i}`),
+  vks: range(5).map((i) => `layer${i}`),
 };
 
 const nodeCacheStructure: DirectoryStructure = range(4).map((i) => `node${i}`);
 
-export class PlonkComputationalPlan
-  implements ComputationPlan<State, PlonkOutput, PlonkInput>
-{
-  readonly __inputType!: PlonkInput;
-  name = 'PlonkConverter';
-  async init(state: State, input: PlonkInput): Promise<void> {
+export class Risc0Groth16ComputationalPlan implements ComputationPlan<
+  State,
+  ConversionOutput,
+  Risc0Groth16Input
+> {
+  readonly __inputType!: Risc0Groth16Input;
+  name = 'Risc0Groth16Converter';
+  async init(state: State, input: Risc0Groth16Input): Promise<void> {
     state.input = input;
     state.workingDirName = getRandomString(20);
     const pwd = process.cwd();
     state.workingDir = resolve(pwd, '.conversion-cache', state.workingDirName);
-    state.cacheDir = resolve(pwd, '.conversion-cache', 'plonk_cache');
+    state.cacheDir = resolve(pwd, '.conversion-cache', 'groth16_cache');
   }
   stages: ComputationalStage<State>[] = [
     {
+      // Create the cache and working directories
+      // Create the proofs and vks directories
+      // Create the node directories
       name: 'CreateFileSystemCache',
       type: 'main-thread',
       execute: (state) => {
@@ -78,15 +77,53 @@ export class PlonkComputationalPlan
         createDirectories(state.workingDir, nodeCacheStructure);
       },
     },
-    {      
+    {
+      name: 'makeAlphaBeta',
+      type: 'main-thread',
+      execute: (state: State) => {
+        const raw_vk = state.input.raw_vk;
+
+        /*const input: AlphaBetaWasm = {
+          alpha: {
+            x: raw_vk.alpha.x,
+            y: raw_vk.alpha.y,
+          },
+          beta: {
+            x_c0: raw_vk.beta.x_c0,
+            x_c1: raw_vk.beta.x_c1,
+            y_c0: raw_vk.beta.y_c0,
+            y_c1: raw_vk.beta.y_c1,
+          },
+        };*/
+        // const risc0_vk = makeAlphaBeta(raw_vk, input);
+
+        const risc0_vk = computePairingRisc0(raw_vk);
+
+        writeFileSync(
+          resolve(state.workingDir, 'risc_zero_vk.json'),
+          JSON.stringify(risc0_vk)
+        );
+
+        writeFileSync(
+          resolve(state.workingDir, 'risc_zero_proof.json'),
+          JSON.stringify(state.input.risc0_proof)
+        );
+
+        state.vkPath = resolve(state.workingDir, 'risc_zero_vk.json');
+        state.proofPath = resolve(state.workingDir, 'risc_zero_proof.json');
+      },
+    },
+    {
       name: 'GenerateWitness',
       type: 'main-thread',
       execute: (state: State) => {
-        const mlo = getMlo(
-          state.input.encodedProof,
-          state.input.programVK,
-          state.input.hexPi
-        ).toJSON();
+        // args = [vk_path, proof_path, mlo_write_path]
+        const vk_path = state.vkPath;
+        const proof_path = state.proofPath;
+
+        const groth16 = new Groth16Verifier(vk_path);
+        const proof = Proof.parse(groth16.vk, proof_path);
+        const mlo = groth16.multiMillerLoop(proof).toJSON();
 
         const witness = computeAuxWitness(JSON.parse(mlo));
         state.witnessPath = resolve(state.workingDir, 'aux_wtns.json');
@@ -94,10 +131,10 @@ export class PlonkComputationalPlan
         // Write the mlo and witness to the cache dir
         writeFileSync(resolve(state.workingDir, 'mlo.json'), mlo);
         writeFileSync(state.witnessPath, JSON.stringify(witness));
+
         return;
       },
     },
-    // If u wanna see stdout then you can change the capture boolean key in the plonk plan to emit
     {
       name: 'CompileRecursion',
       type: 'serial-cmd',
@@ -116,10 +153,11 @@ export class PlonkComputationalPlan
       },
     },
     {
-      name: 'ComputeZPK',
+      name: 'ComputeZKP',
       type: 'parallel-cmd',
       processCmds: (state: State) => {
-        return range(24).map((i) => {
+        process.env.GROTH16_VK_PATH = state.vkPath;
+        return range(16).map((i) => {
           return {
             cmd: 'node',
             args: [
@@ -128,14 +166,12 @@ export class PlonkComputationalPlan
                 rootDir,
                 'build',
                 'src',
-                'plonk',
+                'groth',
                 'recursion',
                 'prove_zkps.js'
               ),
               `zkp${i}`,
-              state.input.encodedProof,
-              state.input.programVK,
-              state.input.hexPi,
+              state.proofPath,
               state.witnessPath,
               state.workingDir,
               state.cacheDir,
@@ -147,19 +183,19 @@ export class PlonkComputationalPlan
       },
       numaOptimized: true,
     },
-    ...range(1, 6).map((i) => {
+    ...range(1, 5).map((i) => {
       const stage: ParallelComputationStage<State> = {
         name: `CompressLayer${i}`,
         type: 'parallel-cmd',
         processCmds: (state: State) => {
-          const upperLimit = Math.pow(2, 5 - i) - 1;
+          const upperLimit = Math.pow(2, 4 - i) - 1;
           return range(upperLimit + 1).map((ZKP_J) => {
             return {
               cmd: 'node',
               args: [
                 '--max-old-space-size=6000',
                 resolve(rootDir, 'build', 'src', 'node_resolver.js'),
-                '24',
+                '16',
                 `${i}`,
                 `${ZKP_J}`,
                 state.workingDir,
@@ -175,17 +211,17 @@ export class PlonkComputationalPlan
       return stage;
     }),
   ];
-  async then(state: State): Promise<PlonkOutput> {
-    const output: PlonkOutput = {
+  async then(state: State): Promise<ConversionOutput> {
+    const output: ConversionOutput = {
       vkData: JSON.parse(
         readFileSync(resolve(state.workingDir, 'vks', 'nodeVk.json'), 'utf8')
-      ) as PlonkVkData,
+      ) as VkDataOutput,
       proofData: JSON.parse(
         readFileSync(
-          resolve(state.workingDir, 'proofs', 'layer5', 'p0.json'),
+          resolve(state.workingDir, 'proofs', 'layer4', 'p0.json'),
           'utf8'
         )
-      ) as PlonkProofData,
+      ) as ProofDataOutput,
     };
     return output;
   }

@@ -6,7 +6,7 @@ export { FrC } from './towers/fr.js';
 export { InvertedPromise } from './utils/InvertedPromise.js';
 
 // Api
-export { performSp1ToPlonk } from './api/sp1/plonk.js';
+export { performSp1Plonk as performSp1ToPlonk } from './api/sp1/plonk.js';
 export { Sp1Input as Sp1 } from './api/sp1/types.js';
 
 // Compute

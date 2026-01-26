@@ -3,8 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { ComputationalPlanExecutor } from '../compute/executor.js';
-import { performSp1ToPlonk } from '../api/sp1/plonk.js';
-import { performRisc0ToGroth16 } from '../api/risc0/groth16.js';
+import { performSp1Plonk } from '../api/sp1/plonk.js';
+import { performRisc0Groth16 } from '../api/risc0/groth16.js';
 import { Logger } from 'esm-iso-logger';
 import { LogPrinter } from 'esm-iso-logger';
 
@@ -16,8 +16,8 @@ const executor = new ComputationalPlanExecutor(MAX_PROCESSES);
 
 // registry of decorated API functions (must expose .fromArgs/.fromObject/.argsMetadata/.objMetadata as provided by the decorator)
 const commandMap: Record<string, any> = {
-  sp1ToPlonk: performSp1ToPlonk,
-  risc0ToGroth16: performRisc0ToGroth16,
+  sp1ToPlonk: performSp1Plonk,
+  risc0ToGroth16: performRisc0Groth16,
 };
 
 const __filename = fileURLToPath(import.meta.url);

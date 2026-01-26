@@ -1,4 +1,4 @@
-import { PlonkComputationalPlan } from '../../compute/plans/plonk/index.js';
+import { Sp1PlonkComputationalPlan } from '../../compute/plans/sp1/plonk.js';
 import { Logger } from 'esm-iso-logger';
 import { ApiMethod } from '../methodDecorator.js';
 import { isSp1PlonkProof, isTeeSp1Proof, Sp1Input, sp1ObjKeys } from './types.js';
@@ -34,7 +34,7 @@ const fromSp1Object = (obj: Sp1Input): Sp1InputProcessed => {
   );
 };
 
-export const performSp1ToPlonk = ApiMethod<
+export const performSp1Plonk = ApiMethod<
   Sp1InputProcessed, // TInput: processed shape given to executor
   // Disabling args at this time as unknown impact on new TEE option the decoding might change!
   false, //typeof sp1ArgKeys, // TKeys (what arguments mode expects to be provided) performSp1ToPlonk.fromArgs(hexPi, programVK, encodedProof)
@@ -46,5 +46,5 @@ export const performSp1ToPlonk = ApiMethod<
   sp1ObjKeys
 )(async (executor, input) => {
   logger.log('Performing SP1 to Plonk conversion...');
-  return executor.execute(new PlonkComputationalPlan(), input);
+  return executor.execute(new Sp1PlonkComputationalPlan(), input);
 });

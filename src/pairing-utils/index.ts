@@ -1,7 +1,7 @@
 import {
   compute_and_serialize_aux_witness_js as wasmComputeAuxWitness,
   make_alpha_beta_js as wasmMakeAlphaBeta,
-  compute_pairing_js,
+  compute_pairing_js as computePairing,
   convert_sp1_groth16_to_o1js_js,
   compute_and_serialize_aux_witness_js,
   convert_snarkjs_groth16_to_o1js_js,
@@ -39,6 +39,22 @@ export function computeAuxWitness(f12: Fp12Type): AuxWitnessWasm {
   return wasmComputeAuxWitness(f12) as AuxWitnessWasm;
 }
 
+export function computePairingRisc0(raw_vk: Risc0RawVk): Risc0Vk {
+  const pairingInput = {alpha: raw_vk.alpha, beta: raw_vk.beta};
+  const alpha_beta = computePairing(pairingInput);
+  return {...raw_vk, alpha_beta};
+}
+
+
+
+
+
+
+
+
+
+
+// This function is mental!
 export function makeAlphaBeta(raw_vk: Risc0RawVk, input: AlphaBetaWasm) {
   // this is not complete
   // cargo run --bin alphabeta -- $RAW_VK_PATH $VK_PATH &
