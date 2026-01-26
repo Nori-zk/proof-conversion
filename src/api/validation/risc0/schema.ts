@@ -2,7 +2,7 @@ import { isAffinePoint2d, isComplexAffinePoint2d, isField12, isString } from "..
 
 // Helper validators for complex nested structures matching pairing_utils types
 
-const risc0ProofSchema = {
+const risc0Groth16ProofSchema = {
   negA: isAffinePoint2d,
   B: isComplexAffinePoint2d,
   C: isAffinePoint2d,
@@ -13,7 +13,7 @@ const risc0ProofSchema = {
   pi5: isString,
 };
 
-const risc0RawVkSchema = {
+const risc0Groth16RawVkSchema = {
   alpha: isAffinePoint2d,
   beta: isComplexAffinePoint2d,
   gamma: isComplexAffinePoint2d,
@@ -28,10 +28,10 @@ const risc0RawVkSchema = {
 };
 
 // Schema for args form (just the proof)
-export const risc0ArgsInputSchema = risc0ProofSchema;
+export const risc0Groth16ArgsInputSchema = risc0Groth16ProofSchema;
 
 // Schema for obj form (risc0_proof + raw_vk)
-export const risc0ObjInputSchema = {
-  risc0_proof: risc0ProofSchema,
-  raw_vk: risc0RawVkSchema,
+export const risc0Groth16ObjInputSchema = {
+  risc0_proof: risc0Groth16ProofSchema,
+  raw_vk: risc0Groth16RawVkSchema,
 };

@@ -7,13 +7,13 @@ import {
   Risc0Groth16Input,
 } from './types.js';
 import { assertExactStructure } from '../validation/validation.js';
-import { risc0ObjInputSchema } from '../validation/risc0/schema.js';
+import { risc0Groth16ObjInputSchema } from '../validation/risc0/schema.js';
 
 const logger = new Logger('API');
 
 const fromRisc0Object = (obj: Risc0Groth16Input): Risc0Groth16Input => {
   // Validate structure
-  assertExactStructure(obj, risc0ObjInputSchema, 'Risc0ToGroth16Input');
+  assertExactStructure(obj, risc0Groth16ObjInputSchema, 'Risc0ToGroth16Input');
 
   return {
     risc0_proof: obj.risc0_proof,

@@ -1,5 +1,5 @@
 import type { O1jsProof, O1jsVK } from 'pairing-utils/pkg/pairing_utils.js';
-import { risc0ObjInputSchema } from '../validation/risc0/schema.js';
+import { risc0Groth16ObjInputSchema } from '../validation/risc0/schema.js';
 
 // Types ======================================================================================
 
@@ -17,5 +17,5 @@ export type Risc0Groth16Proof = Omit<Required<O1jsProof>, 'pi6'>;
 
 // Runtime validation =========================================================================
 
-export const risc0Groth16ArgsKeys = Object.keys(risc0ObjInputSchema) as (keyof Risc0Groth16Input)[];
-export const risc0Groth16ObjKeys = Object.keys(risc0ObjInputSchema) as (keyof Risc0Groth16Input)[];
+export const risc0Groth16ArgsKeys = Object.keys(risc0Groth16ObjInputSchema) as (keyof Risc0Groth16Input)[];
+export const risc0Groth16ObjKeys = Object.keys(risc0Groth16ObjInputSchema) as (keyof Risc0Groth16Input)[];
