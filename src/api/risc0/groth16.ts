@@ -1,17 +1,25 @@
 import { Groth16ComputationalPlan } from '../../compute/plans/groth16/index.js';
 import { Logger } from 'esm-iso-logger';
 import { ApiMethod } from '../methodDecorator.js';
-import { Risc0ToGroth16Input } from './types.js';
+import {
+  risc0ArgsKeys,
+  risc0ObjKeys,
+  Risc0ToGroth16Input,
+} from './types.js';
+import { assertExactStructure } from '../validation/validation.js';
+import { risc0ObjInputSchema } from '../validation/risc0/schema.js';
 
 const logger = new Logger('API');
 
-const risc0ArgsKeys = ['risc0_proof', 'raw_vk'] as const;
-const risc0ObjKeys = ['risc0_proof', 'raw_vk'] as const;
+const fromRisc0Object = (obj: Risc0ToGroth16Input): Risc0ToGroth16Input => {
+  // Validate structure
+  assertExactStructure(obj, risc0ObjInputSchema, 'Risc0ToGroth16Input');
 
-const fromRisc0Object = (obj: Risc0ToGroth16Input): Risc0ToGroth16Input => ({
-  risc0_proof: obj.risc0_proof,
-  raw_vk: obj.raw_vk,
-});
+  return {
+    risc0_proof: obj.risc0_proof,
+    raw_vk: obj.raw_vk,
+  };
+};
 
 export const performRisc0ToGroth16 = ApiMethod<
   Risc0ToGroth16Input, // TInput (what executor expects)

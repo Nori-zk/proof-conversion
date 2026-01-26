@@ -1,167 +1,18 @@
+import type { O1jsProof, O1jsVK } from 'pairing-utils/pkg/pairing_utils.js';
+import { risc0ObjInputSchema } from '../validation/risc0/schema.js';
+
+// Types
+
 export type Risc0ToGroth16Input = {
- risc0_proof: Risc0Proof,
- raw_vk: Risc0RawVk,
-}
+  risc0_proof: Risc0Proof;
+  raw_vk: Risc0RawVk;
+};
 
-export interface Risc0Proof {
-  negA: {
-    x: string;
-    y: string;
-  };
-  B: {
-    x_c0: string;
-    x_c1: string;
-    y_c0: string;
-    y_c1: string;
-  };
-  C: {
-    x: string;
-    y: string;
-  };
-  pi1: string;
-  pi2: string;
-  pi3: string;
-  pi4: string;
-  pi5: string;
-}
+export type Risc0Vk = Omit<Required<O1jsVK>, 'ic6'>; // Must include all O1jsVK keys but must exclude ic6
+export type Risc0Proof = Omit<Required<O1jsProof>, 'pi6'>; // Must include all O1jsProof keys but must exclude pi6
+export type Risc0RawVk = Omit<Required<O1jsVK>, 'ic6' | 'alpha_beta'>; // Must include all O1jsVK keys but must exclude ic6 AND alpha_beta
 
-export interface Risc0RawVk {
-  delta: {
-    x_c0: string;
-    x_c1: string;
-    y_c0: string;
-    y_c1: string;
-  };
-  gamma: {
-    x_c0: string;
-    x_c1: string;
-    y_c0: string;
-    y_c1: string;
-  };
-  alpha: {
-    x: string;
-    y: string;
-  };
-  beta: {
-    x_c0: string;
-    x_c1: string;
-    y_c0: string;
-    y_c1: string;
-  };
-  ic0: {
-    x: string;
-    y: string;
-  };
-  ic1: {
-    x: string;
-    y: string;
-  };
-  ic2: {
-    x: string;
-    y: string;
-  };
-  ic3: {
-    x: string;
-    y: string;
-  };
-  ic4: {
-    x: string;
-    y: string;
-  };
-  ic5: {
-    x: string;
-    y: string;
-  };
-  w27: {
-    g00: string;
-    g01: string;
-    g10: string;
-    g11: string;
-    g20: string;
-    g21: string;
-    h00: string;
-    h01: string;
-    h10: string;
-    h11: string;
-    h20: string;
-    h21: string;
-  };
-}
+// Runtime validation - derived from schema
 
-export interface Risc0Vk {
-  delta: {
-    x_c0: string;
-    x_c1: string;
-    y_c0: string;
-    y_c1: string;
-  };
-  gamma: {
-    x_c0: string;
-    x_c1: string;
-    y_c0: string;
-    y_c1: string;
-  };
-  alpha: {
-    x: string;
-    y: string;
-  };
-  beta: {
-    x_c0: string;
-    x_c1: string;
-    y_c0: string;
-    y_c1: string;
-  };
-  ic0: {
-    x: string;
-    y: string;
-  };
-  ic1: {
-    x: string;
-    y: string;
-  };
-  ic2: {
-    x: string;
-    y: string;
-  };
-  ic3: {
-    x: string;
-    y: string;
-  };
-  ic4: {
-    x: string;
-    y: string;
-  };
-  ic5: {
-    x: string;
-    y: string;
-  };
-  w27: {
-    g00: string;
-    g01: string;
-    g10: string;
-    g11: string;
-    g20: string;
-    g21: string;
-    h00: string;
-    h01: string;
-    h10: string;
-    h11: string;
-    h20: string;
-    h21: string;
-  };
-
-  alpha_beta: {
-    g00: string;
-    g01: string;
-    g10: string;
-    g11: string;
-    g20: string;
-    g21: string;
-    h00: string;
-    h01: string;
-    h10: string;
-    h11: string;
-    h20: string;
-    h21: string;
-  };
-}
+export const risc0ArgsKeys = Object.keys(risc0ObjInputSchema) as (keyof Risc0ToGroth16Input)[];
+export const risc0ObjKeys = Object.keys(risc0ObjInputSchema) as (keyof Risc0ToGroth16Input)[];

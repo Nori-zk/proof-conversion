@@ -99,7 +99,6 @@ pub struct SP1ProofWithPublicValues {
     pub proof: SP1Proof,
     pub public_values: SP1PublicValues,
     pub sp1_version: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub tee_proof: Option<Vec<u8>>,
 }
 

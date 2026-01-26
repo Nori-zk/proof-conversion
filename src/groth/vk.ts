@@ -1,42 +1,13 @@
 import { G2Affine } from '../ec/g2.js';
 import { G2Line, computeLineCoeffs } from '../lines/index.js';
-import { Fp12Type } from '../towers/fp12.js';
 import { Fp12, Fp2, FpC } from '../towers/index.js';
 import fs from 'fs';
 import { bn254 } from '../ec/g1.js';
 import { ForeignCurve } from 'o1js';
-
-// Base VK structure (common fields)
-type SerializedVkBase = {
-  delta: {
-    x_c0: string;
-    x_c1: string;
-    y_c0: string;
-    y_c1: string;
-  };
-  gamma: {
-    x_c0: string;
-    x_c1: string;
-    y_c0: string;
-    y_c1: string;
-  };
-  alpha_beta: Fp12Type;
-  w27: Fp12Type;
-};
-
-// Generate IC point type based on input count
-type ICPointType = { x: string; y: string };
+import { O1jsVK } from 'pairing-utils/pkg/pairing_utils.js';
 
 // Flexible SerializedVk type supporting all possible IC points
-type SerializedVk = SerializedVkBase & {
-  ic0: ICPointType; // Always present (base case)
-  ic1?: ICPointType;
-  ic2?: ICPointType;
-  ic3?: ICPointType;
-  ic4?: ICPointType;
-  ic5?: ICPointType;
-  ic6?: ICPointType;
-};
+type SerializedVk = Omit<O1jsVK, 'alpha' | 'beta'>;
 
 class GrothVk {
   delta_lines: Array<G2Line>;

@@ -1,14 +1,12 @@
 import { PlonkComputationalPlan } from '../../compute/plans/plonk/index.js';
 import { Logger } from 'esm-iso-logger';
 import { ApiMethod } from '../methodDecorator.js';
-import { Sp1Input } from './types.js';
+import { isSp1PlonkProof, isTeeSp1Proof, Sp1Input, sp1ObjKeys } from './types.js';
+import { assertExactStructure } from '../validation/validation.js';
+import { ProofInputValidationError } from '../validation/ProofInputValidationError.js';
+import { sp1PlonkInputSchema } from '../validation/sp1/schema.js';
 
 const logger = new Logger('API');
-
-// TODO PREVENT TEE option
-
-const sp1ArgKeys = ['hexPi', 'programVK', 'encodedProof'] as const;
-const sp1ObjKeys = ['proof', 'public_values', 'sp1_version'] as const;
 
 type Sp1InputProcessed = {
   hexPi: string;
@@ -16,18 +14,34 @@ type Sp1InputProcessed = {
   encodedProof: string;
 };
 
-const fromSp1Object = (obj: Sp1Input): Sp1InputProcessed => ({
-  hexPi: `0x${Buffer.from(obj.public_values.buffer.data).toString('hex')}`,
-  programVK: obj.proof.Plonk.public_inputs[0],
-  encodedProof: `0x00000000${obj.proof.Plonk.encoded_proof}`,
-});
+const fromSp1Object = (obj: Sp1Input): Sp1InputProcessed => {
+  // Validate structure first
+  assertExactStructure(obj, sp1PlonkInputSchema, 'Sp1PlonkInput');
+
+  if (isTeeSp1Proof(obj))
+    throw new ProofInputValidationError(
+      'TEE proofs are not supported at this time.'
+    );
+  if (isSp1PlonkProof(obj.proof)) {
+    return {
+      hexPi: `0x${Buffer.from(obj.public_values.buffer.data).toString('hex')}`,
+      programVK: obj.proof.Plonk.public_inputs[0],
+      encodedProof: `0x00000000${obj.proof.Plonk.encoded_proof}`,
+    };
+  }
+  throw new ProofInputValidationError(
+    'A non plonk Sp1Proof was given to this method.'
+  );
+};
 
 export const performSp1ToPlonk = ApiMethod<
   Sp1InputProcessed, // TInput: processed shape given to executor
-  typeof sp1ArgKeys, // TKeys (what arguments mode expects to be provided) performSp1ToPlonk.fromArgs(hexPi, programVK, encodedProof)
+  // Disabling args at this time as unknown impact on new TEE option the decoding might change!
+  false, //typeof sp1ArgKeys, // TKeys (what arguments mode expects to be provided) performSp1ToPlonk.fromArgs(hexPi, programVK, encodedProof)
   Sp1Input // TObject (what object mode expects as a single object) performSp1ToPlonk.fromObject({} as Sp1Input)
 >(
-  sp1ArgKeys,
+  // Disabling args at this time as unknown impact on new TEE option the decoding might change!
+  false, // sp1ArgKeys,
   fromSp1Object,
   sp1ObjKeys
 )(async (executor, input) => {
