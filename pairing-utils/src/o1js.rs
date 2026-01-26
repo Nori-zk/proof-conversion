@@ -397,4 +397,21 @@ impl O1jsGroth16 {
         let vk = O1jsVK::from_sp1_groth16()?;
         Ok(O1jsGroth16 { proof, vk })
     }
+
+    /// Converts an SnarkJS Groth16 proof to o1js format.
+    ///
+    /// This extracts the proof from the SnarkJS, validates the verification key,
+    /// and converts both the proof and the verification key to o1js format.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The proof is not a valid format
+    /// - The public inputs are invalid
+    /// - The IC count does not match what was expected
+    pub fn from_snarkjs_groth16(snarkjs_vk: &SnarkjsVK, snarkjs_proof: &SnarkjsProof, public_inputs: &[String]) -> Result<Self, String> {
+        let proof = O1jsProof::from_snarkjs_groth16(snarkjs_proof, public_inputs)?;
+        let vk = O1jsVK::from_snarkjs_groth16(snarkjs_vk)?;
+        Ok(O1jsGroth16 { proof, vk })
+    }
 }

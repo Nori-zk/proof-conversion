@@ -1,4 +1,4 @@
-export class InvertedPromise<T, E = any> {
+export class InvertedPromise<T, E = unknown> {
   promise: Promise<T>;
   #resolver: (value: T | PromiseLike<T>) => void;
   #rejector: (reason: unknown) => void;

@@ -46,14 +46,8 @@ PKG_JSON="./pkg/package.json"
 sed -i.bak \
   -e "s|\"version\": \".*\"|\"version\": \"${CARGO_VERSION}\"|" \
   -e "s|\"name\": \".*\"|\"name\": \"${PKG_NAME}\"|" \
-  -e "/\"publishConfig\": {/,/}/d" \
+  -e "s|\"license\": \".*\"|\"license\": \"${LICENSE}\"|" \
   "$PKG_JSON"
-
-# Insert publishConfig near the end, before closing brace
-sed -i.bak \
-    -e '/"version":/a\  "license": "'"${LICENSE}"'",' \
-   -e '/"version":/a\  "publishConfig": {\n    "registry": "https://registry.npmjs.org/",\n    "access": "public"\n  },' \
-   "$PKG_JSON"
 
 # Cleanup and output
 find ./pkg -name "*.bak" -delete

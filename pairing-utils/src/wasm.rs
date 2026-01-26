@@ -9,7 +9,7 @@ use serde_wasm_bindgen::{from_value, to_value};
 use wasm_bindgen::{prelude::*, JsError};
 
 use crate::kzg::{assert_o1js_mlo, compute_aux_witness};
-use crate::o1js::{O1jsGroth16, O1jsProof, O1jsVK};
+use crate::o1js::O1jsGroth16;
 use crate::serialize::{serialize_fq12, AuxWitness, Field12};
 use crate::snarkjs::{SnarkjsProof, SnarkjsVK};
 use crate::sp1::SP1ProofWithPublicValues;
@@ -236,19 +236,10 @@ pub fn convert_snarkjs_groth16_to_o1js_js(
     snarkjs_vk.validate(public_inputs_vec.len())
         .map_err(|e| JsError::new(&format!("convert_snarkjs_groth16_to_o1js_js: {}", e)))?;
 
-    // Convert proof to o1js format (negates A point, converts to affine)
-    let o1js_proof = O1jsProof::from_snarkjs_groth16(&snarkjs_proof, &public_inputs_vec)
+    // Convert proof to o1js format (negates A point, converts to affine) and VK to o1js format 
+    // (computes alpha_beta pairing, adds w27)
+    let result = O1jsGroth16::from_snarkjs_groth16(&snarkjs_vk, &snarkjs_proof, &public_inputs_vec)
         .map_err(|e| JsError::new(&format!("convert_snarkjs_groth16_to_o1js_js: {}", e)))?;
-
-    // Convert VK to o1js format (computes alpha_beta pairing, adds w27)
-    let o1js_vk = O1jsVK::from_snarkjs_groth16(&snarkjs_vk)
-        .map_err(|e| JsError::new(&format!("convert_snarkjs_groth16_to_o1js_js: {}", e)))?;
-
-    // Combine proof and VK into result
-    let result = O1jsGroth16 {
-        proof: o1js_proof,
-        vk: o1js_vk,
-    };
 
     to_value(&result).map_err(|e| JsError::new(&format!("convert_snarkjs_groth16_to_o1js_js: failed to serialize result: {}", e)))
 }
