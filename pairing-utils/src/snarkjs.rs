@@ -3,8 +3,9 @@
 //! This module provides types for reading proofs and verification keys from snarkjs.
 
 use serde::Deserialize;
-use serde_wasm_bindgen::from_value;
-use wasm_bindgen::prelude::*;
+
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
 
 use crate::types::{ComplexProjectivePoint, ProjectivePoint};
 
@@ -17,21 +18,12 @@ use crate::types::{ComplexProjectivePoint, ProjectivePoint};
 /// - `pi_b`: B point (G2 projective)
 /// - `pi_c`: C point (G1 projective)
 #[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(from_wasm_abi))]
 pub struct SnarkjsProof {
     pub pi_a: ProjectivePoint,
     pub pi_b: ComplexProjectivePoint,
     pub pi_c: ProjectivePoint,
-}
-
-impl SnarkjsProof {
-    /// Parses from a JavaScript value into `SnarkjsProof`.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the JsValue doesn't match the expected structure.
-    pub fn from_js(js: JsValue) -> Result<Self, String> {
-        from_value(js).map_err(|e| format!("SnarkjsProof <- JsValue: {}", e))
-    }
 }
 
 /// Groth16 verification key in snarkjs/circom format.
@@ -44,6 +36,8 @@ impl SnarkjsProof {
 /// - `vk_beta_2`, `vk_gamma_2`, `vk_delta_2`: Setup points (G2 projective)
 /// - `ic`: Input commitment points, one per public input plus a constant term
 #[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(from_wasm_abi))]
 pub struct SnarkjsVK {
     #[serde(rename = "nPublic")]
     pub n_public: usize,
@@ -56,15 +50,6 @@ pub struct SnarkjsVK {
 }
 
 impl SnarkjsVK {
-    /// Parses from a JavaScript value into `SnarkjsVK`.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the JsValue doesn't match the expected structure.
-    pub fn from_js(js: JsValue) -> Result<Self, String> {
-        from_value(js).map_err(|e| format!("SnarkjsVK <- JsValue: {}", e))
-    }
-
     /// Validates the verification key against the given number of public inputs.
     ///
     /// # Validation Rules

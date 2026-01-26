@@ -4,13 +4,16 @@
 //! from JSON without requiring the sp1-sdk dependency.
 
 use serde::{Deserialize, Serialize};
-use serde_wasm_bindgen;
-use wasm_bindgen;
+
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
 
 /// Groth16 proof in SP1/gnark format.
 ///
 /// Mirrors `sp1_prover::Groth16Bn254Proof`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(from_wasm_abi))]
 pub struct Groth16Bn254Proof {
     pub public_inputs: [String; 2],
     pub encoded_proof: String,
@@ -22,6 +25,8 @@ pub struct Groth16Bn254Proof {
 ///
 /// Mirrors `sp1_prover::PlonkBn254Proof`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(from_wasm_abi))]
 pub struct PlonkBn254Proof {
     pub public_inputs: [String; 2],
     pub encoded_proof: String,
@@ -33,6 +38,8 @@ pub struct PlonkBn254Proof {
 ///
 /// Mirrors `sp1_stark::SP1Proof`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(from_wasm_abi))]
 #[serde(rename_all = "PascalCase")]
 pub enum SP1Proof {
     Groth16(Groth16Bn254Proof),
@@ -61,12 +68,16 @@ impl SP1Proof {
 ///
 /// Mirrors `sp1_primitives::io::SP1PublicValues`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(from_wasm_abi))]
 pub struct SP1PublicValues {
     pub buffer: SP1Buffer,
 }
 
 /// Buffer containing public values data.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(from_wasm_abi))]
 pub struct SP1Buffer {
     pub data: Vec<u8>,
 }
@@ -82,6 +93,8 @@ impl SP1PublicValues {
 ///
 /// Mirrors `sp1_sdk::proof::SP1ProofWithPublicValues`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(from_wasm_abi))]
 pub struct SP1ProofWithPublicValues {
     pub proof: SP1Proof,
     pub public_values: SP1PublicValues,
@@ -91,16 +104,6 @@ pub struct SP1ProofWithPublicValues {
 }
 
 impl SP1ProofWithPublicValues {
-    /// Parses from a JavaScript value.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the JsValue doesn't match the expected structure.
-    pub fn from_js(js: wasm_bindgen::JsValue) -> Result<Self, String> {
-        serde_wasm_bindgen::from_value(js)
-            .map_err(|e| format!("SP1ProofWithPublicValues <- JsValue: {}", e))
-    }
-
     /// Returns the proof bytes for onchain verification.
     ///
     /// For Groth16 proofs, returns `[vkey_hash[..4], proof_bytes].concat()`.

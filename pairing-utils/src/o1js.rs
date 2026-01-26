@@ -8,6 +8,9 @@ use ark_ec::pairing::Pairing;
 use ark_groth16;
 use serde::Serialize;
 
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
+
 use crate::gnark::{load_ark_proof_from_bytes, load_ark_groth16_verifying_key_from_bytes, GROTH16_VK_5_0_0_BYTES};
 use crate::serialize::{serialize_fq12, Field12};
 use crate::snarkjs::{SnarkjsProof, SnarkjsVK};
@@ -22,6 +25,8 @@ use crate::types::{AffinePoint2d, ComplexAffinePoint2d};
 /// - `C`: C point (G1)
 /// - `pi1` through `pi6`: Public inputs (max 6 supported)
 #[derive(Serialize, Debug)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi))]
 pub struct O1jsProof {
     #[serde(rename = "negA")]
     pub neg_a: AffinePoint2d,
@@ -206,6 +211,8 @@ impl O1jsProof {
 ///
 /// The Groth16 verification equation uses: `PI = ic0 + Σ(public_input[i] * ic[i+1])`
 #[derive(Serialize, Debug)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi))]
 pub struct O1jsVK {
     pub alpha: AffinePoint2d,
     pub beta: ComplexAffinePoint2d,
@@ -375,6 +382,8 @@ impl O1jsVK {
 /// Contains both the converted proof and verification key ready for
 /// verification in Mina using o1js.
 #[derive(Serialize, Debug)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi))]
 pub struct O1jsGroth16 {
     pub proof: O1jsProof,
     pub vk: O1jsVK,

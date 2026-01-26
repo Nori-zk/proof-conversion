@@ -1,9 +1,10 @@
 use ark_bn254::{Fq, Fq12, Fq2, Fq6};
 use ark_std::Zero;
 use serde::{Deserialize, Serialize};
-use serde_wasm_bindgen::from_value;
 use std::str::FromStr;
-use wasm_bindgen::prelude::*;
+
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
 
 /// A 12-element field value (Fq12) serialized as decimal strings.
 ///
@@ -26,6 +27,8 @@ use wasm_bindgen::prelude::*;
 /// - pair: `0`, `1`, or `2` (which pair within the group)
 /// - component: `0` (real) or `1` (imaginary)
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Field12 {
     pub g00: String,
     pub g01: String,
@@ -47,15 +50,6 @@ pub struct Field12 {
 }
 
 impl Field12 {
-    /// Parses from a JavaScript value.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the JsValue doesn't match the expected structure.
-    pub fn from_js(js: JsValue) -> Result<Self, String> {
-        from_value(js).map_err(|e| format!("Field12 <- JsValue: {}", e))
-    }
-
     /// Converts to arkworks `Fq12` type.
     ///
     /// # Errors
@@ -104,6 +98,8 @@ impl Field12 {
 /// - `c`: A 12-element field value
 /// - `shift_power`: A small integer (0, 1, or 2) for the shift factor
 #[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi))]
 pub struct AuxWitness {
     pub c: Field12,
     pub shift_power: String,

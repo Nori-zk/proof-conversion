@@ -5,7 +5,7 @@
 use ark_bn254::Bn254;
 use ark_ec::pairing::Pairing;
 use serde::{Deserialize, Serialize};
-use serde_wasm_bindgen::{from_value, to_value};
+use tsify::Tsify;
 use wasm_bindgen::{prelude::*, JsError};
 
 use crate::kzg::{assert_o1js_mlo, compute_aux_witness};
@@ -24,21 +24,14 @@ use crate::types::{AffinePoint2d, ComplexAffinePoint2d};
 /// - `beta`: G2 curve point (complex 2D coordinates, each coordinate is a pair)
 ///
 /// See [`compute_pairing_js`] for the computation.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
 pub struct PairingInput {
     pub alpha: AffinePoint2d,
     pub beta: ComplexAffinePoint2d,
 }
 
 impl PairingInput {
-    /// Parses from a JavaScript value into a `PairingInput`.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the JsValue doesn't match the expected structure.
-    pub fn from_js(js: JsValue) -> Result<Self, String> {
-        from_value(js).map_err(|e| format!("PairingInput <- JsValue: {}", e))
-    }
 
     /// Converts to arkworks pairing input points (`G1Affine`, `G2Affine`).
     ///
@@ -82,11 +75,8 @@ impl PairingInput {
 ///
 /// Panics if the input is not a valid Miller loop output (fails internal assertion).
 #[wasm_bindgen]
-pub fn compute_and_serialize_aux_witness_js(input: JsValue) -> Result<JsValue, JsError> {
-    let f12 = Field12::from_js(input)
-        .map_err(|e| JsError::new(&format!("compute_and_serialize_aux_witness_js: {}", e)))?;
-
-    let mlo = f12.to_fq12()
+pub fn compute_and_serialize_aux_witness_js(input: Field12) -> Result<AuxWitness, JsError> {
+    let mlo = input.to_fq12()
         .map_err(|e| JsError::new(&format!("compute_and_serialize_aux_witness_js: {}", e)))?;
 
     // Validate Miller loop output
@@ -97,12 +87,10 @@ pub fn compute_and_serialize_aux_witness_js(input: JsValue) -> Result<JsValue, J
 
     // Return
     let c_serialized = serialize_fq12(c);
-    let aux_witness = AuxWitness {
+    Ok(AuxWitness {
         c: c_serialized,
         shift_power: shift_pow.to_string(),
-    };
-
-    to_value(&aux_witness).map_err(|e| JsError::new(&format!("compute_and_serialize_aux_witness_js: failed to serialize result: {}", e)))
+    })
 }
 
 /// Computes a pairing for a verification key.
@@ -130,20 +118,15 @@ pub fn compute_and_serialize_aux_witness_js(input: JsValue) -> Result<JsValue, J
 ///
 /// Returns a JS error if input parsing or coordinate conversion fails.
 #[wasm_bindgen]
-pub fn compute_pairing_js(input: JsValue) -> Result<JsValue, JsError> {
-    let data = PairingInput::from_js(input)
-        .map_err(|e| JsError::new(&format!("compute_pairing_js: {}", e)))?;
-
-    let (alpha, beta) = data.to_pairing_points()
+pub fn compute_pairing_js(input: PairingInput) -> Result<Field12, JsError> {
+    let (alpha, beta) = input.to_pairing_points()
         .map_err(|e| JsError::new(&format!("compute_pairing_js: {}", e)))?;
 
     // Perform the multi-miller loop
     let alpha_beta = Bn254::multi_miller_loop(&[alpha], &[beta]).0;
 
     // Serialize the Fq12 result
-    let serialized = serialize_fq12(alpha_beta);
-
-    to_value(&serialized).map_err(|e| JsError::new(&format!("compute_pairing_js: failed to serialize result: {}", e)))
+    Ok(serialize_fq12(alpha_beta))
 }
 
 /// Converts a snarkjs/circom Groth16 proof and verification key to o1js format.
@@ -216,32 +199,18 @@ pub fn compute_pairing_js(input: JsValue) -> Result<JsValue, JsError> {
 /// - More than 6 public inputs are provided
 #[wasm_bindgen]
 pub fn convert_snarkjs_groth16_to_o1js_js(
-    proof: JsValue,
-    public_inputs: JsValue,
-    vk: JsValue,
-) -> Result<JsValue, JsError> {
-    // Parse snarkjs proof from JavaScript object
-    let snarkjs_proof = SnarkjsProof::from_js(proof)
-        .map_err(|e| JsError::new(&format!("convert_snarkjs_groth16_to_o1js_js: {}", e)))?;
-
-    // Parse public inputs array
-    let public_inputs_vec: Vec<String> = from_value(public_inputs)
-        .map_err(|e| JsError::new(&format!("convert_snarkjs_groth16_to_o1js_js: public_inputs: {}", e)))?;
-
-    // Parse snarkjs verification key from JavaScript object
-    let snarkjs_vk = SnarkjsVK::from_js(vk)
-        .map_err(|e| JsError::new(&format!("convert_snarkjs_groth16_to_o1js_js: {}", e)))?;
-
+    proof: SnarkjsProof,
+    public_inputs: Vec<String>,
+    vk: SnarkjsVK,
+) -> Result<O1jsGroth16, JsError> {
     // Validate VK nPublic matches provided public inputs count
-    snarkjs_vk.validate(public_inputs_vec.len())
+    vk.validate(public_inputs.len())
         .map_err(|e| JsError::new(&format!("convert_snarkjs_groth16_to_o1js_js: {}", e)))?;
 
-    // Convert proof to o1js format (negates A point, converts to affine) and VK to o1js format 
+    // Convert proof to o1js format (negates A point, converts to affine) and VK to o1js format
     // (computes alpha_beta pairing, adds w27)
-    let result = O1jsGroth16::from_snarkjs_groth16(&snarkjs_vk, &snarkjs_proof, &public_inputs_vec)
-        .map_err(|e| JsError::new(&format!("convert_snarkjs_groth16_to_o1js_js: {}", e)))?;
-
-    to_value(&result).map_err(|e| JsError::new(&format!("convert_snarkjs_groth16_to_o1js_js: failed to serialize result: {}", e)))
+    O1jsGroth16::from_snarkjs_groth16(&vk, &proof, &public_inputs)
+        .map_err(|e| JsError::new(&format!("convert_snarkjs_groth16_to_o1js_js: {}", e)))
 }
 
 /// Converts an SP1 Groth16 proof to o1js format.
@@ -303,14 +272,8 @@ pub fn convert_snarkjs_groth16_to_o1js_js(
 /// - Hex decoding of `encoded_proof` fails
 /// - gnark point decompression fails (invalid curve points)
 #[wasm_bindgen]
-pub fn convert_sp1_groth16_to_o1js_js(sp1_proof: JsValue) -> Result<JsValue, JsError> {
-    // Parse SP1 proof from JavaScript JSON object
-    let sp1 = SP1ProofWithPublicValues::from_js(sp1_proof)
-        .map_err(|e| JsError::new(&format!("convert_sp1_groth16_to_o1js_js: {}", e)))?;
-
+pub fn convert_sp1_groth16_to_o1js_js(sp1_proof: SP1ProofWithPublicValues) -> Result<O1jsGroth16, JsError> {
     // Convert to o1js format (extracts proof bytes, decompresses gnark format, negates A)
-    let result = O1jsGroth16::from_sp1_groth16(&sp1)
-        .map_err(|e| JsError::new(&format!("convert_sp1_groth16_to_o1js_js: {}", e)))?;
-
-    to_value(&result).map_err(|e| JsError::new(&format!("convert_sp1_groth16_to_o1js_js: failed to serialize result: {}", e)))
+    O1jsGroth16::from_sp1_groth16(&sp1_proof)
+        .map_err(|e| JsError::new(&format!("convert_sp1_groth16_to_o1js_js: {}", e)))
 }

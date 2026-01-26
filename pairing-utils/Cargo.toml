@@ -36,12 +36,14 @@ thiserror = "1.0"
 # [target.wasm32-unknown-unknown.dependencies]
 wasm-bindgen = "0.2"
 serde-wasm-bindgen = "0.4"
+tsify = "0.4"
 
 [features]
-wasm = ["wasm-bindgen", "serde-wasm-bindgen"]
+wasm = ["wasm-bindgen", "serde-wasm-bindgen", "tsify"]
 sp1-bin = ["sp1-sdk"]
 
 # Conditional dependencies for Wasm
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2", optional = true }
 serde-wasm-bindgen = { version = "0.4", optional = true }
+tsify = { version = "0.4", optional = true }

@@ -8,6 +8,9 @@ use serde::{Deserialize, Serialize};
 use serde_tuple::{Deserialize_tuple, Serialize_tuple};
 use std::str::FromStr;
 
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
+
 /// A 2D affine point with x and y coordinates.
 ///
 /// Each coordinate is a decimal string representing a large integer (BigInt in JS).
@@ -15,6 +18,8 @@ use std::str::FromStr;
 ///
 /// Used for G1 curve points in affine form (no z coordinate).
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct AffinePoint2d {
     pub x: String,
     pub y: String,
@@ -58,6 +63,8 @@ impl AffinePoint2d {
 ///
 /// Used for G2 curve points in affine form (no z coordinate).
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct ComplexAffinePoint2d {
     pub x_c0: String,
     pub x_c1: String,

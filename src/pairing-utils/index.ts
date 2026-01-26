@@ -1,9 +1,16 @@
 import {
   compute_and_serialize_aux_witness_js as wasmComputeAuxWitness,
   make_alpha_beta_js as wasmMakeAlphaBeta,
+  compute_pairing_js,
+  convert_sp1_groth16_to_o1js_js,
+  compute_and_serialize_aux_witness_js,
+  convert_snarkjs_groth16_to_o1js_js,
+
 } from '@nori-zk/proof-conversion-pairing-utils';
 import { Fp12Type } from '../towers/fp12.js';
 import { Risc0RawVk, Risc0Vk } from '../api/risc0/types.js';
+
+
 
 export interface AuxWitnessWasm {
   c: Fp12Type;
