@@ -5,7 +5,7 @@ import {
 import {
     isArrayOfLength,
   isComplexProjectivePoint,
-  isBoundedLengthArray,
+  isArrayOfBoundedLength,
   isBoundedNumberUnion,
   isProjectivePoint,
   isString,
@@ -31,7 +31,7 @@ export const snarkjsGroth16ProofSchema = {
   pi_c: isProjectivePoint,
 };
 
-const isConstrainedIC = isBoundedLengthArray(isProjectivePoint, {
+const isConstrainedIC = isArrayOfBoundedLength(isProjectivePoint, {
   minLength: 0,
   maxLength: 7,
 });
