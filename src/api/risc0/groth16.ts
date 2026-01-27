@@ -31,6 +31,6 @@ export const performRisc0Groth16 = ApiMethod<
   risc0Groth16ObjKeys
 )(async (executor, input) => {
   // FIXME why are we not validating here as well think about how APIMethod works lazy!
-  logger.log('Performing Risc0 to Groth16 conversion...');
+  logger.log('Performing Risc0 Groth16 conversion...');
   return executor.execute(new Risc0Groth16ComputationalPlan(), input);
 });

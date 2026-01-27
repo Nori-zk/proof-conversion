@@ -32,13 +32,13 @@ export const performSp1Plonk = ApiMethod<
   Sp1PlonkInputProcessed, // TInput: processed shape given to executor
   // Disabling args at this time as unknown impact on new TEE option the decoding might change!
   false, //typeof sp1ArgKeys, // TKeys (what arguments mode expects to be provided) performSp1ToPlonk.fromArgs(hexPi, programVK, encodedProof)
-  Sp1Input // TObject (what object mode expects as a single object) performSp1ToPlonk.fromObject({} as Sp1Input)
+  Sp1Input // TObject (what object mode expects as a single object) performSp1Plonk.fromObject({} as Sp1Input)
 >(
   // Disabling args at this time as unknown impact on new TEE option the decoding might change!
   false, // sp1ArgKeys,
   fromSp1Object,
   sp1PlonkObjKeys
 )(async (executor, input) => {
-  logger.log('Performing SP1 to Plonk conversion...');
+  logger.log('Performing SP1 Plonk conversion...');
   return executor.execute(new Sp1PlonkComputationalPlan(), input);
 });

@@ -1,6 +1,6 @@
 import { ProofInputValidationError } from './ProofInputValidationError.js';
 
-type ValidatorFn = (val: unknown) => boolean;
+export type ValidatorFn<T = unknown> = (val: unknown) => val is T;
 
 export interface SchemaObject {
   [key: string]: SchemaNode;
