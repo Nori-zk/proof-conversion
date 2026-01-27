@@ -4,8 +4,8 @@ import { ApiMethod } from '../methodDecorator.js';
 import {
   sp1Groth16ObjKeys,
   type Sp1Input,
-  type SP1ProofWithPublicValuesGroth16NoTee,
-} from './types.js';
+  type SP1ProofWithPublicValuesGroth16NoTee
+} from "../validation/sp1/schema.js";
 import { assertExactStructure } from '../validation/validation.js';
 import { sp1Groth16InputSchema } from '../validation/sp1/schema.js';
 

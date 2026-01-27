@@ -5,7 +5,7 @@ import { resolve } from 'path';
 import { Groth16Verifier } from '../../../groth/verifier.js';
 import { getRandomString } from '../../../utils/random.js';
 import { PlatformFeatures } from '../platform/index.js';
-import type { Risc0Groth16Input } from '../../../api/risc0/types.js';
+import type { Risc0Groth16Input } from 'src/api/validation/risc0/schema.js';
 import { readFileSync, rmSync, writeFileSync } from 'fs';
 import {
   computeAuxWitness,

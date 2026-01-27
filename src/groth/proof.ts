@@ -15,17 +15,18 @@ export interface ProofData {
   b_lines: G2Line[];
   pis: FrC[];
 }
-export interface IProof {
-  negA: G1Affine;
-  B: G2Affine;
-  C: G1Affine;
-  PI: G1Affine;
-  b_lines: G2Line[];
-  pis: FrC[];
-}
-type ProofConstructor = (new (value: IProof) => IProof) & {
-  parse(vk: GrothVk, path: string): IProof;
+
+type ProofClass = ReturnType<typeof Struct<{
+  negA: typeof G1Affine;
+  B: typeof G2Affine;
+  C: typeof G1Affine;
+  PI: typeof G1Affine;
+  b_lines: ReturnType<typeof Provable.Array>;
+  pis: ReturnType<typeof Provable.Array>;
+}>> & {
+  parse(vk: GrothVk, path: string): ProofData;
 };
+
 type PiIndex = 1 | 2 | 3 | 4 | 5 | 6;
 type PiKey = `pi${PiIndex}`;
 
@@ -42,7 +43,7 @@ const getNumOfLines = () => {
 };
 
 // Cache for dynamically created Proof classes
-const proofClassCache = new Map<number, ProofConstructor>();
+const proofClassCache = new Map<number, ProofClass>();
 
 function createProofClass(inputCount: number) {
   if (inputCount < 0 || inputCount > 6) {

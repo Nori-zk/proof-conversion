@@ -25,7 +25,7 @@ import {
   ProofDataOutput,
   VkDataOutput,
 } from '../../types.js';
-import type { SP1ProofWithPublicValuesGroth16NoTee } from 'src/api/sp1/types.js';
+import type { SP1ProofWithPublicValuesGroth16NoTee } from "src/api/validation/sp1/schema.js";
 
 interface State extends PlatformFeatures, ConversionOutput {
   workingDirName: string;

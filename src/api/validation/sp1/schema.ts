@@ -1,4 +1,31 @@
+import type { SP1Proof, SP1PublicValues, SP1ProofWithPublicValues, O1jsVK, O1jsProof, Groth16Bn254Proof } from "pairing-utils/pkg/pairing_utils.js";
 import { isNumberArray, isString, isStringArray, isUint8Array } from "../guards.js";
+
+// Types ===================================================================================
+
+// Re-exporting with the same naming to avoid a break in the api (FIXME we should just accept the change and move forward compare SP1 to Sp1)
+export type Sp1Proof = SP1Proof;
+export type Sp1PublicValues = SP1PublicValues;
+export type Sp1Input = SP1ProofWithPublicValues;
+
+// Must include the first ic (ic0), all the rest are optional up to ic6 (maximum of 7 in total)
+export type Sp1Groth16Vk = O1jsVK;
+// Must include pi1 as the first public input (pi1), all the rest are optional up to pi6  (maximum of 6 in total)
+export type Sp1Groth16Proof = O1jsProof;
+
+
+export type Sp1PlonkInputTransformed = {
+  hexPi: string;
+  programVK: string;
+  encodedProof: string;
+};
+
+export type SP1ProofWithPublicValuesGroth16NoTee = Omit<SP1ProofWithPublicValues, 'proof' | 'tee_proof'> & {
+  proof: { Groth16: Groth16Bn254Proof; };
+  tee_proof: null;
+};
+
+// Runtime validation ======================================================================
 
 const plonkProofSchema = {
   public_inputs: isStringArray(2),      // [String; 2]
@@ -27,3 +54,7 @@ export const sp1Groth16InputSchema = {
   sp1_version: isString,
   tee_proof: null // Explicitly must be null
 };
+
+// Keys for the ApiMethod helper
+export const sp1PlonkObjKeys = Object.keys(sp1PlonkInputSchema) as (keyof Sp1Input)[];
+export const sp1Groth16ObjKeys = Object.keys(sp1Groth16InputSchema) as (keyof Sp1Input)[];

@@ -1,4 +1,4 @@
-import type { Sp1PlonkInputProcessed } from '../../../api/sp1/types.js';
+import type { Sp1PlonkInputTransformed } from "src/api/validation/sp1/schema.js";
 import rootDir from '../../../utils/root_dir.js';
 import { range } from '../../../utils/range.js';
 import { getMlo } from '../../../plonk/get_mlo.js';
@@ -27,7 +27,7 @@ interface State extends PlatformFeatures, ConversionOutput {
   workingDirName: string;
   workingDir: string;
   cacheDir: string;
-  input: Sp1PlonkInputProcessed;
+  input: Sp1PlonkInputTransformed;
   witnessPath: string;
 }
 
@@ -41,11 +41,11 @@ const nodeCacheStructure: DirectoryStructure = range(4).map((i) => `node${i}`);
 export class Sp1PlonkComputationalPlan implements ComputationPlan<
   State,
   ConversionOutput,
-  Sp1PlonkInputProcessed
+  Sp1PlonkInputTransformed
 > {
-  readonly __inputType!: Sp1PlonkInputProcessed;
+  readonly __inputType!: Sp1PlonkInputTransformed;
   name = 'Sp1PlonkConverter';
-  async init(state: State, input: Sp1PlonkInputProcessed): Promise<void> {
+  async init(state: State, input: Sp1PlonkInputTransformed): Promise<void> {
     state.input = input;
     state.workingDirName = getRandomString(20);
     const pwd = process.cwd();

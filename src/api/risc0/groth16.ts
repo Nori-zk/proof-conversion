@@ -4,8 +4,8 @@ import { ApiMethod } from '../methodDecorator.js';
 import {
   risc0Groth16ArgsKeys,
   risc0Groth16ObjKeys,
-  Risc0Groth16Input,
-} from './types.js';
+  Risc0Groth16Input
+} from '../validation/risc0/schema.js';
 import { assertExactStructure } from '../validation/validation.js';
 import { risc0Groth16ObjInputSchema } from '../validation/risc0/schema.js';
 
