@@ -54,24 +54,36 @@ export const isConstrainedNumber =
     return true;
   };
 
-// Helper type to generate union of literal numbers from Min to Max
-// e.g., NumberRange<0, 3> = 0 | 1 | 2 | 3
-type NumberRange<
+// Generic base type for building range unions
+// Recursively builds accumulator from 0 to Max, including in result from Min to Max
+// Returns: Tuple<Elem, Min> | Tuple<Elem, Min+1> | ... | Tuple<Elem, Max>
+type AccumulatorRange<
   Min extends number,
   Max extends number,
-  Acc extends number[] = [],
+  Elem,
+  Acc extends Elem[] = [],
   Result = never
 > = Acc['length'] extends Max
-  ? Result | Max
+  ? Result | Acc
   : Acc['length'] extends number
     ? number extends Acc['length']
       ? never
-      : Acc['length'] extends Min
-        ? NumberRange<Min, Max, [...Acc, 0], Result | Acc['length']>
-        : Result extends never
-          ? NumberRange<Min, Max, [...Acc, 0], never>
-          : NumberRange<Min, Max, [...Acc, 0], Result | Acc['length']>
+      : (Min extends 0
+          ? AccumulatorRange<Min, Max, Elem, [...Acc, Elem], Result | Acc>
+          : Acc['length'] extends Min
+            ? AccumulatorRange<Min, Max, Elem, [...Acc, Elem], Result | Acc>
+            : Result extends never
+              ? AccumulatorRange<Min, Max, Elem, [...Acc, Elem], never>
+              : AccumulatorRange<Min, Max, Elem, [...Acc, Elem], Result | Acc>)
     : never;
+
+// Extract length from tuple type (distributes over unions)
+type ExtractLength<T> = T extends readonly unknown[] ? T['length'] : never;
+
+// Helper type to generate union of literal numbers from Min to Max
+// e.g., NumberRange<0, 3> = 0 | 1 | 2 | 3
+type NumberRange<Min extends number, Max extends number> =
+  ExtractLength<AccumulatorRange<Min, Max, unknown>>;
 
 export const isConstrainedSmallNumber = <
   Min extends number,
@@ -91,25 +103,8 @@ export const isConstrainedSmallNumber = <
 
 // Helper type to create tuple unions for constrained arrays
 // Generates: Tuple<T, Min> | Tuple<T, Min+1> | ... | Tuple<T, Max>
-type TupleUnion<
-  T,
-  Min extends number,
-  Max extends number,
-  Acc extends T[] = [],
-  Result = never
-> = Acc['length'] extends Max
-  ? Result | Tuple<T, Max>
-  : Acc['length'] extends number
-    ? number extends Acc['length']
-      ? never  // Prevent infinite recursion
-      : (Min extends 0
-          ? TupleUnion<T, Min, Max, [...Acc, T], Result | Acc>  // If Min is 0, include from start
-          : Acc['length'] extends Min
-            ? TupleUnion<T, Min, Max, [...Acc, T], Result | Acc>  // Reached Min, start including
-            : Result extends never
-              ? TupleUnion<T, Min, Max, [...Acc, T], never>  // Before Min, don't include
-              : TupleUnion<T, Min, Max, [...Acc, T], Result | Acc>)  // After Min, keep including
-    : never;
+type TupleUnion<T, Min extends number, Max extends number> =
+  AccumulatorRange<Min, Max, T>;
 
 export const isConstrainedArray = <
   T,
