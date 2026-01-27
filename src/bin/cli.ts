@@ -14,10 +14,19 @@ const logger = new Logger('CLI');
 const MAX_PROCESSES = parseInt(process.env.MAX_PROCESSES || '1', 10);
 const executor = new ComputationalPlanExecutor(MAX_PROCESSES);
 
+// Type for API command functions decorated with ApiMethod
+type ApiCommandFunction = {
+  (executor: ComputationalPlanExecutor, input: unknown): Promise<object>;
+  fromArgs: ((...args: unknown[]) => unknown) | false;
+  fromObject: (obj: unknown) => unknown;
+  argsMetadata: readonly string[] | false;
+  objMetadata: readonly string[];
+};
+
 // registry of decorated API functions (must expose .fromArgs/.fromObject/.argsMetadata/.objMetadata as provided by the decorator)
-const commandMap: Record<string, any> = {
-  sp1ToPlonk: performSp1Plonk,
-  risc0ToGroth16: performRisc0Groth16,
+const commandMap: Record<string, ApiCommandFunction> = {
+  sp1ToPlonk: performSp1Plonk as ApiCommandFunction,
+  risc0ToGroth16: performRisc0Groth16 as ApiCommandFunction,
 };
 
 const __filename = fileURLToPath(import.meta.url);
@@ -58,13 +67,14 @@ function readFileStrict(p: string) {
   }
   try {
     return JSON.parse(fs.readFileSync(p, 'utf8'));
-  } catch (e: any) {
-    throw new Error(`Failed to parse JSON from file "${p}": ${e.message ?? e}`);
+  } catch (e: unknown) {
+    const error = e as Error;
+    throw new Error(`Failed to parse JSON from file "${p}": ${error.message ?? error}`);
   }
 }
 
 // --- help utilities using metadata ---
-function summariseCommandMetadata(name: string, fn: any) {
+function summariseCommandMetadata(name: string, fn: ApiCommandFunction) {
   const supportsArgs = typeof fn?.fromArgs === 'function';
   const supportsObject = typeof fn?.fromObject === 'function';
   const argsMeta = Array.isArray(fn?.argsMetadata) ? fn.argsMetadata : null;
@@ -110,7 +120,7 @@ function printDescribeDirect(commandName: string) {
   logger.log('');
   logger.log(`=== ${commandName} ===`);
   logger.log(`Supports args-mode (file-based): ${meta.supportsArgs}`);
-  if (meta.supportsArgs) {
+  if (meta.supportsArgs && meta.argsMeta !== null) {
     logger.log(`  argsMetadata (files): ${JSON.stringify(meta.argsMeta)}`);
     logger.log('  Example (args-mode):');
     const argsExamplePaths = meta.argsMeta.map((arg: string) => `path/to/${commandName}_args_${arg}.json`).join(' ');
@@ -153,9 +163,10 @@ program
     try {
       printDescribeDirect(commandName);
       process.exit(0);
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const error = e as Error;
       logger.fatal('Failed to print description:');
-      logger.fatal(e.stack);
+      logger.fatal(error.stack);
       process.exit(1);
     }
   });
@@ -199,7 +210,7 @@ program
     const mode = args.length === 1 ? 'object' : 'args';
     logger.debug(`selected mode='${mode}'`);
 
-    let inputForExecutor: any;
+    let inputForExecutor: unknown;
     const outputNameHint: string | undefined = args[0];
 
     try {
@@ -258,15 +269,16 @@ program
         const fileValues = args.map((a) => readFileStrict(a));
 
         // build final TInput via fromArgs (spread)
-        inputForExecutor = (fn.fromArgs as (...a: any[]) => any)(...fileValues);
+        inputForExecutor = (fn.fromArgs as (...a: unknown[]) => unknown)(...fileValues);
       }
-    } catch (err: any) {
+    } catch (e: unknown) {
+      const error = e as Error;
       logger.fatal(
         `Error preparing input for '${commandName}': ${
-          err.message ?? err
+          error.message ?? error
         }`
       );
-      logger.fatal(err.stack);
+      logger.fatal(error.stack);
       process.exit(1);
     }
 
@@ -282,13 +294,14 @@ program
         `Wrote result of command ${commandName} to disk: ${outputFilePath}`
       );
       process.exit(0);
-    } catch (err: any) {
+    } catch (e: unknown) {
+      const error = e as Error;
       logger.fatal(
         `Error executing command '${commandName}': ${
-          err.message ?? err
+          error.message ?? error
         }`
       );
-      logger.fatal(err.stack);
+      logger.fatal(error.stack);
       process.exit(1);
     }
   });
@@ -311,11 +324,12 @@ try {
   });
 
   program.parse(process.argv);
-} catch (err: any) {
+} catch (e: unknown) {
+  const error = e as Error;
   logger.log(program.helpInformation());
   logger.log(`Version: ${version}`);
   logger.log(`Available commands: ${Object.keys(commandMap).join(', ')}`);
-  logger.fatal(err.stack);
+  logger.fatal(error.stack);
   process.exit(1);
 }
 
