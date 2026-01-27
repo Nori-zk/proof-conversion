@@ -7,21 +7,13 @@ import { performSp1Plonk } from '../api/sp1/plonk.js';
 import { performRisc0Groth16 } from '../api/risc0/groth16.js';
 import { Logger } from 'esm-iso-logger';
 import { LogPrinter } from 'esm-iso-logger';
+import { ApiCommandFunction } from 'src/api/methodDecorator.js';
 
 new LogPrinter('NoriProofConverter');
 const logger = new Logger('CLI');
 
 const MAX_PROCESSES = parseInt(process.env.MAX_PROCESSES || '1', 10);
 const executor = new ComputationalPlanExecutor(MAX_PROCESSES);
-
-// Type for API command functions decorated with ApiMethod
-type ApiCommandFunction = {
-  (executor: ComputationalPlanExecutor, input: unknown): Promise<object>;
-  fromArgs: ((...args: unknown[]) => unknown) | false;
-  fromObject: (obj: unknown) => unknown;
-  argsMetadata: readonly string[] | false;
-  objMetadata: readonly string[];
-};
 
 // registry of decorated API functions (must expose .fromArgs/.fromObject/.argsMetadata/.objMetadata as provided by the decorator)
 const commandMap: Record<string, ApiCommandFunction> = {

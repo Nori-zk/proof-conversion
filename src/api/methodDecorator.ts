@@ -1,5 +1,14 @@
 import { ComputationalPlanExecutor } from '../compute/executor.js';
 
+// Type for API command functions decorated with ApiMethod
+export type ApiCommandFunction = {
+  (executor: ComputationalPlanExecutor, input: unknown): Promise<object>;
+  fromArgs: ((...args: unknown[]) => unknown) | false;
+  fromObject: (obj: unknown) => unknown;
+  argsMetadata: readonly string[] | false;
+  objMetadata: readonly string[];
+};
+
 export function ApiMethod<
   TInput,
   TKeys extends readonly (keyof TInput)[] | false = false,
