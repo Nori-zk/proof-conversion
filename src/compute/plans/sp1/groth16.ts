@@ -1,6 +1,6 @@
 import rootDir from '../../../utils/root_dir.js';
 import { range } from '../../../utils/range.js';
-import { parseProof, Proof6 } from '../../../groth/proof.js';
+import { parseProof } from '../../../groth/proof.js';
 import { resolve } from 'path';
 import { Groth16Verifier } from '../../../groth/verifier.js';
 import { getRandomString } from '../../../utils/random.js';
