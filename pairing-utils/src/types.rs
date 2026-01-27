@@ -119,6 +119,8 @@ impl ComplexAffinePoint2d {
 ///
 /// Used for G1 curve points in projective form as output by snarkjs.
 /// Deserializes from array format: `["x", "y", "z"]`.
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi, type = "[string, string, string]"))]
 #[derive(Serialize_tuple, Deserialize_tuple, Debug, Clone)]
 pub struct ProjectivePoint {
     pub x: String,
@@ -162,6 +164,8 @@ impl ProjectivePoint {
 ///
 /// Used for G2 curve points in projective form as output by snarkjs.
 /// Deserializes from nested array format: `[[x_c0, x_c1], [y_c0, y_c1], [z_c0, z_c1]]`.
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi, type = "[[string, string], [string, string], [string, string]]"))]
 #[derive(Serialize_tuple, Deserialize_tuple, Debug, Clone)]
 pub struct ComplexProjectivePoint {
     pub x: (String, String),

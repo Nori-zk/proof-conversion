@@ -7,6 +7,8 @@ export interface SchemaObject {
 }
 
 type SchemaNode =
+  | string
+  | number
   | boolean
   | null
   | ValidatorFn
@@ -15,13 +17,9 @@ type SchemaNode =
 type InferSchemaType<S> =
   S extends (val: unknown) => val is infer T
     ? T
-    : S extends null
-      ? null
-      : S extends boolean
-        ? boolean
-        : S extends object
-          ? { [K in keyof S]: InferSchemaType<S[K]> }
-          : never;
+    : S extends object
+      ? { [K in keyof S]: InferSchemaType<S[K]> }
+      : S;
 
 export function assertExactStructure<S extends SchemaObject>(
   obj: unknown,
@@ -50,11 +48,9 @@ export function assertExactStructure<S extends SchemaObject>(
     const rule = castSchema[key];
     const value = castObj[key];
 
-    if (rule === null) {
-      if (value !== null) errors.push(`"${key}" must be null`);
-    } else if (typeof rule === 'function') {
+    if (typeof rule === 'function') {
       if (!rule(value)) errors.push(`"${key}" failed type/length validation`);
-    } else if (typeof rule === 'object') {
+    } else if (typeof rule === 'object' && rule !== null) {
       try {
         assertExactStructure(value, rule, key);
       } catch (e: unknown) {
@@ -63,6 +59,13 @@ export function assertExactStructure<S extends SchemaObject>(
             e.message.replace(`${key} validation failed:\n- `, `in "${key}": `)
           );
         }
+      }
+    } else {
+      // Exact value comparison for primitives (string, number, boolean, null)
+      if (value !== rule) {
+        errors.push(
+          `"${key}" must be exactly ${JSON.stringify(rule)}, got ${JSON.stringify(value)}`
+        );
       }
     }
   }
