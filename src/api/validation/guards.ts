@@ -11,12 +11,8 @@ type Tuple<T, N extends number, Acc extends T[] = []> = Acc['length'] extends N
   ? Acc
   : Tuple<T, N, [...Acc, T]>;
 
-export const isStringArray =
-  <N extends number>(len: N) =>
-  (val: unknown): val is Tuple<string, N> =>
-    Array.isArray(val) &&
-    val.length === len &&
-    val.every((v) => typeof v === 'string');
+export const isStringArray = <N extends number>(len: N) =>
+  isArrayOfLength(isString, len);
 
 export const isString = (val: unknown): val is string =>
   typeof val === 'string';
