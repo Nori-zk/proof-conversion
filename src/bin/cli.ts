@@ -5,9 +5,10 @@ import { Command } from 'commander';
 import { LogPrinter } from 'esm-iso-logger';
 import { fileURLToPath } from 'url';
 import { performSp1Plonk } from '../api/sp1/plonk.js';
-import { ApiCommandFunction } from '../api/methodDecorator.js';
 import { performSp1Groth16 } from '../api/sp1/groth16.js';
+import { ApiCommandFunction } from '../api/methodDecorator.js';
 import { performRisc0Groth16 } from '../api/risc0/groth16.js';
+import { performSnarkjsGroth16 } from '../api/snarkjs/groth16.js';
 import { ComputationalPlanExecutor } from '../compute/executor.js';
 
 new LogPrinter('NoriProofConverter');
@@ -20,7 +21,8 @@ const executor = new ComputationalPlanExecutor(MAX_PROCESSES);
 const commandMap: Record<string, ApiCommandFunction> = {
   sp1Plonk: performSp1Plonk as ApiCommandFunction,
   risc0Groth16: performRisc0Groth16 as ApiCommandFunction,
-  sp1Groth16: performSp1Groth16 as ApiCommandFunction
+  sp1Groth16: performSp1Groth16 as ApiCommandFunction,
+  snarkGroth16: performSnarkjsGroth16 as ApiCommandFunction,
 };
 
 const __filename = fileURLToPath(import.meta.url);

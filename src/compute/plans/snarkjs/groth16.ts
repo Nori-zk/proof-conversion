@@ -7,10 +7,6 @@ import { getRandomString } from '../../../utils/random.js';
 import { PlatformFeatures } from '../platform/index.js';
 import { readFileSync, rmSync, writeFileSync } from 'fs';
 import {
-  computeAuxWitness,
-  convertSp1Groth16ToO1js,
-} from '../../../pairing-utils/index.js';
-import {
   createDirectories,
   createDirectory,
   DirectoryStructure,
@@ -25,13 +21,18 @@ import {
   ProofDataOutput,
   VkDataOutput,
 } from '../../types.js';
-import type { SP1ProofWithPublicValuesGroth16NoTee } from "src/api/validation/sp1/schema.js"; // FIXME
+
+import { SnarkjsGroth16Input } from '../../../api/validation/snarkjs/schema.js';
+import {
+  computeAuxWitness,
+  convertSnarkjsGroth16ToO1js,
+} from '../../../pairing-utils/index.js';
 
 interface State extends PlatformFeatures, ConversionOutput {
   workingDirName: string;
   workingDir: string;
   cacheDir: string;
-  input: SP1ProofWithPublicValuesGroth16NoTee;
+  input: SnarkjsGroth16Input;
   witnessPath: string;
   proofPath: string;
   vkPath: string;
@@ -44,14 +45,14 @@ const proofVkCacheStructure: DirectoryStructure = {
 };
 const nodeCacheStructure: DirectoryStructure = range(4).map((i) => `node${i}`);
 
-export class Sp1Groth16ComputationalPlan implements ComputationPlan<
+export class SnarkjsGroth16ComputationalPlan implements ComputationPlan<
   State,
   ConversionOutput,
-  SP1ProofWithPublicValuesGroth16NoTee
+  SnarkjsGroth16Input
 > {
-  readonly __inputType!: SP1ProofWithPublicValuesGroth16NoTee;
-  name = 'Sp1Groth16Converter';
-  async init(state: State, input: SP1ProofWithPublicValuesGroth16NoTee): Promise<void> {
+  readonly __inputType!: SnarkjsGroth16Input;
+  name = 'SnarkjsGroth16Converter';
+  async init(state: State, input: SnarkjsGroth16Input): Promise<void> {
     state.input = input;
     state.workingDirName = getRandomString(20);
     const pwd = process.cwd();
@@ -73,94 +74,41 @@ export class Sp1Groth16ComputationalPlan implements ComputationPlan<
       },
     },
     {
-      name: 'ConvertSp1Groth16ToO1js',
+      name: 'ConvertSnarkjsGroth16ToO1js',
       type: 'main-thread',
       execute: (state: State) => {
-        const o1jsGroth16 = convertSp1Groth16ToO1js(state.input);
-        /*
-            This is what we get ================================
-            export interface O1jsGroth16 {
-                proof: O1jsProof;
-                vk: O1jsVK;
-            }
-            export interface O1jsVK {
-                alpha: AffinePoint2d;
-                beta: ComplexAffinePoint2d;
-                gamma: ComplexAffinePoint2d;
-                delta: ComplexAffinePoint2d;
-                alpha_beta: Field12;
-                w27: Field12;
-                ic0: AffinePoint2d;
-                ic1?: AffinePoint2d;
-                ic2?: AffinePoint2d;
-                ic3?: AffinePoint2d;
-                ic4?: AffinePoint2d;
-                ic5?: AffinePoint2d;
-                ic6?: AffinePoint2d;
-            }
-            export interface O1jsProof {
-                negA: AffinePoint2d;
-                B: ComplexAffinePoint2d;
-                C: AffinePoint2d;
-                pi1?: string;
-                pi2?: string;
-                pi3?: string;
-                pi4?: string;
-                pi5?: string;
-                pi6?: string;
-            }
-        */
-        
-        /*
-        THE VERIFIER EXPECTS THIS AS THE VK (NOTE it does NOT want alpha and beta we should strip them out)
-            type SerializedVk = {
-                ic6?: AffinePoint2d | undefined;
-                alpha_beta: Field12;
-                gamma: ComplexAffinePoint2d;
-                delta: ComplexAffinePoint2d;
-                w27: Field12;
-                ic0: AffinePoint2d;
-                ic1?: AffinePoint2d | undefined;
-                ic2?: AffinePoint2d | undefined;
-                ic3?: AffinePoint2d | undefined;
-                ic4?: AffinePoint2d | undefined;
-                ic5?: AffinePoint2d | undefined;
-            }
-        */
+        const { proof, publicInputs, vk } = state.input;
 
-        /* THE PROOF EXPECTS THIS
-            interface O1jsProof {
-                negA: AffinePoint2d;
-                B: ComplexAffinePoint2d;
-                C: AffinePoint2d;
-                pi1?: string;
-                pi2?: string;
-                pi3?: string;
-                pi4?: string;
-                pi5?: string;
-                pi6?: string;
-            }
-        */
+        const o1jsGroth16 = convertSnarkjsGroth16ToO1js(
+          proof,
+          publicInputs,
+          vk
+        );
 
         // o1jsGroth16.vk Need to remove alpha and beta
-        const { vk: {alpha, beta, ...o1jsGroth16Vk}} = o1jsGroth16;
+        const {
+          vk: { alpha, beta, ...o1jsGroth16Vk },
+        } = o1jsGroth16;
         // Just void alpha and beta because we won't use them and otherwise the linter complains
         void alpha;
         void beta;
 
-        // Write vk and proof 
+        // Write vk and proof
         writeFileSync(
-          resolve(state.workingDir, 'sp1_groth16_vk.json'),
+          resolve(state.workingDir, 'snarkjs_groth16_vk.json'),
           JSON.stringify(o1jsGroth16Vk)
         );
 
         writeFileSync(
-          resolve(state.workingDir, 'sp1_groth16_proof.json'),
+          resolve(state.workingDir, 'snarkjs_groth16_proof.json'),
           JSON.stringify(o1jsGroth16.proof)
         );
 
-        state.vkPath = resolve(state.workingDir, 'sp1_groth16_vk.json');
-        state.proofPath = resolve(state.workingDir, 'sp1_groth16_proof.json');
+        state.vkPath = resolve(state.workingDir, 'snarkjs_groth16_vk.json');
+        state.proofPath = resolve(
+          state.workingDir,
+          'snarkjs_groth16_proof.json'
+        );
       },
     },
     {
@@ -173,9 +121,9 @@ export class Sp1Groth16ComputationalPlan implements ComputationPlan<
         // this extract the proof nega C B and public inputs but operates on the public inputs with the vk
         const proof = parseProof(groth16.vk, proofPath); // CHECKME FIXME - I had to change this from Proof to parseProof see src/groth/proof.ts
         // then this modified  proof goes through the multimillerloop and gives us an f1p
-        const mlo = groth16.multiMillerLoop(proof).toJSON(); 
+        const mlo = groth16.multiMillerLoop(proof).toJSON();
         // F12 goes to wasm to compute the witness
-        const witness = computeAuxWitness(JSON.parse(mlo)); 
+        const witness = computeAuxWitness(JSON.parse(mlo));
         state.witnessPath = resolve(state.workingDir, 'aux_wtns.json');
 
         // Write the mlo and witness to the cache dir
@@ -206,7 +154,7 @@ export class Sp1Groth16ComputationalPlan implements ComputationPlan<
       name: 'ComputeZKP',
       type: 'parallel-cmd',
       processCmds: (state: State) => {
-        process.env.GROTH16_VK_PATH = state.vkPath;
+        process.env.GROTH16_VK_PATH = state.vkPath; // CHECKME what is this hackyness?
         return range(16).map((i) => {
           return {
             cmd: 'node',
@@ -233,7 +181,8 @@ export class Sp1Groth16ComputationalPlan implements ComputationPlan<
       },
       numaOptimized: true,
     },
-    ...range(1, 5).map((i) => { // CHECKME FIXME - ...range(1, 5) i had change from this 
+    ...range(1, 5).map((i) => {
+      // CHECKME FIXME - ...range(1, 5) i had change from this
       const stage: ParallelComputationStage<State> = {
         name: `CompressLayer${i}`,
         type: 'parallel-cmd',

@@ -5,12 +5,7 @@ import { resolve } from 'path';
 import { Groth16Verifier } from '../../../groth/verifier.js';
 import { getRandomString } from '../../../utils/random.js';
 import { PlatformFeatures } from '../platform/index.js';
-import type { Risc0Groth16Input } from 'src/api/validation/risc0/schema.js';
 import { readFileSync, rmSync, writeFileSync } from 'fs';
-import {
-  computeAuxWitness,
-  computeRisc0Groth16Pairing,
-} from '../../../pairing-utils/index.js';
 import {
   createDirectories,
   createDirectory,
@@ -26,6 +21,12 @@ import {
   ProofDataOutput,
   VkDataOutput,
 } from '../../types.js';
+
+import type { Risc0Groth16Input } from '../../../api/validation/risc0/schema.js';
+import {
+  computeAuxWitness,
+  computeRisc0Groth16Pairing,
+} from '../../../pairing-utils/index.js';
 
 interface State extends PlatformFeatures, ConversionOutput {
   workingDirName: string;
@@ -136,7 +137,7 @@ export class Risc0Groth16ComputationalPlan implements ComputationPlan<
       name: 'ComputeZKP',
       type: 'parallel-cmd',
       processCmds: (state: State) => {
-        process.env.GROTH16_VK_PATH = state.vkPath;
+        process.env.GROTH16_VK_PATH = state.vkPath; // CHECKME what is this hackyness?
         return range(16).map((i) => {
           return {
             cmd: 'node',

@@ -1,9 +1,13 @@
-import { Sp1PlonkComputationalPlan } from '../../compute/plans/sp1/plonk.js';
 import { Logger } from 'esm-iso-logger';
 import { ApiMethod } from '../methodDecorator.js';
-import { sp1PlonkObjKeys, type Sp1Input, type Sp1PlonkInputTransformed } from "../validation/sp1/schema.js";
 import { assertExactStructure } from '../validation/validation.js';
-import { sp1PlonkInputSchema } from '../validation/sp1/schema.js';
+import {
+  type Sp1Input,
+  type Sp1PlonkInputTransformed,
+  sp1PlonkObjKeys,
+  sp1PlonkInputSchema,
+} from '../validation/sp1/schema.js';
+import { Sp1PlonkComputationalPlan } from '../../compute/plans/sp1/plonk.js';
 
 const logger = new Logger('API');
 
@@ -12,10 +16,10 @@ const fromSp1Object = (obj: unknown) => {
   assertExactStructure(obj, sp1PlonkInputSchema, 'Sp1PlonkInput');
   // Perform the mapping
   return {
-      hexPi: `0x${Buffer.from(obj.public_values.buffer.data).toString('hex')}`,
-      programVK: obj.proof.Plonk.public_inputs[0],
-      encodedProof: `0x00000000${obj.proof.Plonk.encoded_proof}`,
-    };
+    hexPi: `0x${Buffer.from(obj.public_values.buffer.data).toString('hex')}`,
+    programVK: obj.proof.Plonk.public_inputs[0],
+    encodedProof: `0x00000000${obj.proof.Plonk.encoded_proof}`,
+  };
 };
 
 export const performSp1Plonk = ApiMethod<

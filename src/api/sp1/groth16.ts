@@ -1,13 +1,13 @@
 import { Logger } from 'esm-iso-logger';
-import { Sp1Groth16ComputationalPlan } from '../../compute/plans/sp1/groth16.js';
 import { ApiMethod } from '../methodDecorator.js';
-import {
-  sp1Groth16ObjKeys,
-  type Sp1Input,
-  type SP1ProofWithPublicValuesGroth16NoTee
-} from "../validation/sp1/schema.js";
 import { assertExactStructure } from '../validation/validation.js';
-import { sp1Groth16InputSchema } from '../validation/sp1/schema.js';
+import {
+  type Sp1Input,
+  type SP1ProofWithPublicValuesGroth16NoTee,
+  sp1Groth16ObjKeys,
+  sp1Groth16InputSchema,
+} from '../validation/sp1/schema.js';
+import { Sp1Groth16ComputationalPlan } from '../../compute/plans/sp1/groth16.js';
 
 const logger = new Logger('API');
 

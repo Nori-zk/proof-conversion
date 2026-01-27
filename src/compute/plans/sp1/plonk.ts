@@ -1,4 +1,3 @@
-import type { Sp1PlonkInputTransformed } from "src/api/validation/sp1/schema.js";
 import rootDir from '../../../utils/root_dir.js';
 import { range } from '../../../utils/range.js';
 import { getMlo } from '../../../plonk/get_mlo.js';
@@ -22,6 +21,8 @@ import {
   ComputationPlan,
   ParallelComputationStage,
 } from '../../plan.js';
+
+import type { Sp1PlonkInputTransformed } from '../../../api/validation/sp1/schema.js';
 
 interface State extends PlatformFeatures, ConversionOutput {
   workingDirName: string;
