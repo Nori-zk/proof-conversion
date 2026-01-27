@@ -1,18 +1,12 @@
 import { Sp1PlonkComputationalPlan } from '../../compute/plans/sp1/plonk.js';
 import { Logger } from 'esm-iso-logger';
 import { ApiMethod } from '../methodDecorator.js';
-import { isSp1PlonkProof, isTeeSp1Proof, Sp1Input, sp1PlonkObjKeys } from './types.js';
+import { isSp1PlonkProof, isTeeSp1Proof, sp1PlonkObjKeys, type Sp1Input, type Sp1PlonkInputProcessed } from './types.js';
 import { assertExactStructure } from '../validation/validation.js';
 import { ProofInputValidationError } from '../validation/ProofInputValidationError.js';
 import { sp1PlonkInputSchema } from '../validation/sp1/schema.js';
 
 const logger = new Logger('API');
-
-type Sp1PlonkInputProcessed = {
-  hexPi: string;
-  programVK: string;
-  encodedProof: string;
-};
 
 const fromSp1Object = (obj: Sp1Input): Sp1PlonkInputProcessed => {
   // Validate structure first

@@ -1,38 +1,33 @@
-import { resolve } from 'path';
-import { computeAuxWitness } from '../../../pairing-utils/index.js';
-import {
-  createDirectories,
-  createDirectory,
-  DirectoryStructure,
-} from '../../../utils/cache.js';
-import { getRandomString } from '../../../utils/random.js';
-import { range } from '../../../utils/range.js';
-import {
-  ComputationalStage,
-  ComputationPlan,
-  ParallelComputationStage,
-} from '../../plan.js';
-import { PlatformFeatures } from '../platform/index.js';
+import type { Sp1PlonkInputProcessed } from '../../../api/sp1/types.js';
 import rootDir from '../../../utils/root_dir.js';
-import { readFileSync, rmSync, writeFileSync } from 'fs';
+import { range } from '../../../utils/range.js';
 import { getMlo } from '../../../plonk/get_mlo.js';
+import { resolve } from 'path';
+import { getRandomString } from '../../../utils/random.js';
+import { PlatformFeatures } from '../platform/index.js';
+import { computeAuxWitness } from '../../../pairing-utils/index.js';
+import { readFileSync, rmSync, writeFileSync } from 'fs';
 import type {
   ConversionOutput,
   ProofDataOutput,
   VkDataOutput,
 } from '../../types.js';
-
-export type Sp1PlonkInput = {
-  hexPi: string;
-  programVK: string;
-  encodedProof: string;
-};
+import {
+  createDirectories,
+  createDirectory,
+  DirectoryStructure,
+} from '../../../utils/cache.js';
+import {
+  ComputationalStage,
+  ComputationPlan,
+  ParallelComputationStage,
+} from '../../plan.js';
 
 interface State extends PlatformFeatures, ConversionOutput {
   workingDirName: string;
   workingDir: string;
   cacheDir: string;
-  input: Sp1PlonkInput;
+  input: Sp1PlonkInputProcessed;
   witnessPath: string;
 }
 
@@ -46,16 +41,16 @@ const nodeCacheStructure: DirectoryStructure = range(4).map((i) => `node${i}`);
 export class Sp1PlonkComputationalPlan implements ComputationPlan<
   State,
   ConversionOutput,
-  Sp1PlonkInput
+  Sp1PlonkInputProcessed
 > {
-  readonly __inputType!: Sp1PlonkInput;
+  readonly __inputType!: Sp1PlonkInputProcessed;
   name = 'Sp1PlonkConverter';
-  async init(state: State, input: Sp1PlonkInput): Promise<void> {
+  async init(state: State, input: Sp1PlonkInputProcessed): Promise<void> {
     state.input = input;
     state.workingDirName = getRandomString(20);
     const pwd = process.cwd();
     state.workingDir = resolve(pwd, '.conversion-cache', state.workingDirName);
-    state.cacheDir = resolve(pwd, '.conversion-cache', 'plonk_cache');
+    state.cacheDir = resolve(pwd, '.conversion-cache', 'sp1_plonk_cache');
   }
   stages: ComputationalStage<State>[] = [
     {

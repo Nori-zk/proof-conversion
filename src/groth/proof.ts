@@ -5,6 +5,7 @@ import { Provable, Struct } from 'o1js';
 import { G2Line, computeLineCoeffs } from '../lines/index.js';
 import { computePI } from './compute_pi.js';
 import { GrothVk } from './vk.js';
+import type { O1jsProof } from '@nori-zk/proof-conversion-pairing-utils';
 
 export interface ProofData {
   negA: G1Affine;
@@ -14,6 +15,19 @@ export interface ProofData {
   b_lines: G2Line[];
   pis: FrC[];
 }
+export interface IProof {
+  negA: G1Affine;
+  B: G2Affine;
+  C: G1Affine;
+  PI: G1Affine;
+  b_lines: G2Line[];
+  pis: FrC[];
+}
+type ProofConstructor = (new (value: IProof) => IProof) & {
+  parse(vk: GrothVk, path: string): IProof;
+};
+type PiIndex = 1 | 2 | 3 | 4 | 5 | 6;
+type PiKey = `pi${PiIndex}`;
 
 const getNumOfLines = () => {
   let cnt = 0;
@@ -28,15 +42,16 @@ const getNumOfLines = () => {
 };
 
 // Cache for dynamically created Proof classes
-const proofClassCache = new Map<number, any>();
+const proofClassCache = new Map<number, ProofConstructor>();
 
 function createProofClass(inputCount: number) {
   if (inputCount < 0 || inputCount > 6) {
     throw new Error(`Unsupported input count: ${inputCount}. Supported range: 0-6`);
   }
 
-  if (proofClassCache.has(inputCount)) {
-    return proofClassCache.get(inputCount);
+  const cached = proofClassCache.get(inputCount);
+  if (cached !== undefined) {
+    return cached;
   }
 
   const ProofClass = class extends Struct({
@@ -48,12 +63,12 @@ function createProofClass(inputCount: number) {
     pis: Provable.Array(FrC.provable, inputCount),
   }) {
     static parse(vk: GrothVk, path: string) {
-      const json = JSON.parse(fs.readFileSync(path, 'utf-8'));
+      const json: O1jsProof = JSON.parse(fs.readFileSync(path, 'utf-8'));
 
       // Get public inputs (pi1, pi2, etc)
       const publicInputs: FrC[] = [];
       for (let i = 1; i <= inputCount; i++) {
-        const key = `pi${i}`;
+        const key = `pi${i}` as PiKey;
         if (json[key]) {
           publicInputs.push(FrC.from(json[key]));
         }
@@ -80,6 +95,7 @@ function createProofClass(inputCount: number) {
         }),
       });
 
+      // FIXME CHECK THIS VS RUST
       const PI = new G1Affine({
         x: FpC.from(computePI(vk, publicInputs).x).assertCanonical(),
         y: FpC.from(computePI(vk, publicInputs).y).assertCanonical(),
@@ -101,10 +117,10 @@ function createProofClass(inputCount: number) {
 }
 
 export function detectInputCountFromProof(path: string): number {
-  const json = JSON.parse(fs.readFileSync(path, 'utf-8'));
+  const json: O1jsProof = JSON.parse(fs.readFileSync(path, 'utf-8'));
   let count = 0;
   for (let i = 1; i <= 6; i++) {
-    if (json[`pi${i}`]) count++;
+    if (json[`pi${i}` as PiKey]) count++;
   }
   return count;
 }
@@ -117,5 +133,11 @@ export function parseProof(vk: GrothVk, path: string) {
 
 // Legacy Proof for backward compatibility (fixed 5 inputs)
 const Proof = createProofClass(5);
+/* 
+  CHECK ME although we support now up to 6 inputs.... we need to actually
+  export access to the an instance of this class with 6 as an argument!
+*/
+const Proof5 = Proof;
+const Proof6 = createProofClass(6);
 
-export { Proof };
+export { Proof, Proof5, Proof6 };

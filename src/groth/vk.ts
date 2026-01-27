@@ -8,6 +8,8 @@ import { O1jsVK } from 'pairing-utils/pkg/pairing_utils.js';
 
 // Flexible SerializedVk type supporting all possible IC points
 type SerializedVk = Omit<O1jsVK, 'alpha' | 'beta'>;
+type IcIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+type IcKey = `ic${IcIndex}`;
 
 class GrothVk {
   delta_lines: Array<G2Line>;
@@ -92,9 +94,9 @@ class GrothVk {
     const alpha_beta = Fp12.loadFromJSON(obj.alpha_beta);
     const w27 = Fp12.loadFromJSON(obj.w27);
 
-    // Parse all available IC points
+    // Parse all available IC points FIXME CHECKME what if we have skipped some??
     const icPoints = availableIcFields.map(field => {
-      const icData = (obj as any)[field];
+      const icData = obj[field as IcKey];
       if (!icData || !icData.x || !icData.y) {
         throw new Error(`Invalid IC point data for field: ${field}`);
       }

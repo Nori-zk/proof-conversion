@@ -27,7 +27,7 @@ const risc0Groth16RawVkSchema = {
   ic5: isAffinePoint2d,
 };
 
-// Schema for args form (just the proof)
+// Schema for args form (just the proof) - what crap is this NO IT NOT FIXME
 export const risc0Groth16ArgsInputSchema = risc0Groth16ProofSchema;
 
 // Schema for obj form (risc0_proof + raw_vk)

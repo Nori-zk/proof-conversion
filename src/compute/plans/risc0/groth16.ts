@@ -1,36 +1,31 @@
+import rootDir from '../../../utils/root_dir.js';
+import { range } from '../../../utils/range.js';
+import { Proof } from '../../../groth/proof.js';
 import { resolve } from 'path';
+import { Groth16Verifier } from '../../../groth/verifier.js';
+import { getRandomString } from '../../../utils/random.js';
+import { PlatformFeatures } from '../platform/index.js';
+import type { Risc0Groth16Input } from '../../../api/risc0/types.js';
+import { readFileSync, rmSync, writeFileSync } from 'fs';
 import {
   computeAuxWitness,
-  computePairingRisc0,
+  computeRisc0Groth16Pairing,
 } from '../../../pairing-utils/index.js';
 import {
   createDirectories,
   createDirectory,
   DirectoryStructure,
 } from '../../../utils/cache.js';
-import { getRandomString } from '../../../utils/random.js';
-import { range } from '../../../utils/range.js';
 import {
   ComputationalStage,
   ComputationPlan,
   ParallelComputationStage,
 } from '../../plan.js';
-import { PlatformFeatures } from '../platform/index.js';
-import rootDir from '../../../utils/root_dir.js';
-import { readFileSync, rmSync, writeFileSync } from 'fs';
-import { Risc0Groth16Proof, Risc0Groth16RawVk } from '../../../api/risc0/types.js';
-import { Groth16Verifier } from '../../../groth/verifier.js';
-import { Proof } from '../../../groth/proof.js';
 import {
   ConversionOutput,
   ProofDataOutput,
   VkDataOutput,
 } from '../../types.js';
-
-export type Risc0Groth16Input = {
-  risc0_proof: Risc0Groth16Proof;
-  raw_vk: Risc0Groth16RawVk;
-};
 
 interface State extends PlatformFeatures, ConversionOutput {
   workingDirName: string;
@@ -61,7 +56,7 @@ export class Risc0Groth16ComputationalPlan implements ComputationPlan<
     state.workingDirName = getRandomString(20);
     const pwd = process.cwd();
     state.workingDir = resolve(pwd, '.conversion-cache', state.workingDirName);
-    state.cacheDir = resolve(pwd, '.conversion-cache', 'groth16_cache');
+    state.cacheDir = resolve(pwd, '.conversion-cache', 'risc0_groth16_cache'); // THIS SHOULD MAYBE BE SET SUCH THAT WE MAKE A NEW DIR PER NUMBER OF PI/CI CHECKME
   }
   stages: ComputationalStage<State>[] = [
     {
@@ -78,15 +73,15 @@ export class Risc0Groth16ComputationalPlan implements ComputationPlan<
       },
     },
     {
-      name: 'makeAlphaBeta',
+      name: 'ComputePairing', // change from makeAlphaBeta
       type: 'main-thread',
       execute: (state: State) => {
-        const { raw_vk: rawVk } = state.input;
-        const risc0Vk = computePairingRisc0(rawVk);
+        const { raw_vk: vk } = state.input;
+        const risc0Groth16PairedVk = computeRisc0Groth16Pairing(vk);
 
         writeFileSync(
           resolve(state.workingDir, 'risc_zero_vk.json'),
-          JSON.stringify(risc0Vk)
+          JSON.stringify(risc0Groth16PairedVk)
         );
 
         writeFileSync(
@@ -105,9 +100,11 @@ export class Risc0Groth16ComputationalPlan implements ComputationPlan<
         const { vkPath, proofPath } = state;
 
         const groth16 = new Groth16Verifier(vkPath);
+        // this extract the proof nega C B and public inputs but operates on the public inputs with the vk
         const proof = Proof.parse(groth16.vk, proofPath);
+        // then this modified  proof goes through the multimillerloop and gives us an f1p
         const mlo = groth16.multiMillerLoop(proof).toJSON();
-
+        // F12 goes to wasm to compute the witness
         const witness = computeAuxWitness(JSON.parse(mlo));
         state.witnessPath = resolve(state.workingDir, 'aux_wtns.json');
 

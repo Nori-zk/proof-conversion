@@ -369,6 +369,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Parse all public inputs dynamically
     let mut ark_public_inputs = Vec::new();
+    // FIXME we skipped this!
     for input_str in &groth16_proof.public_inputs {
         let input_bigint = BigUint::from_str_radix(input_str, 10).unwrap();
         let input_bytes = input_bigint.to_bytes_be();
@@ -392,6 +393,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("✅ Verifying proof with arkworks...");
 
     // Verify the proof to ensure conversion is correct
+    // FIXME we skipped this!
     let ark_pvk = ark_groth16::prepare_verifying_key(&ark_vk);
     let verified = ark_groth16::Groth16::<Bn254>::verify_with_processed_vk(
         &ark_pvk,
