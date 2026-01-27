@@ -4,9 +4,11 @@ import {
 } from '@nori-zk/proof-conversion-pairing-utils';
 import {
   isComplexProjectivePoint,
+  isConstrainedArray,
   isConstrainedNumber,
   isProjectivePoint,
 } from '../guards.js';
+import { assertExactStructure } from '../validation.js';
 
 export { SnarkjsProof };
 
@@ -19,8 +21,12 @@ export const SnarkjsProofSchema = {
   pi_a: isProjectivePoint,
   pi_b: isComplexProjectivePoint,
   pi_c: isProjectivePoint,
-  
 };
+
+const isConstrainedIC = isConstrainedArray(isProjectivePoint, {
+  minLength: 0,
+  maxLength: 7,
+});
 
 export const SnarkjsVKSchema = {
   protocol: 'groth16',
@@ -30,11 +36,41 @@ export const SnarkjsVKSchema = {
   vk_beta_2: isComplexProjectivePoint,
   vk_gamma_2: isComplexProjectivePoint,
   vk_delta_2: isComplexProjectivePoint,
-  IC
+  IC: isConstrainedIC,
 };
 
-/* SnarkjsVK
-{
+
+
+const exampleSnarkJsProofSchema = {
+  pi_a: [
+    '12369698276624038106972479882730964985390333465481074863680349672529458504727',
+    '15615049479232918185966644204891621024197935236528708875381357850359187990605',
+    '1',
+  ],
+  pi_b: [
+    [
+      '1903903027629957495668852277947233956036752695749808956450499753161040073874',
+      '19516214232409959981032970092985844340835031525223058295881548971699867691648',
+    ],
+    [
+      '19307974034844496356197776793106808222110218706117190747312969862440532637662',
+      '13697410665674063166131807846290149764118701671708810697019074013384033689104',
+    ],
+    ['1', '0'],
+  ],
+  pi_c: [
+    '7010015226086374350386758989393813330608661028137417395424353887010102473098',
+    '10183017824666368472028331443533583618138702490402418362068146053700422304030',
+    '1',
+  ],
+  protocol: 'groth16',
+  curve: 'bn128',
+} as unknown;
+
+assertExactStructure(exampleSnarkJsProofSchema, SnarkjsProofSchema, "ok");
+exampleSnarkJsProofSchema
+
+const exampleSnarkjsVKSchema = {
  "protocol": "groth16",
  "curve": "bn128",
  "nPublic": 6,
@@ -152,5 +188,8 @@ export const SnarkjsVKSchema = {
    "1"
   ]
  ]
-}
-*/
+} as unknown;
+
+assertExactStructure(exampleSnarkjsVKSchema, SnarkjsVKSchema, "ok");
+
+exampleSnarkjsVKSchema

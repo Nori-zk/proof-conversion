@@ -24,6 +24,23 @@ export const isString = (val: unknown): val is string =>
 export const isNumber = (val: unknown): val is number =>
   typeof val === 'number';
 
+// Generic array validator that preserves type inference
+export const isArray = <T>(
+  validatorFn: ValidatorFn<T>
+): ValidatorFn<T[]> => {
+  return (val: unknown): val is T[] =>
+    Array.isArray(val) && val.every(validatorFn);
+};
+
+// Generic array-of-length validator that preserves tuple type inference
+export const isArrayOfLength = <T, N extends number>(
+  validatorFn: ValidatorFn<T>,
+  len: N
+) => {
+  return (val: unknown): val is Tuple<T, N> =>
+    Array.isArray(val) && val.length === len && val.every(validatorFn);
+};
+
 export const isConstrainedNumber =
   (
     options:
@@ -55,13 +72,10 @@ export const isConstrainedArray =
 
 const isUint8 = isConstrainedNumber({ min: 0, max: 255 });
 
-export const isUint8Array =
-  <N extends number>(len: N) =>
-  (val: unknown): val is Tuple<number, N> =>
-    Array.isArray(val) && val.length === len && val.every(isUint8);
+export const isUint8Array = <N extends number>(len: N) =>
+  isArrayOfLength(isUint8, len);
 
-export const isNumberArray = (val: unknown): val is number[] =>
-  Array.isArray(val) && val.every((v) => typeof v === 'number');
+export const isNumberArray = isArray(isNumber);
 
 export const isAffinePoint2d = (val: unknown): val is AffinePoint2d => {
   if (!val || typeof val !== 'object') return false;
