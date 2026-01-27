@@ -241,8 +241,11 @@ export const isUint8Array = <N extends number>(len: N) =>
 /** Validates variable-length array of numbers */
 export const isNumberArray = isArray(isNumber);
 
+/** Validates variable-length array of strings */
+export const isStringArray = isArray(isString);
+
 /** Validates fixed-length array of strings */
-export const isStringArray = <N extends number>(len: N) =>
+export const isStringArrayOfLength = <N extends number>(len: N) =>
   isArrayOfLength(isString, len);
 
 /**

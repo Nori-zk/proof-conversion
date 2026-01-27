@@ -1,5 +1,5 @@
 import type { SP1Proof, SP1PublicValues, SP1ProofWithPublicValues, O1jsVK, O1jsProof, Groth16Bn254Proof } from "pairing-utils/pkg/pairing_utils.js";
-import { isNumberArray, isString, isStringArray, isUint8Array } from "../guards.js";
+import { isNumberArray, isString, isStringArrayOfLength, isUint8Array } from "../guards.js";
 
 // Types ===================================================================================
 
@@ -30,17 +30,17 @@ export type SP1ProofWithPublicValuesGroth16NoTee = Omit<SP1ProofWithPublicValues
 // Runtime validation ======================================================================
 
 const plonkProofSchema = {
-  public_inputs: isStringArray(2),      // [String; 2]
+  public_inputs: isStringArrayOfLength(2), // [String; 2]
   encoded_proof: isString,
   raw_proof: isString,
-  plonk_vkey_hash: isUint8Array(32)     // [u8; 32]
+  plonk_vkey_hash: isUint8Array(32)        // [u8; 32]
 };
 
 const groth16ProofSchema = {
-  public_inputs: isStringArray(2),      // [String; 2]
+  public_inputs: isStringArrayOfLength(2), // [String; 2]
   encoded_proof: isString,
   raw_proof: isString,
-  groth16_vkey_hash: isUint8Array(32)    // [u8; 32]
+  groth16_vkey_hash: isUint8Array(32)      // [u8; 32]
 };
 
 export const sp1PlonkInputSchema = {
