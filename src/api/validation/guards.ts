@@ -91,10 +91,10 @@ type TupleUnion<T, Min extends number, Max extends number> =
  * The return type is a union of all valid tuple lengths from minLength to maxLength.
  *
  * @example
- * const isSmallStringArray = isConstrainedArray(isString, { minLength: 1, maxLength: 3 });
+ * const isSmallStringArray = isBoundedLengthArray(isString, { minLength: 1, maxLength: 3 });
  * // Returns: (val: unknown) => val is [string] | [string, string] | [string, string, string]
  */
-export const isConstrainedArray = <
+export const isBoundedLengthArray = <
   T,
   Min extends number,
   Max extends number
@@ -128,9 +128,9 @@ export const isNumber = (val: unknown): val is number =>
  * Creates a number validator with runtime min/max constraints.
  *
  * Returns a simple `number` type without literal type unions.
- * For small ranges with literal type unions, use `isConstrainedSmallNumber`.
+ * For small ranges with literal type unions, use `isBoundedNumber`.
  */
-export const isConstrainedNumber =
+export const isBoundedNumber =
   (
     options:
       | { min: number; max?: number }
@@ -159,13 +159,13 @@ type NumberRange<Min extends number, Max extends number> =
  * Creates a number validator with type-level literal unions for small ranges.
  *
  * Returns a union of exact number literals: `0 | 1 | 2 | ... | Max`.
- * Only use for small ranges (< 10) to avoid TypeScript performance issues.
+ * Only use for small ranges (< 10) to avoid TypeScript issues.
  *
  * @example
- * const isSmallNumber = isConstrainedSmallNumber({ min: 0, max: 3 });
+ * const isSmallNumber = isBoundedNumberUnion({ min: 0, max: 3 });
  * // Returns: (val: unknown) => val is 0 | 1 | 2 | 3
  */
-export const isConstrainedSmallNumber = <
+export const isBoundedNumberUnion = <
   Min extends number,
   Max extends number
 >(
@@ -182,7 +182,7 @@ export const isConstrainedSmallNumber = <
 };
 
 /** Validates uint8 values (0-255) - used by `isUint8Array` */
-const isUint8 = isConstrainedNumber({ min: 0, max: 255 });
+const isUint8 = isBoundedNumber({ min: 0, max: 255 });
 
 // Object guards ========================================================
 

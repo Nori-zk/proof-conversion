@@ -5,8 +5,8 @@ import {
 import {
     isArrayOfLength,
   isComplexProjectivePoint,
-  isConstrainedArray,
-  isConstrainedSmallNumber,
+  isBoundedLengthArray,
+  isBoundedNumberUnion,
   isProjectivePoint,
   isString,
 } from '../guards.js';
@@ -31,7 +31,7 @@ export const snarkjsGroth16ProofSchema = {
   pi_c: isProjectivePoint,
 };
 
-const isConstrainedIC = isConstrainedArray(isProjectivePoint, {
+const isConstrainedIC = isBoundedLengthArray(isProjectivePoint, {
   minLength: 0,
   maxLength: 7,
 });
@@ -41,7 +41,7 @@ const isSnarkjsAlphaBeta = isArrayOfLength(isComplexProjectivePoint, 2);
 export const snarkjsGroth16VKSchema = {
   protocol: 'groth16' as const,
   curve: 'bn128' as const,
-  nPublic: isConstrainedSmallNumber({ min: 0, max: 6 }),
+  nPublic: isBoundedNumberUnion({ min: 0, max: 6 }),
   vk_alpha_1: isProjectivePoint,
   vk_beta_2: isComplexProjectivePoint,
   vk_gamma_2: isComplexProjectivePoint,
