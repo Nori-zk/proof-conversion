@@ -1,5 +1,5 @@
 import { Logger } from 'esm-iso-logger';
-import { Sp1Groth16ComputationalPlan } from 'src/compute/plans/sp1/groth16.js';
+import { Sp1Groth16ComputationalPlan } from '../../compute/plans/sp1/groth16.js';
 import { ApiMethod } from '../methodDecorator.js';
 import {
   sp1Groth16ObjKeys,
