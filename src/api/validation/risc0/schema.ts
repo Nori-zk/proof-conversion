@@ -28,7 +28,7 @@ const risc0Groth16ProofSchema = {
   pi5: isString,
 };
 
-const risc0Groth16RawVkSchema = {
+const risc0Groth16VkSchema = {
   alpha: isAffinePoint2d,
   beta: isComplexAffinePoint2d,
   gamma: isComplexAffinePoint2d,
@@ -45,7 +45,7 @@ const risc0Groth16RawVkSchema = {
 // Schema for obj form (risc0_proof + raw_vk)
 export const risc0Groth16ObjInputSchema = {
   risc0_proof: risc0Groth16ProofSchema,
-  raw_vk: risc0Groth16RawVkSchema,
+  raw_vk: risc0Groth16VkSchema,
 };
 
 // Keys for the ApiMethod helper
