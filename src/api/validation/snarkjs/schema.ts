@@ -6,6 +6,7 @@ import {
   isComplexProjectivePoint,
   isConstrainedArray,
   isConstrainedNumber,
+  isConstrainedSmallNumber,
   isProjectivePoint,
 } from '../guards.js';
 import { assertExactStructure } from '../validation.js';
@@ -29,9 +30,9 @@ const isConstrainedIC = isConstrainedArray(isProjectivePoint, {
 });
 
 export const SnarkjsVKSchema = {
-  protocol: 'groth16',
-  curve: 'bn128',
-  nPublic: isConstrainedNumber({ min: 0, max: 6 }),
+  protocol: 'groth16' as const,
+  curve: 'bn128' as const,
+  nPublic: isConstrainedSmallNumber({ min: 0, max: 6 }),
   vk_alpha_1: isProjectivePoint,
   vk_beta_2: isComplexProjectivePoint,
   vk_gamma_2: isComplexProjectivePoint,
@@ -41,34 +42,7 @@ export const SnarkjsVKSchema = {
 
 
 
-const exampleSnarkJsProofSchema = {
-  pi_a: [
-    '12369698276624038106972479882730964985390333465481074863680349672529458504727',
-    '15615049479232918185966644204891621024197935236528708875381357850359187990605',
-    '1',
-  ],
-  pi_b: [
-    [
-      '1903903027629957495668852277947233956036752695749808956450499753161040073874',
-      '19516214232409959981032970092985844340835031525223058295881548971699867691648',
-    ],
-    [
-      '19307974034844496356197776793106808222110218706117190747312969862440532637662',
-      '13697410665674063166131807846290149764118701671708810697019074013384033689104',
-    ],
-    ['1', '0'],
-  ],
-  pi_c: [
-    '7010015226086374350386758989393813330608661028137417395424353887010102473098',
-    '10183017824666368472028331443533583618138702490402418362068146053700422304030',
-    '1',
-  ],
-  protocol: 'groth16',
-  curve: 'bn128',
-} as unknown;
 
-assertExactStructure(exampleSnarkJsProofSchema, SnarkjsProofSchema, "ok");
-exampleSnarkJsProofSchema
 
 const exampleSnarkjsVKSchema = {
  "protocol": "groth16",
@@ -189,7 +163,51 @@ const exampleSnarkjsVKSchema = {
   ]
  ]
 } as unknown;
-
 assertExactStructure(exampleSnarkjsVKSchema, SnarkjsVKSchema, "ok");
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 exampleSnarkjsVKSchema
+
+
+
+const exampleSnarkJsProofSchema = {
+  pi_a: [
+    '12369698276624038106972479882730964985390333465481074863680349672529458504727',
+    '15615049479232918185966644204891621024197935236528708875381357850359187990605',
+    '1',
+  ],
+  pi_b: [
+    [
+      '1903903027629957495668852277947233956036752695749808956450499753161040073874',
+      '19516214232409959981032970092985844340835031525223058295881548971699867691648',
+    ],
+    [
+      '19307974034844496356197776793106808222110218706117190747312969862440532637662',
+      '13697410665674063166131807846290149764118701671708810697019074013384033689104',
+    ],
+    ['1', '0'],
+  ],
+  pi_c: [
+    '7010015226086374350386758989393813330608661028137417395424353887010102473098',
+    '10183017824666368472028331443533583618138702490402418362068146053700422304030',
+    '1',
+  ],
+  protocol: 'groth16',
+  curve: 'bn128',
+} as unknown;
+
+assertExactStructure(exampleSnarkJsProofSchema, SnarkjsProofSchema, "ok");
+exampleSnarkJsProofSchema

@@ -54,14 +54,74 @@ export const isConstrainedNumber =
     return true;
   };
 
-export const isConstrainedArray =
-  <T>(
-    validatorFn: ValidatorFn<T>,
-    options:
-      | { minLength: number; maxLength?: number }
-      | { minLength?: number; maxLength: number }
-  ): ValidatorFn<T[]> =>
-  (val: unknown): val is T[] => {
+// Helper type to generate union of literal numbers from Min to Max
+// e.g., NumberRange<0, 3> = 0 | 1 | 2 | 3
+type NumberRange<
+  Min extends number,
+  Max extends number,
+  Acc extends number[] = [],
+  Result = never
+> = Acc['length'] extends Max
+  ? Result | Max
+  : Acc['length'] extends number
+    ? number extends Acc['length']
+      ? never
+      : Acc['length'] extends Min
+        ? NumberRange<Min, Max, [...Acc, 0], Result | Acc['length']>
+        : Result extends never
+          ? NumberRange<Min, Max, [...Acc, 0], never>
+          : NumberRange<Min, Max, [...Acc, 0], Result | Acc['length']>
+    : never;
+
+export const isConstrainedSmallNumber = <
+  Min extends number,
+  Max extends number
+>(
+  options:
+    | { min: Min; max?: Max }
+    | { min?: Min; max: Max }
+): ValidatorFn<NumberRange<Min, Max>> => {
+  return (val: unknown): val is NumberRange<Min, Max> => {
+    if (typeof val !== 'number') return false;
+    if (options.min !== undefined && val < options.min) return false;
+    if (options.max !== undefined && val > options.max) return false;
+    return true;
+  };
+};
+
+// Helper type to create tuple unions for constrained arrays
+// Generates: Tuple<T, Min> | Tuple<T, Min+1> | ... | Tuple<T, Max>
+type TupleUnion<
+  T,
+  Min extends number,
+  Max extends number,
+  Acc extends T[] = [],
+  Result = never
+> = Acc['length'] extends Max
+  ? Result | Tuple<T, Max>
+  : Acc['length'] extends number
+    ? number extends Acc['length']
+      ? never  // Prevent infinite recursion
+      : (Min extends 0
+          ? TupleUnion<T, Min, Max, [...Acc, T], Result | Acc>  // If Min is 0, include from start
+          : Acc['length'] extends Min
+            ? TupleUnion<T, Min, Max, [...Acc, T], Result | Acc>  // Reached Min, start including
+            : Result extends never
+              ? TupleUnion<T, Min, Max, [...Acc, T], never>  // Before Min, don't include
+              : TupleUnion<T, Min, Max, [...Acc, T], Result | Acc>)  // After Min, keep including
+    : never;
+
+export const isConstrainedArray = <
+  T,
+  Min extends number,
+  Max extends number
+>(
+  validatorFn: ValidatorFn<T>,
+  options:
+    | { minLength: Min; maxLength?: Max }
+    | { minLength?: Min; maxLength: Max }
+): ValidatorFn<TupleUnion<T, Min, Max>> => {
+  return (val: unknown): val is TupleUnion<T, Min, Max> => {
     if (!Array.isArray(val)) return false;
     if (options.minLength !== undefined && val.length < options.minLength)
       return false;
@@ -69,6 +129,7 @@ export const isConstrainedArray =
       return false;
     return val.every(validatorFn);
   };
+};
 
 const isUint8 = isConstrainedNumber({ min: 0, max: 255 });
 
