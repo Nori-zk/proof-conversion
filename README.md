@@ -74,23 +74,23 @@ The CLI supports two input modes for each command:
    - Provide multiple JSON files as separate arguments.
    - The order and keys of the files are validated against the command’s api arguments metadata.
    - Example:
-     nori-proof-converter sp1ToPlonk path/to/hexPi.json path/to/programVK.json path/to/encodedProof.json
+     nori-proof-converter sp1Plonk path/to/hexPi.json path/to/programVK.json path/to/encodedProof.json
 
 2. Object-Mode:
    - Provide a single JSON file containing all required keys.
    - The keys are validated against the command’s api object metadata.
    - Example:
-     nori-proof-converter sp1ToPlonk path/to/sp1_obj_v5.json
+     nori-proof-converter sp1Plonk path/to/sp1_obj_v5.json
 
 Note: Not all commands support both modes. The CLI will indicate supported modes and required keys if you run a command without arguments.
 
 ### Supported commands
 --------
  
-- sp1ToPlonk
-- risc0ToGroth16
+- sp1Plonk
+- risc0Groth16
 
-#### sp1ToPlonk
+#### sp1Plonk
 
 Convert SP1 proofs to Plonk proofs.
 
@@ -99,30 +99,30 @@ Supported Modes and Metadata:
 - Args-Mode: Yes
   - Required Json files: hexPi, programVK, encodedProof
   - Example:
-    `nori-proof-converter sp1ToPlonk ./example-proofs/sp1_args_v5_hex_pi.json ./example-proofs/sp1_args_v5_program_vk.json ./example-proofs/sp1_args_v5_encoded_proof.json`
+    `nori-proof-converter sp1Plonk ./example-proofs/sp1_args_v5_hex_pi.json ./example-proofs/sp1_args_v5_program_vk.json ./example-proofs/sp1_args_v5_encoded_proof.json`
 
 - Object-Mode: Yes
   - Required Json file keys: proof, public_values, sp1_version
   - Example:
-    `nori-proof-converter sp1ToPlonk ./example-proofs/sp1_obj_v5.json`
+    `nori-proof-converter sp1Plonk ./example-proofs/sp1_obj_v5.json`
 
 
 Example CLI metadata output (running command with no args):
 
 ```
-=== sp1ToPlonk ===
+=== sp1Plonk ===
 Supports args-mode (file-based): true
   argsMetadata (files): ["hexPi","programVK","encodedProof"]
   Example (args-mode):
-    `nori-proof-converter sp1ToPlonk path/to/hexPi.json path/to/programVK.json path/to/encodedProof.json`
+    `nori-proof-converter sp1Plonk path/to/hexPi.json path/to/programVK.json path/to/encodedProof.json`
 
 Supports object-mode (single file only): true
   objMetadata (Json file must have keys): ["proof","public_values","sp1_version"]
   Example (object-mode):
-    `nori-proof-converter sp1ToPlonk path/to/sp1_obj_v5.json`
+    `nori-proof-converter sp1Plonk path/to/sp1_obj_v5.json`
 ```
 
-#### risc0ToGroth16
+#### risc0Groth16
 
 Convert RISC0 proofs to Groth16 proofs.
 
@@ -131,26 +131,26 @@ Supported Modes and Metadata:
 - Args-Mode: Yes
   - Required Json files: proof, raw_vk
   - Example:
-    `nori-proof-converter risc0ToGroth16 ./example-proofs/risc_zero_args_proof.json ./example-proofs/risc_zero_args_raw_vk.json`
+    `nori-proof-converter risc0Groth16 ./example-proofs/risc_zero_args_proof.json ./example-proofs/risc_zero_args_raw_vk.json`
 
 - Object-Mode: Yes
   - Required Json file keys: proof, raw_vk
   - Example:
-    `nori-proof-converter risc0ToGroth16 ./example-proofs/risc_zero_obj.json`
+    `nori-proof-converter risc0Groth16 ./example-proofs/risc_zero_obj.json`
 
 Example CLI metadata output (running command with no args):
 
 ```
-=== risc0ToGroth16 ===
+=== risc0Groth16 ===
 Supports args-mode (file-based): true
   argsMetadata (files required): ["risc0_proof","raw_vk"]
   Example (args-mode):
-    nori-proof-converter risc0ToGroth16 path/to/risc0_proof.json path/to/raw_vk.json
+    nori-proof-converter risc0Groth16 path/to/risc0_proof.json path/to/raw_vk.json
 
 Supports object-mode (single file only): true
   objMetadata (JSON file must have keys): ["risc0_proof","raw_vk"]
   Example (object-mode):
-    nori-proof-converter risc0ToGroth16 path/to/risc0_obj.json
+    nori-proof-converter risc0Groth16 path/to/risc0_obj.json
 ```
 
 ### Updating the cli

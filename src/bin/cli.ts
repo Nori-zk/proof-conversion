@@ -1,13 +1,14 @@
-import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
-import { ComputationalPlanExecutor } from '../compute/executor.js';
-import { performSp1Plonk } from '../api/sp1/plonk.js';
-import { performRisc0Groth16 } from '../api/risc0/groth16.js';
 import { Logger } from 'esm-iso-logger';
+import { Command } from 'commander';
 import { LogPrinter } from 'esm-iso-logger';
-import { ApiCommandFunction } from 'src/api/methodDecorator.js';
+import { fileURLToPath } from 'url';
+import { performSp1Plonk } from '../api/sp1/plonk.js';
+import { ApiCommandFunction } from '../api/methodDecorator.js';
+import { performSp1Groth16 } from '../api/sp1/groth16.js';
+import { performRisc0Groth16 } from '../api/risc0/groth16.js';
+import { ComputationalPlanExecutor } from '../compute/executor.js';
 
 new LogPrinter('NoriProofConverter');
 const logger = new Logger('CLI');
@@ -17,8 +18,9 @@ const executor = new ComputationalPlanExecutor(MAX_PROCESSES);
 
 // registry of decorated API functions (must expose .fromArgs/.fromObject/.argsMetadata/.objMetadata as provided by the decorator)
 const commandMap: Record<string, ApiCommandFunction> = {
-  sp1ToPlonk: performSp1Plonk as ApiCommandFunction,
-  risc0ToGroth16: performRisc0Groth16 as ApiCommandFunction,
+  sp1Plonk: performSp1Plonk as ApiCommandFunction,
+  risc0Groth16: performRisc0Groth16 as ApiCommandFunction,
+  sp1Groth16: performSp1Groth16 as ApiCommandFunction
 };
 
 const __filename = fileURLToPath(import.meta.url);
@@ -167,7 +169,7 @@ program
 program
   .argument(
     '<command>',
-    'command to execute (e.g. sp1ToPlonk or risc0ToGroth16)'
+    'command to execute (e.g. sp1Plonk or risc0Groth16)'
   )
   .argument(
     '[args...]',
