@@ -22,7 +22,7 @@ const commandMap: Record<string, ApiCommandFunction> = {
   sp1Plonk: performSp1Plonk as ApiCommandFunction,
   risc0Groth16: performRisc0Groth16 as ApiCommandFunction,
   sp1Groth16: performSp1Groth16 as ApiCommandFunction,
-  snarkGroth16: performSnarkjsGroth16 as ApiCommandFunction,
+  snarkjsGroth16: performSnarkjsGroth16 as ApiCommandFunction,
 };
 
 const __filename = fileURLToPath(import.meta.url);

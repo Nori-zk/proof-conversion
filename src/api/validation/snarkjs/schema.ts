@@ -36,6 +36,8 @@ const isConstrainedIC = isConstrainedArray(isProjectivePoint, {
   maxLength: 7,
 });
 
+const isSnarkjsAlphaBeta = isArrayOfLength(isComplexProjectivePoint, 2); 
+
 export const snarkjsGroth16VKSchema = {
   protocol: 'groth16' as const,
   curve: 'bn128' as const,
@@ -44,6 +46,7 @@ export const snarkjsGroth16VKSchema = {
   vk_beta_2: isComplexProjectivePoint,
   vk_gamma_2: isComplexProjectivePoint,
   vk_delta_2: isComplexProjectivePoint,
+  vk_alphabeta_12: isSnarkjsAlphaBeta,
   IC: isConstrainedIC,
 };
 
