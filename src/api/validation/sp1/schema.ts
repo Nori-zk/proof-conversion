@@ -20,6 +20,8 @@ export type Sp1PlonkInputTransformed = {
   encodedProof: string;
 };
 
+// TODO Plonk
+
 export type SP1ProofWithPublicValuesGroth16NoTee = Omit<SP1ProofWithPublicValues, 'proof' | 'tee_proof'> & {
   proof: { Groth16: Groth16Bn254Proof; };
   tee_proof: null;

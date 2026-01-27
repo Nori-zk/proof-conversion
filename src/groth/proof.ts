@@ -134,11 +134,5 @@ export function parseProof(vk: GrothVk, path: string) {
 
 // Legacy Proof for backward compatibility (fixed 5 inputs)
 const Proof = createProofClass(5);
-/* 
-  CHECK ME although we support now up to 6 inputs.... we need to actually
-  export access to the an instance of this class with 6 as an argument!
-*/
-const Proof5 = Proof;
-const Proof6 = createProofClass(6);
 
-export { Proof, Proof5, Proof6 };
+export { Proof };

@@ -1,6 +1,6 @@
 import rootDir from '../../../utils/root_dir.js';
 import { range } from '../../../utils/range.js';
-import { Proof6 } from '../../../groth/proof.js';
+import { parseProof, Proof6 } from '../../../groth/proof.js';
 import { resolve } from 'path';
 import { Groth16Verifier } from '../../../groth/verifier.js';
 import { getRandomString } from '../../../utils/random.js';
@@ -25,7 +25,7 @@ import {
   ProofDataOutput,
   VkDataOutput,
 } from '../../types.js';
-import type { SP1ProofWithPublicValuesGroth16NoTee } from "src/api/validation/sp1/schema.js";
+import type { SP1ProofWithPublicValuesGroth16NoTee } from "src/api/validation/sp1/schema.js"; // FIXME
 
 interface State extends PlatformFeatures, ConversionOutput {
   workingDirName: string;
@@ -39,8 +39,8 @@ interface State extends PlatformFeatures, ConversionOutput {
 
 // CHECKME FIXME - I CHANGE THE RANGE TO 6 it used to be 5
 const proofVkCacheStructure: DirectoryStructure = {
-  proofs: range(6).map((i) => `layer${i}`),
-  vks: range(6).map((i) => `layer${i}`),
+  proofs: range(5).map((i) => `layer${i}`),
+  vks: range(5).map((i) => `layer${i}`),
 };
 const nodeCacheStructure: DirectoryStructure = range(4).map((i) => `node${i}`);
 
@@ -171,7 +171,7 @@ export class Sp1Groth16ComputationalPlan implements ComputationPlan<
 
         const groth16 = new Groth16Verifier(vkPath);
         // this extract the proof nega C B and public inputs but operates on the public inputs with the vk
-        const proof = Proof6.parse(groth16.vk, proofPath); // CHECKME FIXME - I had to change this from Proof to Proof6 see src/groth/proof.ts
+        const proof = parseProof(groth16.vk, proofPath); // CHECKME FIXME - I had to change this from Proof to parseProof see src/groth/proof.ts
         // then this modified  proof goes through the multimillerloop and gives us an f1p
         const mlo = groth16.multiMillerLoop(proof).toJSON(); 
         // F12 goes to wasm to compute the witness
@@ -233,7 +233,7 @@ export class Sp1Groth16ComputationalPlan implements ComputationPlan<
       },
       numaOptimized: true,
     },
-    ...range(1, 6).map((i) => { // CHECKME FIXME - ...range(1, 5) i had change from this 
+    ...range(1, 5).map((i) => { // CHECKME FIXME - ...range(1, 5) i had change from this 
       const stage: ParallelComputationStage<State> = {
         name: `CompressLayer${i}`,
         type: 'parallel-cmd',
