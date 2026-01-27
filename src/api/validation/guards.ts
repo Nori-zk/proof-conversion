@@ -1,20 +1,23 @@
-import {
+import type {
   AffinePoint2d,
   ComplexAffinePoint2d,
   Field12,
 } from '@nori-zk/proof-conversion-pairing-utils';
-import { ValidatorFn } from './validation.js';
+import type { ValidatorFn } from './validation.js';
 
-export const isStringArray =
-  (len: number) =>
-  (val: unknown): val is string[] =>
+type Tuple<T, N extends number, Acc extends T[] = []> =
+  Acc['length'] extends N
+    ? Acc
+    : Tuple<T, N, [...Acc, T]>;
+
+export const isStringArray = <N extends number>(len: N) =>
+  (val: unknown): val is Tuple<string, N> =>
     Array.isArray(val) &&
     val.length === len &&
     val.every((v) => typeof v === 'string');
 
-export const isUint8Array =
-  (len: number) =>
-  (val: unknown): val is number[] =>
+export const isUint8Array = <N extends number>(len: N) =>
+  (val: unknown): val is Tuple<number, N> =>
     Array.isArray(val) &&
     val.length === len &&
     val.every((v) => typeof v === 'number' && v >= 0 && v <= 255);

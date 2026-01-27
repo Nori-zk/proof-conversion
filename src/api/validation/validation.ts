@@ -12,11 +12,22 @@ type SchemaNode =
   | ValidatorFn
   | SchemaObject;
 
-export function assertExactStructure(
+type InferSchemaType<S> =
+  S extends (val: unknown) => val is infer T
+    ? T
+    : S extends null
+      ? null
+      : S extends boolean
+        ? boolean
+        : S extends object
+          ? { [K in keyof S]: InferSchemaType<S[K]> }
+          : never;
+
+export function assertExactStructure<S extends SchemaObject>(
   obj: unknown,
-  schema: SchemaNode,
+  schema: S,
   context: string
-): void {
+): asserts obj is InferSchemaType<S> {
   const errors: string[] = [];
 
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {

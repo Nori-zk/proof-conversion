@@ -11,14 +11,9 @@ import { risc0Groth16ObjInputSchema } from '../validation/risc0/schema.js';
 
 const logger = new Logger('API');
 
-const fromRisc0Object = (obj: Risc0Groth16Input): Risc0Groth16Input => {
-  // Validate structure
+const fromRisc0Object = (obj: unknown) => {
   assertExactStructure(obj, risc0Groth16ObjInputSchema, 'Risc0ToGroth16Input');
-
-  return {
-    risc0_proof: obj.risc0_proof,
-    raw_vk: obj.raw_vk,
-  };
+  return obj;
 };
 
 export const performRisc0Groth16 = ApiMethod<

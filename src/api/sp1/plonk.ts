@@ -1,31 +1,21 @@
 import { Sp1PlonkComputationalPlan } from '../../compute/plans/sp1/plonk.js';
 import { Logger } from 'esm-iso-logger';
 import { ApiMethod } from '../methodDecorator.js';
-import { isSp1PlonkProof, isTeeSp1Proof, sp1PlonkObjKeys, type Sp1Input, type Sp1PlonkInputProcessed } from './types.js';
+import { sp1PlonkObjKeys, type Sp1Input, type Sp1PlonkInputProcessed } from './types.js';
 import { assertExactStructure } from '../validation/validation.js';
-import { ProofInputValidationError } from '../validation/ProofInputValidationError.js';
 import { sp1PlonkInputSchema } from '../validation/sp1/schema.js';
 
 const logger = new Logger('API');
 
-const fromSp1Object = (obj: Sp1Input): Sp1PlonkInputProcessed => {
+const fromSp1Object = (obj: unknown) => {
   // Validate structure first
   assertExactStructure(obj, sp1PlonkInputSchema, 'Sp1PlonkInput');
-
-  if (isTeeSp1Proof(obj))
-    throw new ProofInputValidationError(
-      'TEE proofs are not supported at this time.'
-    );
-  if (isSp1PlonkProof(obj.proof)) {
-    return {
+  // Perform the mapping
+  return {
       hexPi: `0x${Buffer.from(obj.public_values.buffer.data).toString('hex')}`,
       programVK: obj.proof.Plonk.public_inputs[0],
       encodedProof: `0x00000000${obj.proof.Plonk.encoded_proof}`,
     };
-  }
-  throw new ProofInputValidationError(
-    'A non plonk Sp1Proof was given to this method.'
-  );
 };
 
 export const performSp1Plonk = ApiMethod<

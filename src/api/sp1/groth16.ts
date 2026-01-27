@@ -2,27 +2,18 @@ import { Logger } from 'esm-iso-logger';
 import { Sp1Groth16ComputationalPlan } from 'src/compute/plans/sp1/groth16.js';
 import { ApiMethod } from '../methodDecorator.js';
 import {
-  isSP1ProofWithPublicValuesGroth16NoTee,
   sp1Groth16ObjKeys,
   type Sp1Input,
   type SP1ProofWithPublicValuesGroth16NoTee,
 } from './types.js';
 import { assertExactStructure } from '../validation/validation.js';
-import { ProofInputValidationError } from '../validation/ProofInputValidationError.js';
 import { sp1Groth16InputSchema } from '../validation/sp1/schema.js';
 
 const logger = new Logger('API');
 
-const fromSp1Object = (obj: Sp1Input) => {
-  // Validate structure first
+const fromSp1Object = (obj: unknown) => {
   assertExactStructure(obj, sp1Groth16InputSchema, 'Sp1Groth16Input');
-
-  // Type the input
-  if (isSP1ProofWithPublicValuesGroth16NoTee(obj)) return obj;
-
-  throw new ProofInputValidationError(
-    'A non groth16 Sp1Proof was given to this method.'
-  );
+  return obj;
 };
 
 export const performSp1Groth16 = ApiMethod<
