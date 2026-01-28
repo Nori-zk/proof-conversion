@@ -75,7 +75,7 @@ class UnreducedSum {
 
   static from<S extends UnreducedSum>(sum: S | ForeignField): S {
     if (sum instanceof UnreducedSum) return sum;
-    return new (this as any)(sum);
+    return new this(sum) as S;
   }
 }
 

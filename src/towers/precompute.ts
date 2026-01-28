@@ -6,7 +6,7 @@ fs.writeFile(
   './src/towers/gamma_1s.json',
   JSON.stringify(GAMMA_1S.map((g: Fp2) => Fp2.toJSON(g))),
   'utf8',
-  (err: any) => {
+  (err: NodeJS.ErrnoException | null) => {
     if (err) {
       console.error('Error writing to file:', err);
       return;
@@ -19,7 +19,7 @@ fs.writeFile(
   './src/towers/gamma_2s.json',
   JSON.stringify(GAMMA_2S.map((g: Fp2) => Fp2.toJSON(g))),
   'utf8',
-  (err: any) => {
+  (err: NodeJS.ErrnoException | null) => {
     if (err) {
       console.error('Error writing to file:', err);
       return;
@@ -32,7 +32,7 @@ fs.writeFile(
   './src/towers/gamma_3s.json',
   JSON.stringify(GAMMA_3S.map((g: Fp2) => Fp2.toJSON(g))),
   'utf8',
-  (err: any) => {
+  (err: NodeJS.ErrnoException | null) => {
     if (err) {
       console.error('Error writing to file:', err);
       return;
@@ -45,7 +45,7 @@ fs.writeFile(
   './src/towers/neg_gamma.json',
   JSON.stringify(Fp2.toJSON(NEG_GAMMA_13)),
   'utf8',
-  (err: any) => {
+  (err: NodeJS.ErrnoException | null) => {
     if (err) {
       console.error('Error writing to file:', err);
       return;

@@ -28,7 +28,7 @@ function precompute_lines(
     g2_lines_path,
     JSON.stringify(g2_lines.map((line: G2Line) => G2Line.toJSON(line))),
     'utf8',
-    (err: any) => {
+    (err: NodeJS.ErrnoException | null) => {
       if (err) {
         console.error('Error writing to file:', err);
         return;
@@ -48,7 +48,7 @@ function precompute_lines(
     tau_lines_path,
     JSON.stringify(tau_lines.map((line: G2Line) => G2Line.toJSON(line))),
     'utf8',
-    (err: any) => {
+    (err: NodeJS.ErrnoException | null) => {
       if (err) {
         console.error('Error writing to file:', err);
         return;
