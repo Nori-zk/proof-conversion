@@ -1,7 +1,7 @@
 import { spawn } from 'child_process';
 import { ProcessCmd, ProcessCmdOutput } from './plan.js';
 import { Logger } from 'esm-iso-logger';
-import { InvertedPromise } from '../utils/InvertedPromise.js';
+import { DeferredPromise } from '../utils/DeferredPromise.js';
 
 export function processCmdToString(processCmd: ProcessCmd): string {
   const { cmd, args, printableArgs } = processCmd;
@@ -22,7 +22,7 @@ export function processCmdToString(processCmd: ProcessCmd): string {
 }
 
 interface ProcessJob extends ProcessCmd {
-  invertedPromise: InvertedPromise<ProcessCmdOutput>;
+  deferredPromise: DeferredPromise<ProcessCmdOutput>;
 }
 
 let processPoolIdx = 0;
@@ -118,14 +118,14 @@ export class ProcessPool {
     this.#free.delete(workerId);
     // Run the job and resolve/reject the inverted promise on completion / error.
     this.#spawnWorker(job, workerId)
-      .then((result) => job.invertedPromise.resolve(result))
-      .catch((err) => job.invertedPromise.reject(err))
+      .then((result) => job.deferredPromise.resolve(result))
+      .catch((err) => job.deferredPromise.reject(err))
       .finally(() => this.#checkForJobsAfterWorkerFinish(workerId));
   }
 
   async runCommand(processCmd: ProcessCmd) {
     // Create an inverted promise to resolve the result at a later time.
-    const invertedPromise = new InvertedPromise<ProcessCmdOutput>();
+    const deferredPromise = new DeferredPromise<ProcessCmdOutput>();
 
     // Check for a free worker.
     const freeFreePoolWorkerKeyValuePair = this.#free.values().next().value;
@@ -138,17 +138,17 @@ export class ProcessPool {
       this.#free.delete(workerId);
       // Run job immediately
       this.#spawnWorker(processCmd, workerId)
-        .then((result) => invertedPromise.resolve(result))
-        .catch((err) => invertedPromise.reject(err))
+        .then((result) => deferredPromise.resolve(result))
+        .catch((err) => deferredPromise.reject(err))
         .finally(() => this.#checkForJobsAfterWorkerFinish(workerId));
-      return invertedPromise.promise;
+      return deferredPromise.promise;
     } else {
       // Queue job for next free worker
       this.#logger.debug(
         `No workers available. Job '${this.#jobToString(processCmd)}' queued.`
       );
-      this.#lifo.push({ ...processCmd, invertedPromise });
-      return invertedPromise.promise;
+      this.#lifo.push({ ...processCmd, deferredPromise: deferredPromise });
+      return deferredPromise.promise;
     }
   }
 

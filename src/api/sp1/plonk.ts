@@ -25,7 +25,7 @@ const fromSp1Object = (obj: unknown) => {
 export const performSp1Plonk = ApiMethod<
   Sp1PlonkInputTransformed, // TInput: processed shape given to executor
   // Disabling args at this time as unknown impact on new TEE option the decoding might change!
-  false, //typeof sp1ArgKeys, // TKeys (what arguments mode expects to be provided) performSp1ToPlonk.fromArgs(hexPi, programVK, encodedProof)
+  false, //typeof sp1ArgKeys, // TKeys (what arguments mode expects to be provided) performSp1Plonk.fromArgs(hexPi, programVK, encodedProof)
   Sp1Input // TObject (what object mode expects as a single object) performSp1Plonk.fromObject({} as Sp1Input)
 >(
   // Disabling args at this time as unknown impact on new TEE option the decoding might change!

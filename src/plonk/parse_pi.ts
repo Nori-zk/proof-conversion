@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import { FrC } from '../towers/index.js';
-import { Bool, Bytes, Field, Gadgets, UInt8 } from 'o1js';
+import { Bytes, Field, Gadgets, UInt8 } from 'o1js';
 import { shaToFr } from './fiat-shamir/sha_to_fr.js';
 import { Bytes32 } from './fiat-shamir/index.js';
 
@@ -42,6 +42,11 @@ export function parseDigestProvable(digest: Bytes): FrC {
 }
 
 export function parsePublicInputsProvable(piBytes: Bytes): FrC {
-  const digest = Gadgets.SHA256.hash(piBytes);
+  // CHECKME!
+  // Old method had deprecation warning: @deprecated {@link SHA256} is deprecated in favor of {@link SHA2}
+  //const digest = Gadgets.SHA256.hash(piBytes);
+
+  const digest = Gadgets.SHA2.hash(256, piBytes); // This is mentioned in the deprecation warning
+  
   return parseDigestProvable(digest);
 }

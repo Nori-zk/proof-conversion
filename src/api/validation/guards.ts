@@ -94,7 +94,7 @@ type TupleUnion<T, Min extends number, Max extends number> =
  * const isSmallStringArray = isBoundedLengthArray(isString, { minLength: 1, maxLength: 3 });
  * // Returns: (val: unknown) => val is [string] | [string, string] | [string, string, string]
  */
-export const isBoundedLengthArray = <
+export const isArrayOfBoundedLength = <
   T,
   Min extends number,
   Max extends number
