@@ -26,12 +26,12 @@ function precompute_lines(
 
   fs.writeFile(
     g2_lines_path,
-    JSON.stringify(g2_lines.map((line: G2Line) => G2Line.toJSON(line))),
+    JSON.stringify(g2_lines.map((line: G2Line) => G2Line.toJSON(line)), null, 2) + '\n',
     'utf8',
     (err: NodeJS.ErrnoException | null) => {
       if (err) {
-        console.error('Error writing to file:', err);
-        return;
+        console.error('Error writing g2 lines to file:', err);
+        process.exit(1);
       }
       console.log('g2 lines successfully written');
     }
@@ -46,12 +46,12 @@ function precompute_lines(
 
   fs.writeFile(
     tau_lines_path,
-    JSON.stringify(tau_lines.map((line: G2Line) => G2Line.toJSON(line))),
+    JSON.stringify(tau_lines.map((line: G2Line) => G2Line.toJSON(line)), null, 2) + '\n',
     'utf8',
     (err: NodeJS.ErrnoException | null) => {
       if (err) {
-        console.error('Error writing to file:', err);
-        return;
+        console.error('Error writing tau lines to file:', err);
+        process.exit(1);
       }
       console.log('tau lines successfully written');
     }
