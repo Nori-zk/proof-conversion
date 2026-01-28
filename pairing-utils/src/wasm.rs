@@ -71,9 +71,9 @@ impl PairingInput {
 /// - `c`: A 12-element field value
 /// - `shift_power`: "0", "1", or "2"
 ///
-/// # Panics
+/// # Error
 ///
-/// Panics if the input is not a valid Miller loop output (fails internal assertion).
+/// Returns a JsError if the input is not a valid Miller loop output (fails internal assertion).
 #[wasm_bindgen]
 pub fn compute_aux_witness(input: Field12) -> Result<AuxWitness, JsError> {
     let mlo = input.to_fq12()
