@@ -59,7 +59,7 @@ export interface ComputationPlan<T extends PlatformFeatures, R, I> {
 }
 
 export function Implements<T>() {
-  return <U extends new (...args: any[]) => T>(constructor: U): U => {
+  return <U extends new (...args: unknown[]) => T>(constructor: U): U => {
     return constructor;
   };
 }
