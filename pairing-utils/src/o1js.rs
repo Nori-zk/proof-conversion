@@ -245,21 +245,7 @@ pub struct O1jsVK {
     pub ic6: Option<AffinePoint2d>,
 }
 
-impl O1jsVK {
-    /// Converts the embedded SP1 v5.0.0 verification key to o1js format.
-    ///
-    /// This uses the hardcoded SP1 v5.0.0 VK bytes since all SP1 Groth16 proofs
-    /// use the same verification key.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the embedded VK fails to load (should never happen).
-    pub fn from_sp1_groth16() -> Result<Self, String> {
-        let ark_vk = load_ark_groth16_verifying_key_from_bytes(GROTH16_VK_5_0_0_BYTES)
-            .map_err(|e| format!("O1jsVK <- SP1 v5.0.0 VK: failed to load: {}", e))?;
-        (&ark_vk).try_into()
-    }
-}
+impl O1jsVK {}
 
 impl TryFrom<&SnarkjsVK> for O1jsVK {
     type Error = String;
@@ -432,7 +418,12 @@ impl TryFrom<&SP1ProofWithPublicValues> for O1jsGroth16 {
     /// - gnark decompression fails
     fn try_from(sp1: &SP1ProofWithPublicValues) -> Result<Self, Self::Error> {
         let proof: O1jsProof = sp1.try_into()?;
-        let vk = O1jsVK::from_sp1_groth16()?;
+
+        // Load the embedded SP1 v5.0.0 VK and convert to o1js format
+        let ark_vk = load_ark_groth16_verifying_key_from_bytes(GROTH16_VK_5_0_0_BYTES)
+            .map_err(|e| format!("O1jsGroth16 <- SP1ProofWithPublicValues: failed to load SP1 v5.0.0 VK: {}", e))?;
+        let vk: O1jsVK = (&ark_vk).try_into()?;
+
         Ok(O1jsGroth16 { proof, vk })
     }
 }
