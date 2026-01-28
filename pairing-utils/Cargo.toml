@@ -1,6 +1,6 @@
 [package]
-name = "proof-conversion-pairing-utils"
-version = "0.4.0"
+name = "proof-conversion-utils"
+version = "0.5.0"
 edition = "2021"
 
 [lib]
@@ -12,6 +12,18 @@ crate-type = ["rlib", "cdylib"]
 name = "convert_from_sp1_groth16"
 path = "src/bin/convert_from_sp1_groth16.rs"
 required-features = ["sp1-bin"]
+
+[[bin]]
+name = "convert_from_snarkjs"
+path = "src/bin/convert_from_snarkjs.rs"
+
+[[bin]]
+name = "alphabeta"
+path = "src/bin/alphabeta.rs"
+
+[[bin]]
+name = "aux_witness"
+path = "src/bin/aux_witness.rs"
 
 [dependencies]
 ark-ff = "0.4.2"

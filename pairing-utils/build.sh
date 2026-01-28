@@ -20,6 +20,7 @@ cargo install wasm-pack
 wasm-pack build --features wasm
 
 cp ./package.json.template ./pkg/package.json
+cp ./README.NPM.md ./pkg/README.md
 
 PKG_JSON="./pkg/package.json"
 
