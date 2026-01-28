@@ -1,4 +1,4 @@
-import { Field, Struct } from 'o1js';
+import { Struct } from 'o1js';
 import { G1Affine, G2Affine } from '../ec/index.js';
 import { FpC, Fp2, Fp6, Fp12 } from '../towers/index.js';
 import { computeLineCoeffs } from './coeffs.js';

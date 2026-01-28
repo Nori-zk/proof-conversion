@@ -1,12 +1,7 @@
 import { ZkProgram, Field, Poseidon } from 'o1js';
 import { Accumulator } from '../accumulator.js';
 import {
-  compute_commitment_linearized_polynomial_split_0,
-  compute_commitment_linearized_polynomial_split_1,
   compute_commitment_linearized_polynomial_split_2,
-  customPiLagrange,
-  opening_of_linearized_polynomial,
-  pi_contribution,
 } from '../piop/plonk_utils.js';
 import { VK } from '../vk.js';
 

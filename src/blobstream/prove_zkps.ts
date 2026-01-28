@@ -336,7 +336,7 @@ async function blobstream_contract() {
   const blobstreamProofPath = args[3];
   const cacheDir = args[4];
 
-  (await blobstreamVerifier.compile({ cache: Cache.FileSystem(cacheDir) }))
+  void (await blobstreamVerifier.compile({ cache: Cache.FileSystem(cacheDir) }))
     .verificationKey;
 
   const blobstreamTree = new MerkleTree(32);
@@ -415,7 +415,7 @@ async function rollup_contract() {
   const batcherProofPath = args[4];
   const cacheDir = args[5];
 
-  (await blobstreamVerifier.compile({ cache: Cache.FileSystem(cacheDir) }))
+  void (await blobstreamVerifier.compile({ cache: Cache.FileSystem(cacheDir) }))
     .verificationKey;
   const blobInclusionVk = (
     await blobInclusionVerifier.compile({ cache: Cache.FileSystem(cacheDir) })

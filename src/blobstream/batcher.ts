@@ -9,7 +9,6 @@ import {
   ZkProgram,
   Struct,
   Undefined,
-  Proof,
   UInt32,
   FeatureFlags,
   DynamicProof,

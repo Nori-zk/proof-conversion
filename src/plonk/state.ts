@@ -1,5 +1,5 @@
 import { Provable, Struct, UInt32 } from 'o1js';
-import { ATE_LOOP_COUNT, Fp12, FpC, FrC } from '../towers/index.js';
+import { FpC, FrC } from '../towers/index.js';
 
 class StateUntilPairing extends Struct({
   pi0: FrC.provable,

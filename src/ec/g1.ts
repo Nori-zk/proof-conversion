@@ -1,6 +1,6 @@
 import { createForeignCurve } from 'o1js';
 
-var bn254Params = {
+const bn254Params = {
   name: 'bn254',
   modulus:
     21888242871839275222246405745257275088696311157297823662689037894645226208583n,

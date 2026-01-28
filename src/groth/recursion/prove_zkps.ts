@@ -54,6 +54,7 @@ const acc_11 = wt.zkp10();
 const acc_12 = wt.zkp11();
 const acc_13 = wt.zkp12();
 const _ = wt.zkp13();
+void _;
 const partialPiAcc = wt.zkp14();
 const g = wt.g;
 
