@@ -416,9 +416,11 @@ impl O1jsGroth16 {
     ///
     /// Returns an error if:
     /// - The proof is not a valid format
-    /// - The public inputs are invalid
-    /// - The IC count does not match what was expected
+    /// - VK validation fails (`nPublic` doesn't match public inputs count, wrong IC length, n_public > 6)
     pub fn from_snarkjs_groth16(snarkjs_vk: &SnarkjsVK, snarkjs_proof: &SnarkjsProof, public_inputs: &[String]) -> Result<Self, String> {
+        // Validate vk against public inputs
+        snarkjs_vk.validate(public_inputs.len())?;
+        // Convert proof and vk format
         let proof = O1jsProof::from_snarkjs_groth16(snarkjs_proof, public_inputs)?;
         let vk = O1jsVK::from_snarkjs_groth16(snarkjs_vk)?;
         Ok(O1jsGroth16 { proof, vk })

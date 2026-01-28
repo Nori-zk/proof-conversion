@@ -203,10 +203,6 @@ pub fn convert_snarkjs_groth16_to_o1js(
     public_inputs: Vec<String>,
     vk: SnarkjsVK,
 ) -> Result<O1jsGroth16, JsError> {
-    // Validate VK nPublic matches provided public inputs count
-    vk.validate(public_inputs.len())
-        .map_err(|e| JsError::new(&format!("convert_snarkjs_groth16_to_o1js: {}", e)))?;
-
     // Convert proof to o1js format (negates A point, converts to affine) and VK to o1js format
     // (computes alpha_beta pairing, adds w27)
     O1jsGroth16::from_snarkjs_groth16(&vk, &proof, &public_inputs)

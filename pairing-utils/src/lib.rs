@@ -18,9 +18,11 @@ pub mod types;
 pub mod utils;
 pub mod write;
 
-//#[cfg(feature = "wasm")]
+// Disable these feature flags to bring rust analyzer back to life for the wasm.rs file
+
+#[cfg(feature = "wasm")]
 pub mod wasm;
-//#[cfg(feature = "wasm")]
+#[cfg(feature = "wasm")]
 pub use wasm::{
     compute_aux_witness,
     compute_pairing,
