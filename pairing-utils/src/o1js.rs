@@ -3,7 +3,7 @@
 //! This module provides types for reading proofs and verification keys from snarkjs
 //! and sp1 groth16 types and converting them to o1js format for verification.
 
-use ark_bn254::Bn254;
+use ark_bn254::{Bn254, G1Affine, G2Affine};
 use ark_ec::pairing::Pairing;
 use ark_groth16;
 use serde::Serialize;
@@ -16,6 +16,17 @@ use crate::serialize::{serialize_fq12, Field12};
 use crate::snarkjs::{SnarkjsProof, SnarkjsVK};
 use crate::sp1::SP1ProofWithPublicValues;
 use crate::types::{AffinePoint2d, ComplexAffinePoint2d};
+
+fn get_pi(public_inputs: &[String], i: usize) -> Option<String> {
+    public_inputs.get(i).cloned()
+}
+
+fn get_ic<T>(ic: &[T], i: usize) -> Option<AffinePoint2d>
+where
+    for<'a> &'a T: Into<AffinePoint2d>,
+{
+    ic.get(i).map(|p| p.into())
+}
 
 /// Groth16 proof in o1js format.
 ///
@@ -48,8 +59,12 @@ pub struct O1jsProof {
     pub pi6: Option<String>,
 }
 
-impl O1jsProof {
-    /// Converts from snarkjs/circom Groth16 proof format with the given public inputs.
+impl O1jsProof {}
+
+impl TryFrom<(&SnarkjsProof, &[String])> for O1jsProof {
+    type Error = String;
+
+    /// Converts from `SnarkjsProof` (snarkjs/circom Groth16 proof format) to `O1jsProof` with the given public inputs.
     ///
     /// - `pi_a` is negated to produce `negA` (arkworks `G1Affine` negation)
     /// - `pi_b` → `B` (converted to `ComplexAffinePoint2d`)
@@ -65,7 +80,7 @@ impl O1jsProof {
     /// Returns an error if:
     /// - More than 6 public inputs are provided
     /// - Any point coordinate cannot be parsed as a valid `Fq` field element
-    pub fn from_snarkjs_groth16(proof: &SnarkjsProof, public_inputs: &[String]) -> Result<Self, String> {
+    fn try_from((proof, public_inputs): (&SnarkjsProof, &[String])) -> Result<Self, Self::Error> {
         use ark_ec::AffineRepr;
         use ark_ff::PrimeField;
 
@@ -77,8 +92,8 @@ impl O1jsProof {
         }
 
         // Negate pi_a using arkworks
-        let a_g1 = proof.pi_a.to_g1_affine()
-            .map_err(|e| format!("O1jsProof <- SnarkjsProof: pi_a: {}", e))?;
+        let a_g1: G1Affine = (&proof.pi_a).try_into()
+            .map_err(|e: String| format!("O1jsProof <- SnarkjsProof: pi_a: {}", e))?;
         let neg_a_g1 = -a_g1;
         let neg_a = AffinePoint2d {
             x: neg_a_g1.x().unwrap().into_bigint().to_string(),
@@ -86,28 +101,27 @@ impl O1jsProof {
         };
 
         // Convert B and C (no negation needed)
-        let b = proof.pi_b.to_affine_2d();
-        let c = proof.pi_c.to_affine_2d();
-
-        // Map public inputs to pi1-pi6
-        let get_pi = |i: usize| -> Option<String> {
-            public_inputs.get(i).cloned()
-        };
+        let b: ComplexAffinePoint2d = (&proof.pi_b).into();
+        let c: AffinePoint2d = (&proof.pi_c).into();
 
         Ok(O1jsProof {
             neg_a,
             b,
             c,
-            pi1: get_pi(0),
-            pi2: get_pi(1),
-            pi3: get_pi(2),
-            pi4: get_pi(3),
-            pi5: get_pi(4),
-            pi6: get_pi(5),
+            pi1: get_pi(public_inputs, 0),
+            pi2: get_pi(public_inputs, 1),
+            pi3: get_pi(public_inputs, 2),
+            pi4: get_pi(public_inputs, 3),
+            pi5: get_pi(public_inputs, 4),
+            pi6: get_pi(public_inputs, 5),
         })
     }
+}
 
-    /// Converts from arkworks `Proof<Bn254>` with the given public inputs.
+impl TryFrom<(&ark_groth16::Proof<Bn254>, &[String])> for O1jsProof {
+    type Error = String;
+
+    /// Converts from arkworks `Proof<Bn254>` to `O1jsProof` with the given public inputs.
     ///
     /// - `proof.a` is negated to produce `negA`
     /// - `proof.b` → `B`
@@ -121,10 +135,7 @@ impl O1jsProof {
     /// # Errors
     ///
     /// Returns an error if more than 6 public inputs are provided.
-    pub fn from_arkworks_groth16(
-        proof: &ark_groth16::Proof<Bn254>,
-        public_inputs: &[String],
-    ) -> Result<Self, String> {
+    fn try_from((proof, public_inputs): (&ark_groth16::Proof<Bn254>, &[String])) -> Result<Self, Self::Error> {
         use ark_ff::PrimeField;
 
         if public_inputs.len() > 6 {
@@ -142,30 +153,29 @@ impl O1jsProof {
         };
 
         // Convert B (G2 point)
-        let b = ComplexAffinePoint2d::from_g2_affine(&proof.b);
+        let b: ComplexAffinePoint2d = (&proof.b).into();
 
         // Convert C (G1 point)
-        let c = AffinePoint2d::from_g1_affine(&proof.c);
-
-        // Map public inputs to pi1-pi6
-        let get_pi = |i: usize| -> Option<String> {
-            public_inputs.get(i).cloned()
-        };
+        let c: AffinePoint2d = (&proof.c).into();
 
         Ok(O1jsProof {
             neg_a,
             b,
             c,
-            pi1: get_pi(0),
-            pi2: get_pi(1),
-            pi3: get_pi(2),
-            pi4: get_pi(3),
-            pi5: get_pi(4),
-            pi6: get_pi(5),
+            pi1: get_pi(public_inputs, 0),
+            pi2: get_pi(public_inputs, 1),
+            pi3: get_pi(public_inputs, 2),
+            pi4: get_pi(public_inputs, 3),
+            pi5: get_pi(public_inputs, 4),
+            pi6: get_pi(public_inputs, 5),
         })
     }
+}
 
-    /// Converts from an SP1 Groth16 proof.
+impl TryFrom<&SP1ProofWithPublicValues> for O1jsProof {
+    type Error = String;
+
+    /// Converts from `SP1ProofWithPublicValues` (SP1 Groth16 proof format) to `O1jsProof`.
     ///
     /// Extracts the gnark-formatted proof from the SP1 proof, decompresses it,
     /// and converts to o1js format.
@@ -176,7 +186,7 @@ impl O1jsProof {
     /// - The proof is not the Groth16 variant
     /// - The proof is empty (mock proof)
     /// - gnark decompression fails
-    pub fn from_sp1_groth16(sp1: &SP1ProofWithPublicValues) -> Result<Self, String> {
+    fn try_from(sp1: &SP1ProofWithPublicValues) -> Result<Self, Self::Error> {
         // Get the Groth16 proof
         let groth16_proof = sp1.proof.try_as_groth_16()
             .ok_or("O1jsProof <- SP1ProofWithPublicValues: proof is not Groth16 variant")?;
@@ -193,7 +203,7 @@ impl O1jsProof {
 
         // Convert to o1js format
         let public_inputs: Vec<String> = groth16_proof.public_inputs.to_vec();
-        Self::from_arkworks_groth16(&ark_proof, &public_inputs)
+        (&ark_proof, &public_inputs[..]).try_into()
     }
 }
 
@@ -236,7 +246,25 @@ pub struct O1jsVK {
 }
 
 impl O1jsVK {
-    /// Converts from snarkjs/circom Groth16 verification key format.
+    /// Converts the embedded SP1 v5.0.0 verification key to o1js format.
+    ///
+    /// This uses the hardcoded SP1 v5.0.0 VK bytes since all SP1 Groth16 proofs
+    /// use the same verification key.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded VK fails to load (should never happen).
+    pub fn from_sp1_groth16() -> Result<Self, String> {
+        let ark_vk = load_ark_groth16_verifying_key_from_bytes(GROTH16_VK_5_0_0_BYTES)
+            .map_err(|e| format!("O1jsVK <- SP1 v5.0.0 VK: failed to load: {}", e))?;
+        (&ark_vk).try_into()
+    }
+}
+
+impl TryFrom<&SnarkjsVK> for O1jsVK {
+    type Error = String;
+
+    /// Converts from `SnarkjsVK` (snarkjs/circom Groth16 verification key format) to `O1jsVK`.
     ///
     /// - `vk_alpha_1` → `alpha` (G1)
     /// - `vk_beta_2` → `beta` (G2)
@@ -249,12 +277,12 @@ impl O1jsVK {
     /// # Errors
     ///
     /// Returns an error if any coordinate cannot be parsed as a valid field element.
-    pub fn from_snarkjs_groth16(vk: &SnarkjsVK) -> Result<Self, String> {
+    fn try_from(vk: &SnarkjsVK) -> Result<Self, Self::Error> {
         // Convert alpha and beta, then compute pairing
-        let alpha_g1 = vk.vk_alpha_1.to_g1_affine()
-            .map_err(|e| format!("O1jsVK <- SnarkjsVK: vk_alpha_1: {}", e))?;
-        let beta_g2 = vk.vk_beta_2.to_g2_affine()
-            .map_err(|e| format!("O1jsVK <- SnarkjsVK: vk_beta_2: {}", e))?;
+        let alpha_g1: G1Affine = (&vk.vk_alpha_1).try_into()
+            .map_err(|e: String| format!("O1jsVK <- SnarkjsVK: vk_alpha_1: {}", e))?;
+        let beta_g2: G2Affine = (&vk.vk_beta_2).try_into()
+            .map_err(|e: String| format!("O1jsVK <- SnarkjsVK: vk_beta_2: {}", e))?;
 
         // Compute alpha_beta pairing
         let alpha_beta_fq12 = Bn254::multi_miller_loop(&[alpha_g1], &[beta_g2]).0;
@@ -277,32 +305,28 @@ impl O1jsVK {
             h21: "0".to_string(),
         };
 
-        // Map IC points (ic0 is always present, ic1-ic6 are optional)
-        let get_ic = |i: usize| -> Option<AffinePoint2d> {
-            vk.ic.get(i).map(|p| p.to_affine_2d())
-        };
-
-        // ic0 must exist
-        let ic0 = get_ic(0).ok_or("O1jsVK <- SnarkjsVK: missing ic0 (constant term)")?;
-
         Ok(O1jsVK {
-            alpha: vk.vk_alpha_1.to_affine_2d(),
-            beta: vk.vk_beta_2.to_affine_2d(),
-            gamma: vk.vk_gamma_2.to_affine_2d(),
-            delta: vk.vk_delta_2.to_affine_2d(),
+            alpha: AffinePoint2d::from(&vk.vk_alpha_1),
+            beta: ComplexAffinePoint2d::from(&vk.vk_beta_2),
+            gamma: ComplexAffinePoint2d::from(&vk.vk_gamma_2),
+            delta: ComplexAffinePoint2d::from(&vk.vk_delta_2),
             alpha_beta,
             w27,
-            ic0,
-            ic1: get_ic(1),
-            ic2: get_ic(2),
-            ic3: get_ic(3),
-            ic4: get_ic(4),
-            ic5: get_ic(5),
-            ic6: get_ic(6),
+            ic0: get_ic(&vk.ic, 0).ok_or("O1jsVK <- SnarkjsVK: missing ic0 (constant term)")?,
+            ic1: get_ic(&vk.ic, 1),
+            ic2: get_ic(&vk.ic, 2),
+            ic3: get_ic(&vk.ic, 3),
+            ic4: get_ic(&vk.ic, 4),
+            ic5: get_ic(&vk.ic, 5),
+            ic6: get_ic(&vk.ic, 6),
         })
     }
+}
 
-    /// Converts from arkworks `VerifyingKey<Bn254>`.
+impl TryFrom<&ark_groth16::VerifyingKey<Bn254>> for O1jsVK {
+    type Error = String;
+
+    /// Converts from arkworks `VerifyingKey<Bn254>` to `O1jsVK`.
     ///
     /// - `alpha_g1` → `alpha` (G1)
     /// - `beta_g2` → `beta` (G2)
@@ -315,7 +339,7 @@ impl O1jsVK {
     /// # Errors
     ///
     /// Returns an error if IC is empty (missing ic0).
-    pub fn from_arkworks_groth16(vk: &ark_groth16::VerifyingKey<Bn254>) -> Result<Self, String> {
+    fn try_from(vk: &ark_groth16::VerifyingKey<Bn254>) -> Result<Self, Self::Error> {
         // Compute alpha_beta pairing
         let alpha_beta_fq12 = Bn254::multi_miller_loop(&[vk.alpha_g1], &[vk.beta_g2]).0;
         let alpha_beta = serialize_fq12(alpha_beta_fq12);
@@ -337,43 +361,21 @@ impl O1jsVK {
             h21: "0".to_string(),
         };
 
-        // Map IC points (ic0 is always present, ic1-ic6 are optional)
-        let get_ic = |i: usize| -> Option<AffinePoint2d> {
-            vk.gamma_abc_g1.get(i).map(|p| AffinePoint2d::from_g1_affine(p))
-        };
-
-        // ic0 must exist
-        let ic0 = get_ic(0).ok_or("O1jsVK <- VerifyingKey<Bn254>: missing ic0 (constant term)")?;
-
         Ok(O1jsVK {
-            alpha: AffinePoint2d::from_g1_affine(&vk.alpha_g1),
-            beta: ComplexAffinePoint2d::from_g2_affine(&vk.beta_g2),
-            gamma: ComplexAffinePoint2d::from_g2_affine(&vk.gamma_g2),
-            delta: ComplexAffinePoint2d::from_g2_affine(&vk.delta_g2),
+            alpha: AffinePoint2d::from(&vk.alpha_g1),
+            beta: ComplexAffinePoint2d::from(&vk.beta_g2),
+            gamma: ComplexAffinePoint2d::from(&vk.gamma_g2),
+            delta: ComplexAffinePoint2d::from(&vk.delta_g2),
             alpha_beta,
             w27,
-            ic0,
-            ic1: get_ic(1),
-            ic2: get_ic(2),
-            ic3: get_ic(3),
-            ic4: get_ic(4),
-            ic5: get_ic(5),
-            ic6: get_ic(6),
+            ic0: get_ic(&vk.gamma_abc_g1, 0).ok_or("O1jsVK <- VerifyingKey<Bn254>: missing ic0 (constant term)")?,
+            ic1: get_ic(&vk.gamma_abc_g1, 1),
+            ic2: get_ic(&vk.gamma_abc_g1, 2),
+            ic3: get_ic(&vk.gamma_abc_g1, 3),
+            ic4: get_ic(&vk.gamma_abc_g1, 4),
+            ic5: get_ic(&vk.gamma_abc_g1, 5),
+            ic6: get_ic(&vk.gamma_abc_g1, 6),
         })
-    }
-
-    /// Converts the embedded SP1 v5.0.0 verification key to o1js format.
-    ///
-    /// This uses the hardcoded SP1 v5.0.0 VK bytes since all SP1 Groth16 proofs
-    /// use the same verification key.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the embedded VK fails to load (should never happen).
-    pub fn from_sp1_groth16() -> Result<Self, String> {
-        let ark_vk = load_ark_groth16_verifying_key_from_bytes(GROTH16_VK_5_0_0_BYTES)
-            .map_err(|e| format!("O1jsVK <- SP1 v5.0.0 VK: failed to load: {}", e))?;
-        Self::from_arkworks_groth16(&ark_vk)
     }
 }
 
@@ -389,8 +391,35 @@ pub struct O1jsGroth16 {
     pub vk: O1jsVK,
 }
 
-impl O1jsGroth16 {
-    /// Converts an SP1 Groth16 proof to o1js format.
+impl O1jsGroth16 {}
+
+impl TryFrom<(&SnarkjsVK, &SnarkjsProof, &[String])> for O1jsGroth16 {
+    type Error = String;
+
+    /// Converts from SnarkJS Groth16 proof and verification key to `O1jsGroth16` format.
+    ///
+    /// This extracts the proof from the SnarkJS, validates the verification key,
+    /// and converts both the proof and the verification key to o1js format.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The proof is not a valid format
+    /// - VK validation fails (`nPublic` doesn't match public inputs count, wrong IC length, n_public > 6)
+    fn try_from((snarkjs_vk, snarkjs_proof, public_inputs): (&SnarkjsVK, &SnarkjsProof, &[String])) -> Result<Self, Self::Error> {
+        // Validate vk against public inputs
+        snarkjs_vk.validate(public_inputs.len())?;
+        // Convert proof and vk format
+        let proof: O1jsProof = (snarkjs_proof, public_inputs).try_into()?;
+        let vk: O1jsVK = snarkjs_vk.try_into()?;
+        Ok(O1jsGroth16 { proof, vk })
+    }
+}
+
+impl TryFrom<&SP1ProofWithPublicValues> for O1jsGroth16 {
+    type Error = String;
+
+    /// Converts from `SP1ProofWithPublicValues` (SP1 Groth16 proof format) to `O1jsGroth16`.
     ///
     /// This extracts the gnark-formatted proof from the SP1 proof, decompresses it,
     /// and converts both the proof and the embedded SP1 v5.0.0 verification key to o1js format.
@@ -401,28 +430,9 @@ impl O1jsGroth16 {
     /// - The proof is not the Groth16 variant
     /// - The proof is empty (mock proof)
     /// - gnark decompression fails
-    pub fn from_sp1_groth16(sp1: &SP1ProofWithPublicValues) -> Result<Self, String> {
-        let proof = O1jsProof::from_sp1_groth16(sp1)?;
+    fn try_from(sp1: &SP1ProofWithPublicValues) -> Result<Self, Self::Error> {
+        let proof: O1jsProof = sp1.try_into()?;
         let vk = O1jsVK::from_sp1_groth16()?;
-        Ok(O1jsGroth16 { proof, vk })
-    }
-
-    /// Converts an SnarkJS Groth16 proof to o1js format.
-    ///
-    /// This extracts the proof from the SnarkJS, validates the verification key,
-    /// and converts both the proof and the verification key to o1js format.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - The proof is not a valid format
-    /// - VK validation fails (`nPublic` doesn't match public inputs count, wrong IC length, n_public > 6)
-    pub fn from_snarkjs_groth16(snarkjs_vk: &SnarkjsVK, snarkjs_proof: &SnarkjsProof, public_inputs: &[String]) -> Result<Self, String> {
-        // Validate vk against public inputs
-        snarkjs_vk.validate(public_inputs.len())?;
-        // Convert proof and vk format
-        let proof = O1jsProof::from_snarkjs_groth16(snarkjs_proof, public_inputs)?;
-        let vk = O1jsVK::from_snarkjs_groth16(snarkjs_vk)?;
         Ok(O1jsGroth16 { proof, vk })
     }
 }

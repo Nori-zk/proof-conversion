@@ -2,7 +2,7 @@
 //!
 //! This module provides wasm-bindgen exported functions for use from JavaScript.
 
-use ark_bn254::Bn254;
+use ark_bn254::{Bn254, G1Affine, G2Affine};
 use ark_ec::pairing::Pairing;
 use serde::{Deserialize, Serialize};
 use tsify::Tsify;
@@ -41,11 +41,11 @@ impl PairingInput {
     /// # Errors
     ///
     /// Returns an error if any coordinate cannot be parsed as a valid field element.
-    pub fn to_pairing_points(&self) -> Result<(ark_bn254::G1Affine, ark_bn254::G2Affine), String> {
-        let g1 = self.alpha.to_g1_affine()
-            .map_err(|e| format!("PairingInput -> (G1Affine, G2Affine): alpha: {}", e))?;
-        let g2 = self.beta.to_g2_affine()
-            .map_err(|e| format!("PairingInput -> (G1Affine, G2Affine): beta: {}", e))?;
+    pub fn to_pairing_points(&self) -> Result<(G1Affine, G2Affine), String> {
+        let g1: G1Affine = (&self.alpha).try_into()
+            .map_err(|e: String| format!("PairingInput -> (G1Affine, G2Affine): alpha: {}", e))?;
+        let g2: G2Affine = (&self.beta).try_into()
+            .map_err(|e: String| format!("PairingInput -> (G1Affine, G2Affine): beta: {}", e))?;
         Ok((g1, g2))
     }
 }
@@ -205,8 +205,8 @@ pub fn convert_snarkjs_groth16_to_o1js(
 ) -> Result<O1jsGroth16, JsError> {
     // Convert proof to o1js format (negates A point, converts to affine) and VK to o1js format
     // (computes alpha_beta pairing, adds w27)
-    O1jsGroth16::from_snarkjs_groth16(&vk, &proof, &public_inputs)
-        .map_err(|e| JsError::new(&format!("convert_snarkjs_groth16_to_o1js: {}", e)))
+    (&vk, &proof, &public_inputs[..]).try_into()
+        .map_err(|e: String| JsError::new(&format!("convert_snarkjs_groth16_to_o1js: {}", e)))
 }
 
 /// Converts an SP1 Groth16 proof to o1js format.
@@ -270,6 +270,6 @@ pub fn convert_snarkjs_groth16_to_o1js(
 #[wasm_bindgen]
 pub fn convert_sp1_groth16_to_o1js(sp1_proof: SP1ProofWithPublicValues) -> Result<O1jsGroth16, JsError> {
     // Convert to o1js format (extracts proof bytes, decompresses gnark format, negates A)
-    O1jsGroth16::from_sp1_groth16(&sp1_proof)
-        .map_err(|e| JsError::new(&format!("convert_sp1_groth16_to_o1js: {}", e)))
+    (&sp1_proof).try_into()
+        .map_err(|e: String| JsError::new(&format!("convert_sp1_groth16_to_o1js: {}", e)))
 }

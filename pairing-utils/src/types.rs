@@ -25,8 +25,12 @@ pub struct AffinePoint2d {
     pub y: String,
 }
 
-impl AffinePoint2d {
-    /// Converts to arkworks `G1Affine` type.
+impl AffinePoint2d {}
+
+impl TryFrom<&AffinePoint2d> for G1Affine {
+    type Error = String;
+
+    /// Converts from `AffinePoint2d` to arkworks `G1Affine`.
     ///
     /// - `x` → `Fq` (x coordinate)
     /// - `y` → `Fq` (y coordinate)
@@ -34,19 +38,21 @@ impl AffinePoint2d {
     /// # Errors
     ///
     /// Returns an error if x or y cannot be parsed as valid `Fq` field elements.
-    pub fn to_g1_affine(&self) -> Result<G1Affine, String> {
-        let x = Fq::from_str(&self.x)
-            .map_err(|_| format!("AffinePoint2d -> G1Affine: x: not a valid Fq '{}'", self.x))?;
-        let y = Fq::from_str(&self.y)
-            .map_err(|_| format!("AffinePoint2d -> G1Affine: y: not a valid Fq '{}'", self.y))?;
+    fn try_from(point: &AffinePoint2d) -> Result<Self, Self::Error> {
+        let x = Fq::from_str(&point.x)
+            .map_err(|_| format!("AffinePoint2d -> G1Affine: x: not a valid Fq '{}'", point.x))?;
+        let y = Fq::from_str(&point.y)
+            .map_err(|_| format!("AffinePoint2d -> G1Affine: y: not a valid Fq '{}'", point.y))?;
         Ok(G1Affine::new(x, y))
     }
+}
 
-    /// Creates from arkworks `G1Affine` type.
+impl From<&G1Affine> for AffinePoint2d {
+    /// Converts from arkworks `G1Affine` to `AffinePoint2d`.
     ///
     /// - `Fq` (x coordinate) → `x`
     /// - `Fq` (y coordinate) → `y`
-    pub fn from_g1_affine(point: &G1Affine) -> Self {
+    fn from(point: &G1Affine) -> Self {
         use ark_ff::PrimeField;
         Self {
             x: point.x.into_bigint().to_string(),
@@ -72,8 +78,12 @@ pub struct ComplexAffinePoint2d {
     pub y_c1: String,
 }
 
-impl ComplexAffinePoint2d {
-    /// Converts to arkworks `G2Affine` type.
+impl ComplexAffinePoint2d {}
+
+impl TryFrom<&ComplexAffinePoint2d> for G2Affine {
+    type Error = String;
+
+    /// Converts from `ComplexAffinePoint2d` to arkworks `G2Affine`.
     ///
     /// - `(x_c0, x_c1)` → `Fq2` (x coordinate)
     /// - `(y_c0, y_c1)` → `Fq2` (y coordinate)
@@ -81,27 +91,29 @@ impl ComplexAffinePoint2d {
     /// # Errors
     ///
     /// Returns an error if any component cannot be parsed as a valid `Fq` field element.
-    pub fn to_g2_affine(&self) -> Result<G2Affine, String> {
-        let x_c0 = Fq::from_str(&self.x_c0)
-            .map_err(|_| format!("ComplexAffinePoint2d -> G2Affine: x_c0: not a valid Fq '{}'", self.x_c0))?;
-        let x_c1 = Fq::from_str(&self.x_c1)
-            .map_err(|_| format!("ComplexAffinePoint2d -> G2Affine: x_c1: not a valid Fq '{}'", self.x_c1))?;
-        let y_c0 = Fq::from_str(&self.y_c0)
-            .map_err(|_| format!("ComplexAffinePoint2d -> G2Affine: y_c0: not a valid Fq '{}'", self.y_c0))?;
-        let y_c1 = Fq::from_str(&self.y_c1)
-            .map_err(|_| format!("ComplexAffinePoint2d -> G2Affine: y_c1: not a valid Fq '{}'", self.y_c1))?;
+    fn try_from(point: &ComplexAffinePoint2d) -> Result<Self, Self::Error> {
+        let x_c0 = Fq::from_str(&point.x_c0)
+            .map_err(|_| format!("ComplexAffinePoint2d -> G2Affine: x_c0: not a valid Fq '{}'", point.x_c0))?;
+        let x_c1 = Fq::from_str(&point.x_c1)
+            .map_err(|_| format!("ComplexAffinePoint2d -> G2Affine: x_c1: not a valid Fq '{}'", point.x_c1))?;
+        let y_c0 = Fq::from_str(&point.y_c0)
+            .map_err(|_| format!("ComplexAffinePoint2d -> G2Affine: y_c0: not a valid Fq '{}'", point.y_c0))?;
+        let y_c1 = Fq::from_str(&point.y_c1)
+            .map_err(|_| format!("ComplexAffinePoint2d -> G2Affine: y_c1: not a valid Fq '{}'", point.y_c1))?;
 
         let x = Fq2::new(x_c0, x_c1);
         let y = Fq2::new(y_c0, y_c1);
 
         Ok(G2Affine::new(x, y))
     }
+}
 
-    /// Creates from arkworks `G2Affine` type.
+impl From<&G2Affine> for ComplexAffinePoint2d {
+    /// Converts from arkworks `G2Affine` to `ComplexAffinePoint2d`.
     ///
     /// - `Fq2` (x coordinate) → `(x_c0, x_c1)`
     /// - `Fq2` (y coordinate) → `(y_c0, y_c1)`
-    pub fn from_g2_affine(point: &G2Affine) -> Self {
+    fn from(point: &G2Affine) -> Self {
         use ark_ff::PrimeField;
         Self {
             x_c0: point.x.c0.into_bigint().to_string(),
@@ -128,8 +140,12 @@ pub struct ProjectivePoint {
     pub z: String,
 }
 
-impl ProjectivePoint {
-    /// Converts to arkworks `G1Affine` type.
+impl ProjectivePoint {}
+
+impl TryFrom<&ProjectivePoint> for G1Affine {
+    type Error = String;
+
+    /// Converts from `ProjectivePoint` to arkworks `G1Affine`.
     ///
     /// - `x` → `Fq` (x coordinate)
     /// - `y` → `Fq` (y coordinate)
@@ -138,21 +154,23 @@ impl ProjectivePoint {
     /// # Errors
     ///
     /// Returns an error if x or y cannot be parsed as valid `Fq` field elements.
-    pub fn to_g1_affine(&self) -> Result<G1Affine, String> {
-        let x = Fq::from_str(&self.x)
-            .map_err(|_| format!("ProjectivePoint -> G1Affine: x: not a valid Fq '{}'", self.x))?;
-        let y = Fq::from_str(&self.y)
-            .map_err(|_| format!("ProjectivePoint -> G1Affine: y: not a valid Fq '{}'", self.y))?;
+    fn try_from(point: &ProjectivePoint) -> Result<Self, Self::Error> {
+        let x = Fq::from_str(&point.x)
+            .map_err(|_| format!("ProjectivePoint -> G1Affine: x: not a valid Fq '{}'", point.x))?;
+        let y = Fq::from_str(&point.y)
+            .map_err(|_| format!("ProjectivePoint -> G1Affine: y: not a valid Fq '{}'", point.y))?;
         Ok(G1Affine::new(x, y))
     }
+}
 
-    /// Converts to `AffinePoint2d` (extracts x and y, discards z).
+impl From<&ProjectivePoint> for AffinePoint2d {
+    /// Converts from `ProjectivePoint` to `AffinePoint2d` (extracts x and y, discards z).
     ///
     /// This is a string-level conversion, no arkworks parsing involved.
-    pub fn to_affine_2d(&self) -> AffinePoint2d {
-        AffinePoint2d {
-            x: self.x.clone(),
-            y: self.y.clone(),
+    fn from(point: &ProjectivePoint) -> Self {
+        Self {
+            x: point.x.clone(),
+            y: point.y.clone(),
         }
     }
 }
@@ -173,8 +191,12 @@ pub struct ComplexProjectivePoint {
     pub z: (String, String),
 }
 
-impl ComplexProjectivePoint {
-    /// Converts to arkworks `G2Affine` type.
+impl ComplexProjectivePoint {}
+
+impl TryFrom<&ComplexProjectivePoint> for G2Affine {
+    type Error = String;
+
+    /// Converts from `ComplexProjectivePoint` to arkworks `G2Affine`.
     ///
     /// - `(x.0, x.1)` → `Fq2` (x coordinate)
     /// - `(y.0, y.1)` → `Fq2` (y coordinate)
@@ -183,31 +205,33 @@ impl ComplexProjectivePoint {
     /// # Errors
     ///
     /// Returns an error if any component cannot be parsed as a valid `Fq` field element.
-    pub fn to_g2_affine(&self) -> Result<G2Affine, String> {
-        let x_c0 = Fq::from_str(&self.x.0)
-            .map_err(|_| format!("ComplexProjectivePoint -> G2Affine: x.0: not a valid Fq '{}'", self.x.0))?;
-        let x_c1 = Fq::from_str(&self.x.1)
-            .map_err(|_| format!("ComplexProjectivePoint -> G2Affine: x.1: not a valid Fq '{}'", self.x.1))?;
-        let y_c0 = Fq::from_str(&self.y.0)
-            .map_err(|_| format!("ComplexProjectivePoint -> G2Affine: y.0: not a valid Fq '{}'", self.y.0))?;
-        let y_c1 = Fq::from_str(&self.y.1)
-            .map_err(|_| format!("ComplexProjectivePoint -> G2Affine: y.1: not a valid Fq '{}'", self.y.1))?;
+    fn try_from(point: &ComplexProjectivePoint) -> Result<Self, Self::Error> {
+        let x_c0 = Fq::from_str(&point.x.0)
+            .map_err(|_| format!("ComplexProjectivePoint -> G2Affine: x.0: not a valid Fq '{}'", point.x.0))?;
+        let x_c1 = Fq::from_str(&point.x.1)
+            .map_err(|_| format!("ComplexProjectivePoint -> G2Affine: x.1: not a valid Fq '{}'", point.x.1))?;
+        let y_c0 = Fq::from_str(&point.y.0)
+            .map_err(|_| format!("ComplexProjectivePoint -> G2Affine: y.0: not a valid Fq '{}'", point.y.0))?;
+        let y_c1 = Fq::from_str(&point.y.1)
+            .map_err(|_| format!("ComplexProjectivePoint -> G2Affine: y.1: not a valid Fq '{}'", point.y.1))?;
 
         let x = Fq2::new(x_c0, x_c1);
         let y = Fq2::new(y_c0, y_c1);
 
         Ok(G2Affine::new(x, y))
     }
+}
 
-    /// Converts to `ComplexAffinePoint2d` (extracts x and y, discards z).
+impl From<&ComplexProjectivePoint> for ComplexAffinePoint2d {
+    /// Converts from `ComplexProjectivePoint` to `ComplexAffinePoint2d` (extracts x and y, discards z).
     ///
     /// This is a string-level conversion, no arkworks parsing involved.
-    pub fn to_affine_2d(&self) -> ComplexAffinePoint2d {
-        ComplexAffinePoint2d {
-            x_c0: self.x.0.clone(),
-            x_c1: self.x.1.clone(),
-            y_c0: self.y.0.clone(),
-            y_c1: self.y.1.clone(),
+    fn from(point: &ComplexProjectivePoint) -> Self {
+        Self {
+            x_c0: point.x.0.clone(),
+            x_c1: point.x.1.clone(),
+            y_c0: point.y.0.clone(),
+            y_c1: point.y.1.clone(),
         }
     }
 }
