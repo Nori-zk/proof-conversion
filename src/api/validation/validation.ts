@@ -6,7 +6,7 @@ export interface SchemaObject {
   [key: string]: SchemaNode;
 }
 
-type SchemaNode =
+export type SchemaNode =
   | string
   | number
   | boolean

@@ -22,7 +22,10 @@ import {
   ParallelComputationStage,
 } from '../../plan.js';
 
-import type { Sp1PlonkInputTransformed } from '../../../api/validation/sp1/schema.js';
+import type {
+  Sp1PlonkInputTransformed,
+  SP1ProofWithPublicValuesPlonkNoTee,
+} from '../../../api/validation/sp1/schema.js';
 
 interface State extends PlatformFeatures, ConversionOutput {
   workingDirName: string;
@@ -38,16 +41,21 @@ const proofVkCacheStructure: DirectoryStructure = {
 };
 
 const nodeCacheStructure: DirectoryStructure = range(4).map((i) => `node${i}`);
-
+// Sp1Input Sp1PlonkInputTransformed
 export class Sp1PlonkComputationalPlan implements ComputationPlan<
   State,
   ConversionOutput,
-  Sp1PlonkInputTransformed
+  SP1ProofWithPublicValuesPlonkNoTee
 > {
-  readonly __inputType!: Sp1PlonkInputTransformed;
+  readonly __inputType!: SP1ProofWithPublicValuesPlonkNoTee;
   name = 'Sp1PlonkConverter';
-  async init(state: State, input: Sp1PlonkInputTransformed): Promise<void> {
-    state.input = input;
+  async init(state: State, input: SP1ProofWithPublicValuesPlonkNoTee): Promise<void> {
+    const inputTransformed: Sp1PlonkInputTransformed = {
+      hexPi: `0x${Buffer.from(input.public_values.buffer.data).toString('hex')}`,
+      programVK: input.proof.Plonk.public_inputs[0],
+      encodedProof: `0x00000000${input.proof.Plonk.encoded_proof}`,
+    };
+    state.input = inputTransformed;
     state.workingDirName = getRandomString(20);
     const pwd = process.cwd();
     state.workingDir = resolve(pwd, '.conversion-cache', state.workingDirName);

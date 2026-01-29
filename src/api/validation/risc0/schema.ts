@@ -48,6 +48,6 @@ export const risc0Groth16ObjInputSchema = {
   raw_vk: risc0Groth16VkSchema,
 };
 
-// Keys for the ApiMethod helper
-export const risc0Groth16ArgsKeys = Object.keys(risc0Groth16ObjInputSchema) as (keyof Risc0Groth16Input)[];
-export const risc0Groth16ObjKeys = Object.keys(risc0Groth16ObjInputSchema) as (keyof Risc0Groth16Input)[];
+// Keys for the ApiMethod helper - must match the keys in the schema - must be explicit tuples with 'as const' for proper type inference
+export const risc0Groth16ArgsKeys = ['risc0_proof', 'raw_vk'] as const;
+export const risc0Groth16ObjKeys = ['risc0_proof', 'raw_vk'] as const;

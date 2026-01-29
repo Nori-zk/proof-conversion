@@ -10,6 +10,9 @@ import { ApiCommandFunction } from '../api/methodDecorator.js';
 import { performRisc0Groth16 } from '../api/risc0/groth16.js';
 import { performSnarkjsGroth16 } from '../api/snarkjs/groth16.js';
 import { ComputationalPlanExecutor } from '../compute/executor.js';
+import { assertExactStructure } from 'src/api/validation/validation.js';
+import { Risc0Groth16Proof, Risc0Groth16Vk } from 'src/api/validation/risc0/schema.js';
+import { SnarkjsVK } from 'pairing-utils/pkg/pairing_utils.js';
 
 new LogPrinter('NoriProofConverter');
 const logger = new Logger('CLI');
@@ -18,12 +21,22 @@ const MAX_PROCESSES = parseInt(process.env.MAX_PROCESSES || '1', 10);
 const executor = new ComputationalPlanExecutor(MAX_PROCESSES);
 
 // registry of decorated API functions (must expose .fromArgs/.fromObject/.argsMetadata/.objMetadata as provided by the decorator)
-const commandMap: Record<string, ApiCommandFunction> = {
-  sp1Plonk: performSp1Plonk as ApiCommandFunction,
-  risc0Groth16: performRisc0Groth16 as ApiCommandFunction,
-  sp1Groth16: performSp1Groth16 as ApiCommandFunction,
-  snarkjsGroth16: performSnarkjsGroth16 as ApiCommandFunction,
+const commandMap = { // p: Record<string, ApiCommandFunction>
+  sp1Plonk: performSp1Plonk, // as ApiCommandFunction,
+  risc0Groth16: performRisc0Groth16, // as ApiCommandFunction,
+  sp1Groth16: performSp1Groth16, // as ApiCommandFunction,
+  snarkjsGroth16: performSnarkjsGroth16, // as ApiCommandFunction,
 };
+type CommandMap = typeof commandMap;
+
+
+const a = commandMap['sp1Groth16'];
+// Risc0Groth16Proof | Risc0Groth16Vk Risc0Groth16Proof
+performRisc0Groth16.fromArgs({} as Risc0Groth16Vk, {} as Risc0Groth16Vk, );
+
+performSnarkjsGroth16.fromArgs({} as SnarkjsVK, {} as SnarkjsVK, {} as SnarkjsVK)
+
+performSnarkjsGroth16.schema;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -70,19 +83,19 @@ function readFileStrict(p: string) {
 }
 
 // --- help utilities using metadata ---
-function summariseCommandMetadata(name: string, fn: ApiCommandFunction) {
+function summariseCommandMetadata(name: string, fn: CommandMap[keyof CommandMap]) {
   const supportsArgs = typeof fn?.fromArgs === 'function';
-  const supportsObject = typeof fn?.fromObject === 'function';
+  //const supportsObject = typeof fn?.from === 'function';
   const argsMeta = Array.isArray(fn?.argsMetadata) ? fn.argsMetadata : null;
-  const objMeta = Array.isArray(fn?.objMetadata) ? fn.objMetadata : null;
-  return { name, supportsArgs, supportsObject, argsMeta, objMeta };
+  //const objMeta = Array.isArray(fn?.objMetadata) ? fn.objMetadata : null;
+  return { name, supportsArgs, argsMeta };
 }
 
 function buildHelpAfterText() {
   const lines: string[] = [];
   lines.push('\nAvailable commands and metadata:');
   for (const name of Object.keys(commandMap)) {
-    const fn = commandMap[name];
+    const fn = commandMap[name as keyof CommandMap];
     const meta = summariseCommandMetadata(name, fn);
     const parts: string[] = [];
     parts.push(
@@ -101,7 +114,7 @@ function buildHelpAfterText() {
   return lines.join('\n');
 }
 
-function printDescribeDirect(commandName: string) {
+function printDescribeDirect(commandName: keyof typeof commandMap) {
   const fn = commandMap[commandName];
   if (!fn) {
     logger.error(
@@ -237,7 +250,10 @@ program
         }
 
         // build final TInput
-        inputForExecutor = fn.fromObject(obj);
+        inputForExecutor = fn.from(obj);
+        assertExactStructure(inputForExecutor, fn.schema, "somecontext should be provided by api");
+        inputForExecutor;
+        fn.schema;
       } else {
         // args-mode: require each arg to be a file path containing JSON
         if (fn.fromArgs === false || typeof fn.fromArgs !== 'function') {

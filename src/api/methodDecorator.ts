@@ -1,90 +1,99 @@
 import { ComputationalPlanExecutor } from '../compute/executor.js';
+import { SchemaNode } from './validation/validation.js';
 
-// Type for API command functions decorated with ApiMethod
-export type ApiCommandFunction = {
-  (executor: ComputationalPlanExecutor, input: unknown): Promise<object>;
-  fromArgs: ((...args: unknown[]) => unknown) | false;
-  fromObject: (obj: unknown) => unknown;
-  argsMetadata: readonly string[] | false;
-  objMetadata: readonly string[];
-};
-
+// Overload for supportsArgs = true
 export function ApiMethod<
   TInput,
-  TKeys extends readonly (keyof TInput)[] | false = false,
-  TObject extends object = object,
+  Schema extends { [K in keyof TInput]: SchemaNode },
+  TKeys extends readonly (keyof TInput)[]
 >(
-  keys: TKeys,
-  fromObject: (obj: TObject) => TInput,
-  objMetadata: readonly (keyof TObject)[]
+  schema: Schema,
+  supportsArgs: true,
+  keys: TKeys
+): <F extends (executor: ComputationalPlanExecutor, input: TInput) => Promise<object>>(
+  fn: F
+) => F & {
+  fromArgs: (...args: { [I in keyof TKeys]: TInput[TKeys[I] & keyof TInput] }) => TInput;
+  schema: Schema;
+};
+
+// Overload for supportsArgs = false
+export function ApiMethod<TInput, Schema extends { [K in keyof TInput]: SchemaNode }>(
+  schema: Schema,
+  supportsArgs: false,
+  keys?: undefined
+): <F extends (executor: ComputationalPlanExecutor, input: TInput) => Promise<object>>(
+  fn: F
+) => F & {
+  fromArgs: false;
+  schema: Schema;
+};
+
+// Implementation
+export function ApiMethod<
+  TInput,
+  Schema extends { [K in keyof TInput]: SchemaNode },
+  TKeys extends readonly (keyof TInput)[] = readonly (keyof TInput)[]
+>(
+  schema: Schema,
+  supportsArgs: boolean,
+  keys?: TKeys
 ) {
-  // Args type only if keys is not false
-  type Args = TKeys extends readonly (keyof TInput)[]
-    ? { [I in keyof TKeys]: TInput[TKeys[I] & keyof TInput] }
-    : never;
+  // Runtime validation: ensure keys match schema order when supportsArgs is true
+  if (supportsArgs === true) {
+    if (!keys) {
+      throw new Error('keys parameter is required when supportsArgs is true');
+    }
 
-  // Build from args or false (disabled)
-  const fromArgs = (() => {
-    if (keys === false)
-      return false as TKeys extends readonly (keyof TInput)[]
-        ? (...args: Args) => TInput
-        : false;
+    const schemaKeysOrdered = Object.keys(schema);
+    const keysArray = Array.from(keys as readonly (keyof TInput)[]);
 
-    return ((...args: unknown[]) => {
-      // runtime guard
-      if (!Array.isArray(keys))
-        throw new Error('keys must be an array when args-mode enabled');
+    // Check length matches
+    if (keysArray.length !== schemaKeysOrdered.length) {
+      throw new Error(
+        `Keys length mismatch: keys has ${keysArray.length} elements but schema has ${schemaKeysOrdered.length} keys`
+      );
+    }
 
-      if (args.length !== keys.length) {
+    // Check each key matches in order
+    for (let i = 0; i < keysArray.length; i++) {
+      if (String(keysArray[i]) !== schemaKeysOrdered[i]) {
         throw new Error(
-          `Expected ${keys.length} arguments, but got ${args.length}`
+          `Key order mismatch at index ${i}: expected "${schemaKeysOrdered[i]}" but got "${String(keysArray[i])}". ` +
+          `Keys must be in the same order as schema keys: [${schemaKeysOrdered.join(', ')}]`
         );
       }
-
-      const input = {} as TInput;
-      keys.forEach((k, i) => {
-        const v = args[i];
-        if (v === undefined)
-          throw new Error(`Argument for "${String(k)}" is undefined`);
-        // safe assignment: key is keyof TInput by constraint
-        input[k as keyof TInput] = v as TInput[keyof TInput];
-      });
-
-      return input;
-    }) as TKeys extends readonly (keyof TInput)[]
-      ? (...args: Args) => TInput
-      : false;
-  })();
-
-  // fromObject with validation against objMetadata
-  const fromObj = (obj: TObject): TInput => {
-    for (const k of objMetadata) {
-      if (!(k in obj))
-        throw new Error(`Object is missing expected key "${String(k)}"`);
     }
-    return fromObject(obj);
-  };
+  }
+
+  const schemaKeys = (supportsArgs ? keys : Object.keys(schema)) as (keyof TInput)[];
+
+  // Args type as a proper tuple based on the ordered TKeys
+  type Args = { [I in keyof TKeys]: TInput[TKeys[I] & keyof TInput] };
+
+  // Type for fromArgs - can be function or false
+  type FromArgsType = ((...args: Args) => TInput) | false;
+
+  const fromArgs = (supportsArgs === false
+    ? false
+    : (...args: unknown[]) => {
+        const input = {} as TInput;
+        schemaKeys.forEach((k, i) => {
+          const v = args[i];
+          if (v === undefined)
+            throw new Error(`Argument for "${String(k)}" is undefined`);
+          input[k] = v as TInput[keyof TInput];
+        });
+        return input;
+      }
+  ) as FromArgsType;
 
   return function <
     F extends (
       executor: ComputationalPlanExecutor,
       input: TInput
     ) => Promise<object>,
-  >(
-    fn: F
-  ): F & {
-    fromArgs: TKeys extends readonly (keyof TInput)[]
-      ? (...args: Args) => TInput
-      : false;
-    fromObject: (obj: TObject) => TInput;
-    argsMetadata: TKeys;
-    objMetadata: readonly (keyof TObject)[];
-  } {
-    return Object.assign(fn, {
-      fromArgs,
-      fromObject: fromObj,
-      argsMetadata: keys,
-      objMetadata,
-    });
+  >(fn: F): F & { fromArgs: FromArgsType, schema: typeof schema } {
+    return Object.assign(fn, { fromArgs, schema });
   };
 }

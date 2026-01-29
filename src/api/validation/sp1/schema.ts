@@ -1,4 +1,4 @@
-import type { SP1Proof, SP1PublicValues, SP1ProofWithPublicValues, O1jsVK, O1jsProof, Groth16Bn254Proof } from "pairing-utils/pkg/pairing_utils.js";
+import type { SP1Proof, SP1PublicValues, SP1ProofWithPublicValues, O1jsVK, O1jsProof, Groth16Bn254Proof, PlonkBn254Proof } from "pairing-utils/pkg/pairing_utils.js";
 import { isNumberArray, isString, isStringArrayOfLength, isUint8Array } from "../guards.js";
 
 // Types ===================================================================================
@@ -24,6 +24,11 @@ export type Sp1PlonkInputTransformed = {
 
 export type SP1ProofWithPublicValuesGroth16NoTee = Omit<SP1ProofWithPublicValues, 'proof' | 'tee_proof'> & {
   proof: { Groth16: Groth16Bn254Proof; };
+  tee_proof: null;
+};
+
+export type SP1ProofWithPublicValuesPlonkNoTee = Omit<SP1ProofWithPublicValues, 'proof' | 'tee_proof'> & {
+  proof: { Plonk: PlonkBn254Proof; };
   tee_proof: null;
 };
 

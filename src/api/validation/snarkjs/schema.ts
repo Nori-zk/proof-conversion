@@ -59,9 +59,9 @@ export const snarkjsGroth16InputSchema = {
    publicInputs: snarkjsGroth16PublicInputsSchema
 }
 
-// Keys for the ApiMethod helper
-export const snarkjsGroth16ArgsKeys = Object.keys(snarkjsGroth16InputSchema) as (keyof SnarkjsGroth16Input)[];
-export const snarkjsGroth16ObjKeys = Object.keys(snarkjsGroth16InputSchema) as (keyof SnarkjsGroth16Input)[];
+// Keys for the ApiMethod helper - must match the keys in the schema - must be explicit tuples with 'as const' for proper type inference
+export const snarkjsGroth16ArgsKeys = ['proof', 'vk', 'publicInputs'] as const;
+export const snarkjsGroth16ObjKeys = ['proof', 'vk', 'publicInputs'] as const;
 
 /*
 import { assertExactStructure } from '../validation.js';
