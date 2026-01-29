@@ -2,7 +2,7 @@ import { ProofInputValidationError } from './ProofInputValidationError.js';
 import { diagnose, type ValidatorFn } from './guards/core.js';
 
 // ============================================================================
-// SCHEMA TYPES - Same as original validation.ts
+// SCHEMA TYPES
 // ============================================================================
 
 export type { ValidatorFn };
@@ -26,7 +26,7 @@ type InferSchemaType<S> = S extends (val: unknown) => val is infer T
     : S;
 
 // ============================================================================
-// ASSERT EXACT STRUCTURE - Enhanced with diagnose for better error messages
+// ASSERT EXACT STRUCTURE - With diagnose for error messages
 // ============================================================================
 
 export function assertExactStructure<S extends SchemaObject>(

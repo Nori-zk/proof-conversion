@@ -45,7 +45,6 @@ export const isArray = <T>(inner: ValidatorFn<T>): ValidatorFn<T[]> =>
   guard<T[]>(
     function isArray(val: unknown): val is T[] {
       return Array.isArray(val);
-      // NOTE: No val.every(inner) - diagnose handles element validation
     },
     { inner: inner as ValidatorFn<unknown> }
   );
@@ -75,7 +74,6 @@ export const isArrayOfLength = <T, N extends number>(
       if (!Array.isArray(val)) return false;
       if (val.length !== len) return false;
       return true;
-      // NOTE: No val.every(inner) - diagnose handles element validation
     },
     {
       inner: inner as ValidatorFn<unknown>,
@@ -127,7 +125,6 @@ export const isArrayOfBoundedLength = <
       if (options.maxLength !== undefined && val.length > options.maxLength)
         return false;
       return true;
-      // NOTE: No val.every(inner) - diagnose handles element validation
     },
     {
       inner: inner as ValidatorFn<unknown>,
