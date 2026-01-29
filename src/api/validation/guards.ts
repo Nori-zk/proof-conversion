@@ -4,7 +4,7 @@ import type {
   Field12,
   ProjectivePoint,
   ComplexProjectivePoint,
-} from '@nori-zk/proof-conversion-pairing-utils';
+} from '@nori-zk/proof-conversion-utils';
 import type { ValidatorFn } from './validation.js';
 
 // Array helper guards ==================================================

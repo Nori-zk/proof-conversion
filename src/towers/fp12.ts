@@ -4,7 +4,7 @@ import { FpC } from './fp.js';
 import { Fp2 } from './fp2.js';
 import { Fp6 } from './fp6.js';
 import { GAMMA_1S, GAMMA_2S, GAMMA_3S } from './precomputed.js';
-import { Field12 } from '@nori-zk/proof-conversion-pairing-utils';
+import type { Field12 } from '@nori-zk/proof-conversion-utils';
 
 type Fp12Type = Field12;
 

@@ -1,7 +1,7 @@
 import {
   SnarkjsProof as SnarkjsGroth16Proof,
   SnarkjsVK as SnarkjsGroth16VK,
-} from '@nori-zk/proof-conversion-pairing-utils';
+} from '@nori-zk/proof-conversion-utils';
 import {
     isArrayOfLength,
   isComplexProjectivePoint,

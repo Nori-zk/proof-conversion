@@ -5,7 +5,7 @@ import { Provable, Struct } from 'o1js';
 import { G2Line, computeLineCoeffs } from '../lines/index.js';
 import { computePI } from './compute_pi.js';
 import { GrothVk } from './vk.js';
-import type { O1jsProof } from '@nori-zk/proof-conversion-pairing-utils';
+import type { O1jsProof } from '@nori-zk/proof-conversion-utils';
 
 export interface ProofData {
   negA: G1Affine;
