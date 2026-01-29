@@ -278,7 +278,8 @@ program
             schemaLines.forEach(line => logger.error(line));
             logger.error('');
             logger.error('Validation errors:');
-            logger.error(error.message);
+            const errorLines = error.message.split('\n');
+            errorLines.forEach(line => logger.error(line));
             process.exit(1);
           }
 
@@ -363,7 +364,8 @@ program
             }
             logger.error('');
             logger.error('Validation errors:');
-            logger.error(error.message);
+            const errorLines = error.message.split('\n');
+            errorLines.forEach(line => logger.error(line));
             process.exit(1);
           }
 
