@@ -5,7 +5,9 @@ import type { AccumulatorRange, ExtractLength } from './types.js';
 // PRIMITIVE GUARDS - No constraints, just type checking
 // ============================================================================
 
-export const isUndefined = guard(function isUndefined(val: unknown): val is undefined {
+export const isUndefined = guard(function isUndefined(
+  val: unknown
+): val is undefined {
   return val === undefined;
 });
 
@@ -21,7 +23,9 @@ export const isNumber = guard(function isNumber(val: unknown): val is number {
   return typeof val === 'number';
 });
 
-export const isBoolean = guard(function isBoolean(val: unknown): val is boolean {
+export const isBoolean = guard(function isBoolean(
+  val: unknown
+): val is boolean {
   return typeof val === 'boolean';
 });
 
@@ -34,7 +38,9 @@ export interface NumberConstraints {
   max?: number;
 }
 
-export const isBoundedNumber = (constraint: NumberConstraints): ValidatorFn<number> =>
+export const isBoundedNumber = (
+  constraint: NumberConstraints
+): ValidatorFn<number> =>
   guard<number, NumberConstraints>(
     function isBoundedNumber(val: unknown): val is number {
       if (typeof val !== 'number') return false;
@@ -70,8 +76,9 @@ export const isUint8 = isBoundedNumber({ min: 0, max: 255 });
  * @example
  * NumberRange<0, 3> = 0 | 1 | 2 | 3
  */
-type NumberRange<Min extends number, Max extends number> =
-  ExtractLength<AccumulatorRange<Min, Max, unknown>>;
+type NumberRange<Min extends number, Max extends number> = ExtractLength<
+  AccumulatorRange<Min, Max, unknown>
+>;
 
 /**
  * Creates a number validator with type-level literal unions for small ranges.
@@ -84,9 +91,7 @@ type NumberRange<Min extends number, Max extends number> =
  * // Returns: (val: unknown) => val is 0 | 1 | 2 | 3
  */
 export const isBoundedNumberUnion = <Min extends number, Max extends number>(
-  options:
-    | { min: Min; max?: Max }
-    | { min?: Min; max: Max }
+  options: { min: Min; max?: Max } | { min?: Min; max: Max }
 ): ValidatorFn<NumberRange<Min, Max>> =>
   guard<NumberRange<Min, Max>, { min?: number; max?: number }>(
     function isBoundedNumberUnion(val: unknown): val is NumberRange<Min, Max> {

@@ -40,7 +40,9 @@ export const isComplexAffinePoint2d = guard(function isComplexAffinePoint2d(
 });
 
 /** Validates Fq12 field element (12 string components: g00-g21, h00-h21) */
-export const isField12 = guard(function isField12(val: unknown): val is Field12 {
+export const isField12 = guard(function isField12(
+  val: unknown
+): val is Field12 {
   if (!val || typeof val !== 'object') return false;
   const obj = val as Record<string, unknown>;
   const keys = [

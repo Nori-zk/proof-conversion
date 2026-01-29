@@ -22,8 +22,11 @@ type Tuple<T, N extends number, Acc extends T[] = []> = Acc['length'] extends N
  * @example
  * TupleUnion<string, 1, 3> = [string] | [string, string] | [string, string, string]
  */
-type TupleUnion<T, Min extends number, Max extends number> =
-  AccumulatorRange<Min, Max, T>;
+type TupleUnion<T, Min extends number, Max extends number> = AccumulatorRange<
+  Min,
+  Max,
+  T
+>;
 
 // ============================================================================
 // ARRAY GUARDS
@@ -107,7 +110,7 @@ export interface ArrayConstraints {
 export const isArrayOfBoundedLength = <
   T,
   Min extends number,
-  Max extends number
+  Max extends number,
 >(
   inner: ValidatorFn<T>,
   options:
@@ -115,7 +118,9 @@ export const isArrayOfBoundedLength = <
     | { minLength?: Min; maxLength: Max }
 ): ValidatorFn<TupleUnion<T, Min, Max>> =>
   guard<TupleUnion<T, Min, Max>, ArrayConstraints>(
-    function isArrayOfBoundedLength(val: unknown): val is TupleUnion<T, Min, Max> {
+    function isArrayOfBoundedLength(
+      val: unknown
+    ): val is TupleUnion<T, Min, Max> {
       if (!Array.isArray(val)) return false;
       if (options.minLength !== undefined && val.length < options.minLength)
         return false;

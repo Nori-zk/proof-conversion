@@ -9,7 +9,8 @@ import { Sp1PlonkComputationalPlan } from '../../compute/plans/sp1/plonk.js';
 const logger = new Logger('API');
 
 export const performSp1Plonk = ApiMethod<
-  SP1ProofWithPublicValuesPlonkNoTee // TInput (what executor expects)
+  SP1ProofWithPublicValuesPlonkNoTee, // TInput (what executor expects)
+  typeof sp1PlonkInputSchema // Type of schema object for SP1ProofWithPublicValuesGroth16NoTee
 >(
   sp1PlonkInputSchema, // Schema object for SP1ProofWithPublicValuesPlonkNoTee
   false // Arguments mode disabled

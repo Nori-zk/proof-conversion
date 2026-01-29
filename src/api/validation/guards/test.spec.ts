@@ -1,4 +1,4 @@
-import { assertExactStructure } from './validation.js';
+import { assertExactStructure } from '../validation.js';
 import { describeSchema } from './core.js';
 import {
   isString,
@@ -128,7 +128,9 @@ describe('Guard System - Schema Validation', () => {
         fail('Should have thrown an error');
       } catch (e) {
         console.error('\n Wrong protocol error:\n', (e as Error).message);
-        expect((e as Error).message).toMatch(/"protocol" must be exactly "groth16"/);
+        expect((e as Error).message).toMatch(
+          /"protocol" must be exactly "groth16"/
+        );
       }
     });
 
@@ -255,7 +257,9 @@ describe('Guard System - Schema Validation', () => {
         fail('Should have thrown an error');
       } catch (e) {
         console.error('\n nPublic out of range error:\n', (e as Error).message);
-        expect((e as Error).message).toMatch(/"nPublic".*BoundedNumberUnion.*exceeds maximum 6/);
+        expect((e as Error).message).toMatch(
+          /"nPublic".*BoundedNumberUnion.*exceeds maximum 6/
+        );
       }
     });
 
@@ -408,14 +412,23 @@ describe('Guard System - Schema Validation', () => {
         assertExactStructure(invalidInput, risc0Groth16ObjInputSchema, 'input');
         fail('Should have thrown an error');
       } catch (e) {
-        console.error('\n Multiple deep errors simultaneously:\n', (e as Error).message);
+        console.error(
+          '\n Multiple deep errors simultaneously:\n',
+          (e as Error).message
+        );
         const errorMsg = (e as Error).message;
 
         // Should report ALL errors with type structures shown
-        expect(errorMsg).toMatch(/"negA".*expected.*AffinePoint2d.*got.*\{x: Number, y: Number\}/);
+        expect(errorMsg).toMatch(
+          /"negA".*expected.*AffinePoint2d.*got.*\{x: Number, y: Number\}/
+        );
         expect(errorMsg).toMatch(/"pi3".*expected.*String.*got.*Number/);
-        expect(errorMsg).toMatch(/"gamma".*expected.*ComplexAffinePoint2d.*got.*\{x_c0: Number.*y_c1: Boolean\}/);
-        expect(errorMsg).toMatch(/"delta".*expected.*ComplexAffinePoint2d.*got.*\{x_c0: Null.*y_c1: Number\}/);
+        expect(errorMsg).toMatch(
+          /"gamma".*expected.*ComplexAffinePoint2d.*got.*\{x_c0: Number.*y_c1: Boolean\}/
+        );
+        expect(errorMsg).toMatch(
+          /"delta".*expected.*ComplexAffinePoint2d.*got.*\{x_c0: Null.*y_c1: Number\}/
+        );
       }
     });
   });
@@ -423,7 +436,10 @@ describe('Guard System - Schema Validation', () => {
   describe('SnarkJS Groth16 Full Input', () => {
     it('should print schema description', () => {
       const description = describeSchema(snarkjsGroth16InputSchema);
-      console.log('\nSnarkJS Groth16 Input Schema:\n', JSON.stringify(description, null, 2));
+      console.log(
+        '\nSnarkJS Groth16 Input Schema:\n',
+        JSON.stringify(description, null, 2)
+      );
       expect(description).toHaveProperty('proof');
       expect(description).toHaveProperty('vk');
       expect(description).toHaveProperty('publicInputs');
@@ -545,7 +561,9 @@ describe('Guard System - Schema Validation', () => {
         const errorMsg = (e as Error).message;
 
         // Should report errors in proof, vk, and publicInputs
-        expect(errorMsg).toMatch(/in "proof".*protocol.*must be exactly "groth16"/);
+        expect(errorMsg).toMatch(
+          /in "proof".*protocol.*must be exactly "groth16"/
+        );
         expect(errorMsg).toMatch(/pi_a.*expected.*ProjectivePoint/);
         expect(errorMsg).toMatch(/in "vk".*nPublic.*exceeds maximum 6/);
         expect(errorMsg).toMatch(/publicInputs.*expected.*ArrayOfLength/);
@@ -573,8 +591,14 @@ describe('Guard System - Schema Validation', () => {
           [25, 35], // Wrong length! Should be 3
         ],
         matrix: [
-          [[10, 20], [30, 40]], // Valid
-          [[99, -60], [25, 35]], // 99 exceeds max, -60 below min!
+          [
+            [10, 20],
+            [30, 40],
+          ], // Valid
+          [
+            [99, -60],
+            [25, 35],
+          ], // 99 exceeds max, -60 below min!
           [[15, 25, 35]], // Inner array wrong length! Should be 2
         ],
       };
@@ -583,7 +607,10 @@ describe('Guard System - Schema Validation', () => {
         assertExactStructure(invalidData, schema, 'test');
         fail('Should have thrown an error');
       } catch (e) {
-        console.error('\n Multiple deep nested array errors:\n', (e as Error).message);
+        console.error(
+          '\n Multiple deep nested array errors:\n',
+          (e as Error).message
+        );
         const errorMsg = (e as Error).message;
 
         // Should report ALL errors with full paths
@@ -593,7 +620,9 @@ describe('Guard System - Schema Validation', () => {
         expect(errorMsg).toMatch(/points\[3\].*length 2.*expected exactly 3/);
         expect(errorMsg).toMatch(/matrix\[1\]\[0\].*99.*exceeds maximum 50/);
         expect(errorMsg).toMatch(/matrix\[1\]\[0\].*-60.*below minimum -50/);
-        expect(errorMsg).toMatch(/matrix\[2\]\[0\].*length 3.*expected exactly 2/);
+        expect(errorMsg).toMatch(
+          /matrix\[2\]\[0\].*length 3.*expected exactly 2/
+        );
       }
     });
   });

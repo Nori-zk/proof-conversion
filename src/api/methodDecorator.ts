@@ -13,7 +13,7 @@ export function ApiMethod<
 ): <F extends (executor: ComputationalPlanExecutor, input: TInput) => Promise<object>>(
   fn: F
 ) => F & {
-  fromArgs: (...args: { [I in keyof TKeys]: TInput[TKeys[I] & keyof TInput] }) => TInput;
+  fromArgs: ((...args: { [I in keyof TKeys]: TInput[TKeys[I] & keyof TInput] }) => TInput) & { keys: TKeys };
   schema: Schema;
 };
 
@@ -76,16 +76,19 @@ export function ApiMethod<
 
   const fromArgs = (supportsArgs === false
     ? false
-    : (...args: unknown[]) => {
-        const input = {} as TInput;
-        schemaKeys.forEach((k, i) => {
-          const v = args[i];
-          if (v === undefined)
-            throw new Error(`Argument for "${String(k)}" is undefined`);
-          input[k] = v as TInput[keyof TInput];
-        });
-        return input;
-      }
+    : Object.assign(
+        (...args: unknown[]) => {
+          const input = {} as TInput;
+          schemaKeys.forEach((k, i) => {
+            const v = args[i];
+            if (v === undefined)
+              throw new Error(`Argument for "${String(k)}" is undefined`);
+            input[k] = v as TInput[keyof TInput];
+          });
+          return input;
+        },
+        { keys: keys as readonly (keyof TInput)[] }
+      )
   ) as FromArgsType;
 
   return function <

@@ -6,19 +6,32 @@ import { LogPrinter } from 'esm-iso-logger';
 import { fileURLToPath } from 'url';
 import { performSp1Plonk } from '../api/sp1/plonk.js';
 import { performSp1Groth16 } from '../api/sp1/groth16.js';
-import { ApiCommandFunction } from '../api/methodDecorator.js';
 import { performRisc0Groth16 } from '../api/risc0/groth16.js';
+import { assertExactStructure } from '../api/validation/validation.js';
+import { describeSchema, type SchemaNode } from '../api/validation/guards/core.js';
 import { performSnarkjsGroth16 } from '../api/snarkjs/groth16.js';
 import { ComputationalPlanExecutor } from '../compute/executor.js';
-import { assertExactStructure } from 'src/api/validation/validation.js';
-import { Risc0Groth16Proof, Risc0Groth16Vk } from 'src/api/validation/risc0/schema.js';
-import { SnarkjsVK } from 'pairing-utils/pkg/pairing_utils.js';
 
 new LogPrinter('NoriProofConverter');
 const logger = new Logger('CLI');
 
 const MAX_PROCESSES = parseInt(process.env.MAX_PROCESSES || '1', 10);
 const executor = new ComputationalPlanExecutor(MAX_PROCESSES);
+
+// Extract input type from a command function
+type ExtractInput<T> = T extends (executor: ComputationalPlanExecutor, input: infer I) => Promise<unknown> ? I : never;
+
+// Helper to execute a specific command with proper type narrowing
+// By making this generic over K and extracting the input type, we get proper narrowing
+async function executeCommand<K extends keyof CommandMap>(
+  key: K,
+  executor: ComputationalPlanExecutor,
+  input: ExtractInput<CommandMap[K]>
+): Promise<unknown> {
+  const fn = commandMap[key];
+  // TODO: Fix TypeScript union type narrowing issue - for now we cast the function since input is validated by assertExactStructure
+  return (fn as unknown as (executor: ComputationalPlanExecutor, input: unknown) => Promise<unknown>)(executor, input);
+}
 
 // registry of decorated API functions (must expose .fromArgs/.fromObject/.argsMetadata/.objMetadata as provided by the decorator)
 const commandMap = { // p: Record<string, ApiCommandFunction>
@@ -29,14 +42,18 @@ const commandMap = { // p: Record<string, ApiCommandFunction>
 };
 type CommandMap = typeof commandMap;
 
-
+/*
 const a = commandMap['sp1Groth16'];
 // Risc0Groth16Proof | Risc0Groth16Vk Risc0Groth16Proof
 performRisc0Groth16.fromArgs({} as Risc0Groth16Vk, {} as Risc0Groth16Vk, );
 
+performRisc0Groth16.schema
+
 performSnarkjsGroth16.fromArgs({} as SnarkjsVK, {} as SnarkjsVK, {} as SnarkjsVK)
 
+
 performSnarkjsGroth16.schema;
+*/
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -85,9 +102,15 @@ function readFileStrict(p: string) {
 // --- help utilities using metadata ---
 function summariseCommandMetadata(name: string, fn: CommandMap[keyof CommandMap]) {
   const supportsArgs = typeof fn?.fromArgs === 'function';
-  //const supportsObject = typeof fn?.from === 'function';
-  const argsMeta = Array.isArray(fn?.argsMetadata) ? fn.argsMetadata : null;
-  //const objMeta = Array.isArray(fn?.objMetadata) ? fn.objMetadata : null;
+  logger.debug(`[${name}] supportsArgs: ${supportsArgs}, fromArgs type: ${typeof fn?.fromArgs}`);
+  if (supportsArgs && typeof fn.fromArgs === 'function') {
+    const fromArgsWithKeys = fn.fromArgs as { keys?: readonly string[] };
+    logger.debug(`[${name}] fromArgs.keys: ${JSON.stringify(fromArgsWithKeys.keys)}`);
+  }
+  const argsMeta = supportsArgs && typeof fn.fromArgs === 'function'
+    ? (fn.fromArgs as { keys?: readonly string[] }).keys || null
+    : null;
+  logger.debug(`[${name}] argsMeta: ${JSON.stringify(argsMeta)}`);
   return { name, supportsArgs, argsMeta };
 }
 
@@ -103,11 +126,8 @@ function buildHelpAfterText() {
         ? `args(files): [${(meta.argsMeta || []).join(', ')}]`
         : 'args: (no)'
     );
-    parts.push(
-      meta.supportsObject
-        ? `object(file): [${(meta.objMeta || []).join(', ')}]`
-        : 'object: (no)'
-    );
+    // Object mode is always supported (uses schema directly)
+    parts.push('object: (yes)');
     lines.push(`  - ${name}    ${parts.join(' | ')}`);
   }
   lines.push('\nRun `describe <command>` for more details and examples.');
@@ -128,29 +148,43 @@ function printDescribeDirect(commandName: keyof typeof commandMap) {
 
   logger.log('');
   logger.log(`=== ${commandName} ===`);
-  logger.log(`Supports args-mode (file-based): ${meta.supportsArgs}`);
-  if (meta.supportsArgs && meta.argsMeta !== null) {
-    logger.log(`  argsMetadata (files): ${JSON.stringify(meta.argsMeta)}`);
-    logger.log('  Example (args-mode):');
-    const argsExamplePaths = meta.argsMeta.map((arg: string) => `path/to/${commandName}_args_${arg}.json`).join(' ');
-    logger.log(`    $ nori-proof-converter ${commandName} ${argsExamplePaths}`);
+  logger.log('');
+
+  // Print object-mode schema (always supported)
+  logger.log('Object-mode schema:');
+  if (typeof fn === 'function' && 'schema' in fn && fn.schema) {
+    const objectSchema = describeSchema(fn.schema);
+    const schemaLines = JSON.stringify(objectSchema, null, 2).split('\n');
+    schemaLines.forEach(line => logger.log(line));
   } else {
-    logger.log('  args-mode: not supported');
+    logger.log('  (no schema available)');
   }
   logger.log('');
-  logger.log(`Supports object-mode (single file only): ${meta.supportsObject}`);
-  if (meta.supportsObject) {
-    logger.log(
-      `  objMetadata (Json file must have keys): ${JSON.stringify(
-        meta.objMeta
-      )}`
-    );
-    logger.log('  Example (object-mode):');
-    logger.log(
-      `    $ nori-proof-converter ${commandName} path/to/${commandName}_obj.json`
-    );
+
+  logger.log('Object-mode usage:');
+  logger.log(`  $ nori-proof-converter ${commandName} path/to/${commandName}_input.json`);
+  logger.log('');
+
+  // Print args-mode schema if supported
+  if (meta.supportsArgs && meta.argsMeta !== null && typeof fn === 'function' && 'schema' in fn && fn.schema) {
+    logger.log('Args-mode (file-per-key) schemas:');
+    type SchemaType = typeof fn.schema;
+    for (const key of meta.argsMeta) {
+      if (key in fn.schema) {
+        const keySchema = describeSchema(fn.schema[key as keyof SchemaType]);
+        logger.log(`  ${key}.json should have:`);
+        const schemaLines = JSON.stringify(keySchema, null, 2).split('\n');
+        schemaLines.forEach(line => logger.log(`    ${line}`));
+      }
+    }
+    logger.log('');
+    logger.log('Args-mode usage:');
+    const argsExamplePaths = meta.argsMeta
+      .map((arg: string) => `path/to/${arg}.json`)
+      .join(' ');
+    logger.log(`  $ nori-proof-converter ${commandName} ${argsExamplePaths}`);
   } else {
-    logger.log('  object-mode: not supported');
+    logger.log('Args-mode: not supported');
   }
   logger.log('');
 }
@@ -168,7 +202,7 @@ program.addHelpText('after', () => buildHelpAfterText());
 program
   .command('describe <command>')
   .description('Show detailed metadata and examples for a command')
-  .action((commandName: string) => {
+  .action((commandName: keyof typeof commandMap) => {
     try {
       printDescribeDirect(commandName);
       process.exit(0);
@@ -190,7 +224,7 @@ program
     '[args...]',
     'optional arguments: single JSON file (object-mode) or multiple file paths (args-mode)'
   )
-  .action(async (commandName: string, args: string[] = []) => {
+  .action(async (commandName: keyof typeof commandMap, args: string[] = []) => {
     logger.debug(
       `entering action for command='${commandName}', args=${JSON.stringify(
         args
@@ -219,7 +253,6 @@ program
     const mode = args.length === 1 ? 'object' : 'args';
     logger.debug(`selected mode='${mode}'`);
 
-    let inputForExecutor: unknown;
     const outputNameHint: string | undefined = args[0];
 
     try {
@@ -230,30 +263,49 @@ program
           throw new Error('Object-mode requires a JSON object file.');
         }
 
-        if (typeof fn.fromObject !== 'function') {
-          throw new Error(
-            `Command '${commandName}' does not support object-mode (.fromObject not provided).`
-          );
-        }
-        if (!Array.isArray(fn.objMetadata)) {
-          throw new Error(
-            `Command '${commandName}' missing objMetadata for object-mode validation.`
-          );
-        }
+        // Validate the object against the schema
+        if (typeof fn === 'function' && 'schema' in fn && fn.schema) {
+          // Validation try-catch
+          try {
+            assertExactStructure(obj, fn.schema, args[0]);
+          } catch (e: unknown) {
+            const error = e as Error;
+            // Validation error - print schema
+            logger.error('');
+            logger.error('Object-mode schema expected:');
+            const objectSchema = describeSchema(fn.schema);
+            const schemaLines = JSON.stringify(objectSchema, null, 2).split('\n');
+            schemaLines.forEach(line => logger.error(line));
+            logger.error('');
+            logger.error('Validation errors:');
+            logger.error(error.message);
+            process.exit(1);
+          }
 
-        for (const key of fn.objMetadata) {
-          if (!(key in obj)) {
-            throw new Error(
-              `Object-mode input file is missing required key "${String(key)}".`
+          // Execution try-catch
+          try {
+            const result = await executeCommand(commandName, executor, obj);
+            const resultStr = JSON.stringify(result, null, 2);
+            const outputFilePath = writeJsonFile(
+              outputNameHint,
+              commandName,
+              resultStr
             );
+            logger.info(
+              `Wrote result of command ${commandName} to disk: ${outputFilePath}`
+            );
+            process.exit(0);
+          } catch (e: unknown) {
+            const error = e as Error;
+            logger.fatal(
+              `Error executing command '${commandName}': ${
+                error.message ?? error
+              }`
+            );
+            logger.fatal(error.stack);
+            process.exit(1);
           }
         }
-
-        // build final TInput
-        inputForExecutor = fn.from(obj);
-        assertExactStructure(inputForExecutor, fn.schema, "somecontext should be provided by api");
-        inputForExecutor;
-        fn.schema;
       } else {
         // args-mode: require each arg to be a file path containing JSON
         if (fn.fromArgs === false || typeof fn.fromArgs !== 'function') {
@@ -261,55 +313,89 @@ program
             `Command '${commandName}' does not support args-mode (.fromArgs not provided).`
           );
         }
-        if (!Array.isArray(fn.argsMetadata)) {
+
+        // Get the keys from fromArgs.keys
+        const fromArgsWithKeys = fn.fromArgs as { keys?: readonly string[] };
+        const argsKeys = fromArgsWithKeys.keys;
+        if (!Array.isArray(argsKeys)) {
           throw new Error(
-            `Command '${commandName}' missing argsMetadata for args-mode validation.`
+            `Command '${commandName}' missing keys metadata for args-mode validation.`
           );
         }
 
-        if (args.length !== fn.argsMetadata.length) {
+        if (args.length !== argsKeys.length) {
           throw new Error(
-            `Args-mode requires ${
-              fn.argsMetadata.length
-            } file arguments (${fn.argsMetadata.join(', ')}). Received ${
-              args.length
-            }.`
+            `Args-mode requires ${argsKeys.length} file arguments (${argsKeys.join(', ')}). Received ${args.length}.`
           );
         }
 
-        // read each file strictly
-        const fileValues = args.map((a) => readFileStrict(a));
+        // Build and validate in the same scope
+        if (typeof fn === 'function' && 'schema' in fn && fn.schema) {
+          // Read each file one by one and build object
+          const constructedObj: Record<string, unknown> = {};
+          for (let i = 0; i < argsKeys.length; i++) {
+            const key = argsKeys[i];
+            const filePath = args[i];
+            constructedObj[key] = readFileStrict(filePath);
+          }
 
-        // build final TInput via fromArgs (spread)
-        inputForExecutor = (fn.fromArgs as (...a: unknown[]) => unknown)(...fileValues);
+          // Validation try-catch
+          try {
+            assertExactStructure(constructedObj, fn.schema, `args-mode input (${argsKeys.join(', ')})`);
+          } catch (e: unknown) {
+            const error = e as Error;
+            // Validation error - print schemas for each file
+            logger.error('');
+            logger.error('Args-mode validation failed.');
+            logger.error('');
+            logger.error('Expected schemas for each file:');
+            const schemaObj = fn.schema as Record<string, SchemaNode>;
+            for (let i = 0; i < argsKeys.length; i++) {
+              const key = argsKeys[i];
+              const filePath = args[i];
+              if (key in schemaObj) {
+                logger.error('');
+                logger.error(`  ${filePath} (${key}.json):`);
+                const keySchema = describeSchema(schemaObj[key]);
+                const schemaLines = JSON.stringify(keySchema, null, 2).split('\n');
+                schemaLines.forEach(line => logger.error(`    ${line}`));
+              }
+            }
+            logger.error('');
+            logger.error('Validation errors:');
+            logger.error(error.message);
+            process.exit(1);
+          }
+
+          // Execution try-catch
+          try {
+            const result = await executeCommand(commandName, executor, constructedObj);
+            const resultStr = JSON.stringify(result, null, 2);
+            const outputFilePath = writeJsonFile(
+              outputNameHint,
+              commandName,
+              resultStr
+            );
+            logger.info(
+              `Wrote result of command ${commandName} to disk: ${outputFilePath}`
+            );
+            process.exit(0);
+          } catch (e: unknown) {
+            const error = e as Error;
+            logger.fatal(
+              `Error executing command '${commandName}': ${
+                error.message ?? error
+              }`
+            );
+            logger.fatal(error.stack);
+            process.exit(1);
+          }
+        }
       }
     } catch (e: unknown) {
       const error = e as Error;
       logger.fatal(
         `Error preparing input for '${commandName}': ${
-          error.message ?? error
-        }`
-      );
-      logger.fatal(error.stack);
-      process.exit(1);
-    }
-
-    try {
-      const result = await fn(executor, inputForExecutor);
-      const resultStr = JSON.stringify(result, null, 2);
-      const outputFilePath = writeJsonFile(
-        outputNameHint,
-        commandName,
-        resultStr
-      );
-      logger.info(
-        `Wrote result of command ${commandName} to disk: ${outputFilePath}`
-      );
-      process.exit(0);
-    } catch (e: unknown) {
-      const error = e as Error;
-      logger.fatal(
-        `Error executing command '${commandName}': ${
           error.message ?? error
         }`
       );

@@ -69,9 +69,7 @@ export function guard<T, Options = never>(
   }
 ): ValidatorFn<T> {
   if (!fn.name || fn.name === 'anonymous') {
-    throw new TypeError(
-      `Named function required: ${String(fn).slice(0, 50)}`
-    );
+    throw new TypeError(`Named function required: ${String(fn).slice(0, 50)}`);
   }
 
   const entry: GuardMetaStorage = {
@@ -84,8 +82,11 @@ export function guard<T, Options = never>(
 
   if (meta?.constraint !== undefined) {
     entry.constraint = meta.constraint as unknown;
-    entry.printType = meta.printType as ((data: unknown) => string);
-    entry.printDiagnosis = meta.printDiagnosis as ((data: unknown, val: unknown) => string);
+    entry.printType = meta.printType as (data: unknown) => string;
+    entry.printDiagnosis = meta.printDiagnosis as (
+      data: unknown,
+      val: unknown
+    ) => string;
   }
 
   GUARD_REGISTRY.set(fn as ValidatorFn<unknown>, entry);
@@ -124,7 +125,7 @@ export const identify = (val: unknown): string => {
 
   // Recurse into arrays to show element types
   if (Array.isArray(val)) {
-    const elementTypes = val.map(elem => identify(elem));
+    const elementTypes = val.map((elem) => identify(elem));
     return `[${elementTypes.join(', ')}]`;
   }
 
@@ -208,9 +209,13 @@ export const diagnose = <T>(
   if (!fn(val)) {
     // Constraint failed - add error with path information
     if (meta?.printDiagnosis && meta.constraint !== undefined) {
-      errors.push(`${path}: expected ${getFullTypeName(fn)}, ${meta.printDiagnosis(meta.constraint, val)}`);
+      errors.push(
+        `${path}: expected ${getFullTypeName(fn)}, ${meta.printDiagnosis(meta.constraint, val)}`
+      );
     } else {
-      errors.push(`${path}: expected ${getFullTypeName(fn) || 'valid value'}, got ${identify(val)}`);
+      errors.push(
+        `${path}: expected ${getFullTypeName(fn) || 'valid value'}, got ${identify(val)}`
+      );
     }
     // Don't recurse if constraint failed
     return errors;

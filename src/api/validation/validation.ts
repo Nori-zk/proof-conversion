@@ -1,6 +1,11 @@
 import { ProofInputValidationError } from './ProofInputValidationError.js';
+import { diagnose, type ValidatorFn } from './guards/core.js';
 
-export type ValidatorFn<T = unknown> = (val: unknown) => val is T;
+// ============================================================================
+// SCHEMA TYPES - Same as original validation.ts
+// ============================================================================
+
+export type { ValidatorFn };
 
 export interface SchemaObject {
   [key: string]: SchemaNode;
@@ -14,12 +19,15 @@ export type SchemaNode =
   | ValidatorFn
   | SchemaObject;
 
-type InferSchemaType<S> =
-  S extends (val: unknown) => val is infer T
-    ? T
-    : S extends object
-      ? { [K in keyof S]: InferSchemaType<S[K]> }
-      : S;
+type InferSchemaType<S> = S extends (val: unknown) => val is infer T
+  ? T
+  : S extends object
+    ? { [K in keyof S]: InferSchemaType<S[K]> }
+    : S;
+
+// ============================================================================
+// ASSERT EXACT STRUCTURE - Enhanced with diagnose for better error messages
+// ============================================================================
 
 export function assertExactStructure<S extends SchemaObject>(
   obj: unknown,
@@ -49,7 +57,17 @@ export function assertExactStructure<S extends SchemaObject>(
     const value = castObj[key];
 
     if (typeof rule === 'function') {
-      if (!rule(value)) errors.push(`"${key}" failed type/length validation`);
+      // Enhanced: Use diagnose for registered guards to get detailed error messages
+      const diagnosticErrors = diagnose(rule, value, key);
+      if (diagnosticErrors.length > 0) {
+        // diagnose returns errors with full path, extract just the messages
+        errors.push(
+          ...diagnosticErrors.map((err) => {
+            // Remove the path prefix since we're already in context
+            return err.replace(new RegExp(`^${key}:\\s*`), `"${key}" `);
+          })
+        );
+      }
     } else if (typeof rule === 'object' && rule !== null) {
       try {
         assertExactStructure(value, rule, key);

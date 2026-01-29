@@ -15,20 +15,22 @@ export type AccumulatorRange<
   Max extends number,
   Elem,
   Acc extends Elem[] = [],
-  Result = never
+  Result = never,
 > = Acc['length'] extends Max
   ? Result | Acc
   : Acc['length'] extends number
     ? number extends Acc['length']
       ? never
-      : (Min extends 0
+      : Min extends 0
+        ? AccumulatorRange<Min, Max, Elem, [...Acc, Elem], Result | Acc>
+        : Acc['length'] extends Min
           ? AccumulatorRange<Min, Max, Elem, [...Acc, Elem], Result | Acc>
-          : Acc['length'] extends Min
-            ? AccumulatorRange<Min, Max, Elem, [...Acc, Elem], Result | Acc>
-            : Result extends never
-              ? AccumulatorRange<Min, Max, Elem, [...Acc, Elem], never>
-              : AccumulatorRange<Min, Max, Elem, [...Acc, Elem], Result | Acc>)
+          : Result extends never
+            ? AccumulatorRange<Min, Max, Elem, [...Acc, Elem], never>
+            : AccumulatorRange<Min, Max, Elem, [...Acc, Elem], Result | Acc>
     : never;
 
 /** Extract length from tuple type (distributes over unions) */
-export type ExtractLength<T> = T extends readonly unknown[] ? T['length'] : never;
+export type ExtractLength<T> = T extends readonly unknown[]
+  ? T['length']
+  : never;

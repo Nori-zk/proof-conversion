@@ -1,5 +1,10 @@
-import type { O1jsVK, O1jsProof } from "pairing-utils/pkg/pairing_utils.js";
-import { isAffinePoint2d, isComplexAffinePoint2d, isField12, isString } from "../guards.js";
+import type { O1jsVK, O1jsProof } from 'pairing-utils/pkg/pairing_utils.js';
+import { isString } from '../guards/primitives.js';
+import {
+  isAffinePoint2d,
+  isComplexAffinePoint2d,
+  isField12,
+} from '../guards/crypto.js';
 
 // Types ======================================================================================
 
