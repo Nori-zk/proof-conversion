@@ -188,8 +188,10 @@ impl TryFrom<&SP1ProofWithPublicValues> for O1jsProof {
     /// - gnark decompression fails
     fn try_from(sp1: &SP1ProofWithPublicValues) -> Result<Self, Self::Error> {
         // Get the Groth16 proof
-        let groth16_proof = sp1.proof.try_as_groth_16()
-            .ok_or("O1jsProof <- SP1ProofWithPublicValues: proof is not Groth16 variant")?;
+        let groth16_proof = match &sp1.proof {
+            crate::sp1::SP1Proof::Groth16(proof) => proof,
+            _ => return Err("O1jsProof <- SP1ProofWithPublicValues: proof is not Groth16 variant".to_string()),
+        };
 
         // Get proof bytes (this hex-decodes encoded_proof and prepends vkey hash)
         let proof_bytes = sp1.bytes();
@@ -204,6 +206,7 @@ impl TryFrom<&SP1ProofWithPublicValues> for O1jsProof {
         // Convert to o1js format
         let public_inputs: Vec<String> = groth16_proof.public_inputs.to_vec();
         (&ark_proof, &public_inputs[..]).try_into()
+            .map_err(|e: String| format!("O1jsProof <- SP1ProofWithPublicValues: ark_proof conversion: {}", e))
     }
 }
 
@@ -396,8 +399,10 @@ impl TryFrom<(&SnarkjsVK, &SnarkjsProof, &[String])> for O1jsGroth16 {
         // Validate vk against public inputs
         snarkjs_vk.validate(public_inputs.len())?;
         // Convert proof and vk format
-        let proof: O1jsProof = (snarkjs_proof, public_inputs).try_into()?;
-        let vk: O1jsVK = snarkjs_vk.try_into()?;
+        let proof: O1jsProof = (snarkjs_proof, public_inputs).try_into()
+            .map_err(|e: String| format!("O1jsGroth16 <- SnarkjsVK/SnarkjsProof: proof: {}", e))?;
+        let vk: O1jsVK = snarkjs_vk.try_into()
+            .map_err(|e: String| format!("O1jsGroth16 <- SnarkjsVK/SnarkjsProof: vk: {}", e))?;
         Ok(O1jsGroth16 { proof, vk })
     }
 }
@@ -417,12 +422,14 @@ impl TryFrom<&SP1ProofWithPublicValues> for O1jsGroth16 {
     /// - The proof is empty (mock proof)
     /// - gnark decompression fails
     fn try_from(sp1: &SP1ProofWithPublicValues) -> Result<Self, Self::Error> {
-        let proof: O1jsProof = sp1.try_into()?;
+        let proof: O1jsProof = sp1.try_into()
+            .map_err(|e: String| format!("O1jsGroth16 <- SP1ProofWithPublicValues: proof: {}", e))?;
 
         // Load the embedded SP1 v5.0.0 VK and convert to o1js format
         let ark_vk = load_ark_groth16_verifying_key_from_bytes(GROTH16_VK_5_0_0_BYTES)
             .map_err(|e| format!("O1jsGroth16 <- SP1ProofWithPublicValues: failed to load SP1 v5.0.0 VK: {}", e))?;
-        let vk: O1jsVK = (&ark_vk).try_into()?;
+        let vk: O1jsVK = (&ark_vk).try_into()
+            .map_err(|e: String| format!("O1jsGroth16 <- SP1ProofWithPublicValues: vk: {}", e))?;
 
         Ok(O1jsGroth16 { proof, vk })
     }

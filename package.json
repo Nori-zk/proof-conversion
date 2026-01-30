@@ -24,6 +24,9 @@
     "./min": {
       "import": "./build/src/index.min.js"
     },
+    "./validation": {
+      "import": "./build/src/api/validation/index.js"
+    },
     "./compute/plan": {
       "import": "./build/src/compute/plan.js"
     },

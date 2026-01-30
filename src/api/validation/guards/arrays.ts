@@ -53,7 +53,11 @@ export const isArray = <T>(inner: ValidatorFn<T>): ValidatorFn<T[]> =>
 // FIXED LENGTH ARRAY
 // ============================================================================
 
+/**
+ * Constraint metadata for fixed-length array validation.
+ */
 export interface FixedLengthConstraint {
+  /** The exact required length of the array */
   length: number;
 }
 
@@ -78,7 +82,7 @@ export const isArrayOfLength = <T, N extends number>(
     {
       inner: inner as ValidatorFn<unknown>,
       constraint: { length: len },
-      printType: (c) => `[${c.length}]`,
+      printConstraint: (c) => `[${c.length}]`,
       printDiagnosis: (c, val) => {
         if (!Array.isArray(val)) return `got ${typeof val}`;
         return `got array of length ${val.length}, expected exactly ${c.length}`;
@@ -90,8 +94,14 @@ export const isArrayOfLength = <T, N extends number>(
 // BOUNDED LENGTH ARRAY
 // ============================================================================
 
+/**
+ * Constraint metadata for bounded-length array validation.
+ * At least one of minLength or maxLength should be specified for meaningful bounds.
+ */
 export interface ArrayConstraints {
+  /** Minimum allowed array length (inclusive) */
   minLength?: number;
+  /** Maximum allowed array length (inclusive) */
   maxLength?: number;
 }
 
@@ -129,7 +139,7 @@ export const isArrayOfBoundedLength = <
     {
       inner: inner as ValidatorFn<unknown>,
       constraint: options,
-      printType: (c) => `[${c.minLength ?? 0}..${c.maxLength ?? '∞'}]`,
+      printConstraint: (c) => `[${c.minLength ?? 0}..${c.maxLength ?? '∞'}]`,
       printDiagnosis: (c, val) => {
         if (!Array.isArray(val)) return `got ${typeof val}`;
         const len = val.length;
@@ -146,16 +156,46 @@ export const isArrayOfBoundedLength = <
 // HELPER GUARDS - Common array combinations for convenience
 // ============================================================================
 
-/** Validates variable-length array of numbers */
+/**
+ * Type guard validator for variable-length arrays of numbers.
+ * Returns a ValidatorFn that narrows the type to `number[]` on success.
+ *
+ * @returns ValidatorFn<number[]> - Validator function with type predicate
+ */
 export const isNumberArray = isArray(isNumber);
 
-/** Validates variable-length array of strings */
+/**
+ * Type guard validator for variable-length arrays of strings.
+ * Returns a ValidatorFn that narrows the type to `string[]` on success.
+ *
+ * @returns ValidatorFn<string[]> - Validator function with type predicate
+ */
 export const isStringArray = isArray(isString);
 
-/** Validates fixed-length array of strings */
+/**
+ * Factory function that creates a type guard validator for fixed-length string arrays.
+ * Returns a ValidatorFn that narrows the type to a tuple of strings with exact length.
+ *
+ * @param len - The exact required length
+ * @returns ValidatorFn<[string, string, ...]> - Validator function with tuple type predicate
+ *
+ * @example
+ * const isTriplet = isStringArrayOfLength(3);
+ * // Returns: (val: unknown) => val is [string, string, string]
+ */
 export const isStringArrayOfLength = <N extends number>(len: N) =>
   isArrayOfLength(isString, len);
 
-/** Validates fixed-length array of uint8 values (0-255) */
+/**
+ * Factory function that creates a type guard validator for fixed-length uint8 arrays.
+ * Returns a ValidatorFn that narrows the type to a tuple of numbers (0-255) with exact length.
+ *
+ * @param len - The exact required length
+ * @returns ValidatorFn<[number, number, ...]> - Validator function with tuple type predicate
+ *
+ * @example
+ * const isRGBTriple = isUint8Array(3);
+ * // Returns: (val: unknown) => val is [number, number, number]
+ */
 export const isUint8Array = <N extends number>(len: N) =>
   isArrayOfLength(isUint8, len);

@@ -1,9 +1,9 @@
 import { Logger } from 'esm-iso-logger';
-import { ApiMethod } from '../methodDecorator.js';
+import { ApiMethod } from '../ApiMethod.js';
 import {
   sp1PlonkInputSchema,
   type SP1ProofWithPublicValuesPlonkNoTee,
-} from '../validation/sp1/schema.js';
+} from './schema.js';
 import { Sp1PlonkComputationalPlan } from '../../compute/plans/sp1/plonk.js';
 
 const logger = new Logger('API');

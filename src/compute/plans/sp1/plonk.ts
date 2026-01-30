@@ -25,7 +25,7 @@ import {
 import type {
   Sp1PlonkInputTransformed,
   SP1ProofWithPublicValuesPlonkNoTee,
-} from '../../../api/validation/sp1/schema.js';
+} from '../../../api/sp1/schema.js';
 
 interface State extends PlatformFeatures, ConversionOutput {
   workingDirName: string;

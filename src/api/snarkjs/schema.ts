@@ -5,17 +5,11 @@ import {
 import {
   isArrayOfLength,
   isArrayOfBoundedLength,
-} from '../../validation/guards/arrays.js';
-
-import {
   isString,
   isBoundedNumberUnion,
-} from '../../validation/guards/primitives.js';
-
-import {
   isComplexProjectivePoint,
   isProjectivePoint,
-} from '../../validation/guards/crypto.js';
+} from '../validation/guards/index.js';
 
 // Types ===================================================================================
 
@@ -66,5 +60,4 @@ export const snarkjsGroth16InputSchema = {
 };
 
 // Keys for the ApiMethod helper - must match the keys in the schema - must be explicit tuples with 'as const' for proper type inference
-export const snarkjsGroth16ArgsKeys = ['proof', 'vk', 'publicInputs'] as const;
-export const snarkjsGroth16ObjKeys = ['proof', 'vk', 'publicInputs'] as const;
+export const snarkjsGroth16ArgKeys = ['proof', 'vk', 'publicInputs'] as const;

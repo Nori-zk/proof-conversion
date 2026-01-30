@@ -46,20 +46,40 @@ pub enum SP1Proof {
     Plonk(PlonkBn254Proof),
 }
 
-impl SP1Proof {
-    /// Returns the Groth16 proof if this is a Groth16 variant.
-    pub fn try_as_groth_16(&self) -> Option<&Groth16Bn254Proof> {
-        match self {
-            SP1Proof::Groth16(proof) => Some(proof),
-            _ => None,
+impl TryFrom<SP1Proof> for Groth16Bn254Proof {
+    type Error = &'static str;
+
+    /// Converts from `SP1Proof` to `Groth16Bn254Proof` by extracting the Groth16 variant.
+    ///
+    /// Consumes the `SP1Proof` enum and returns the inner `Groth16Bn254Proof`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The `SP1Proof` is not the Groth16 variant
+    fn try_from(proof: SP1Proof) -> Result<Self, Self::Error> {
+        match proof {
+            SP1Proof::Groth16(groth16) => Ok(groth16),
+            _ => Err("SP1Proof is not a Groth16 variant"),
         }
     }
+}
 
-    /// Returns the Plonk proof if this is a Plonk variant.
-    pub fn try_as_plonk(&self) -> Option<&PlonkBn254Proof> {
-        match self {
-            SP1Proof::Plonk(proof) => Some(proof),
-            _ => None,
+impl TryFrom<SP1Proof> for PlonkBn254Proof {
+    type Error = &'static str;
+
+    /// Converts from `SP1Proof` to `PlonkBn254Proof` by extracting the Plonk variant.
+    ///
+    /// Consumes the `SP1Proof` enum and returns the inner `PlonkBn254Proof`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The `SP1Proof` is not the Plonk variant
+    fn try_from(proof: SP1Proof) -> Result<Self, Self::Error> {
+        match proof {
+            SP1Proof::Plonk(plonk) => Ok(plonk),
+            _ => Err("SP1Proof is not a Plonk variant"),
         }
     }
 }

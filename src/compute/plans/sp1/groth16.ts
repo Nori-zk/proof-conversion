@@ -22,7 +22,7 @@ import {
   VkDataOutput,
 } from '../../types.js';
 
-import type { SP1ProofWithPublicValuesGroth16NoTee } from '../../../api/validation/sp1/schema.js'; // FIXME
+import type { SP1ProofWithPublicValuesGroth16NoTee } from '../../../api/sp1/schema.js'; // FIXME
 import {
   computeAuxWitness,
   convertSp1Groth16ToO1js,

@@ -1,5 +1,5 @@
 import { compute_pairing as computePairing } from '@nori-zk/proof-conversion-utils';
-import { Risc0Groth16Vk, Risc0Groth16PairedVk } from 'src/api/validation/risc0/schema.js';
+import { Risc0Groth16Vk, Risc0Groth16PairedVk } from 'src/api/risc0/schema.js';
 
 export { 
   compute_aux_witness as computeAuxWitness,

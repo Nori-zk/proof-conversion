@@ -11,8 +11,8 @@ import {
   isNumberArray,
   isStringArrayOfLength,
   isUint8Array,
-} from '../../validation/guards/arrays.js';
-import { isString } from '../../validation/guards/primitives.js';
+  isString,
+} from '../validation/guards/index.js';
 
 // Types ===================================================================================
 
@@ -26,14 +26,14 @@ export type Sp1Groth16Vk = O1jsVK;
 // Must include pi1 as the first public input (pi1), all the rest are optional up to pi6  (maximum of 6 in total)
 export type Sp1Groth16Proof = O1jsProof;
 
+// Transformed Plonk computational plan input
 export type Sp1PlonkInputTransformed = {
   hexPi: string;
   programVK: string;
   encodedProof: string;
 };
 
-// TODO Plonk
-
+// SP1ProofWithPublicValue Groth16 type
 export type SP1ProofWithPublicValuesGroth16NoTee = Omit<
   SP1ProofWithPublicValues,
   'proof' | 'tee_proof'
@@ -42,6 +42,7 @@ export type SP1ProofWithPublicValuesGroth16NoTee = Omit<
   tee_proof: null;
 };
 
+// SP1ProofWithPublicValue Plonk type
 export type SP1ProofWithPublicValuesPlonkNoTee = Omit<
   SP1ProofWithPublicValues,
   'proof' | 'tee_proof'
@@ -70,14 +71,14 @@ export const sp1PlonkInputSchema = {
   proof: { Plonk: plonkProofSchema },
   public_values: { buffer: { data: isNumberArray } },
   sp1_version: isString,
-  tee_proof: null, // Explicitly must be null
+  tee_proof: null, // Explicitly must be null - no TEE support for now
 };
 
 export const sp1Groth16InputSchema = {
   proof: { Groth16: groth16ProofSchema },
   public_values: { buffer: { data: isNumberArray } },
   sp1_version: isString,
-  tee_proof: null, // Explicitly must be null
+  tee_proof: null, // Explicitly must be null - no TEE support for now
 };
 
 // Keys for the ApiMethod helper

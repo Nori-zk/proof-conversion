@@ -22,7 +22,7 @@ import {
   VkDataOutput,
 } from '../../types.js';
 
-import type { Risc0Groth16Input } from '../../../api/validation/risc0/schema.js';
+import type { Risc0Groth16Input } from '../../../api/risc0/schema.js';
 import {
   computeAuxWitness,
   computeRisc0Groth16Pairing,

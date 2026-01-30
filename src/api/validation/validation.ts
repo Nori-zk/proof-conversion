@@ -1,34 +1,46 @@
-import { ProofInputValidationError } from './ProofInputValidationError.js';
-import { diagnose, type ValidatorFn } from './guards/core.js';
-
-// ============================================================================
-// SCHEMA TYPES
-// ============================================================================
-
-export type { ValidatorFn };
-
-export interface SchemaObject {
-  [key: string]: SchemaNode;
-}
-
-export type SchemaNode =
-  | string
-  | number
-  | boolean
-  | null
-  | ValidatorFn
-  | SchemaObject;
-
-type InferSchemaType<S> = S extends (val: unknown) => val is infer T
-  ? T
-  : S extends object
-    ? { [K in keyof S]: InferSchemaType<S[K]> }
-    : S;
+import { ValidationError } from './ValidationError.js';
+import {
+  diagnose,
+  type SchemaNode,
+  type SchemaObject,
+  type InferSchemaType,
+} from './guards/index.js';
 
 // ============================================================================
 // ASSERT EXACT STRUCTURE - With diagnose for error messages
 // ============================================================================
 
+/**
+ * Validates that an object exactly matches a schema definition.
+ * Uses TypeScript assertion signature to narrow the type on success.
+ *
+ * This function:
+ * 1. Checks that the value is an object (not array, null, or primitive)
+ * 2. Validates all required keys are present
+ * 3. Validates all values match their schema rules (validators or literals)
+ * 4. Rejects any unexpected extra keys
+ * 5. Recursively validates nested objects
+ *
+ * For validator functions (ValidatorFn), uses the diagnose function to provide
+ * detailed path-aware error messages. For literal values, checks exact equality.
+ *
+ * @template S - The schema object type
+ * @param obj - The value to validate
+ * @param schema - The schema definition (object with validators, literals, or nested schemas)
+ * @param context - Human-readable context for error messages (e.g., "Groth16 proof")
+ * @param pathPrefix - Internal parameter for recursive path tracking
+ * @throws {ValidationError} If validation fails, with detailed error messages
+ *
+ * @example
+ * const schema = {
+ *   name: isString,
+ *   age: isNumber,
+ *   role: "admin" // literal value
+ * };
+ *
+ * assertExactStructure(data, schema, "User");
+ * // After this line, data is narrowed to: { name: string; age: number; role: "admin" }
+ */
 export function assertExactStructure<S extends SchemaObject>(
   obj: unknown,
   schema: S,
@@ -39,7 +51,7 @@ export function assertExactStructure<S extends SchemaObject>(
 
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
     const path = pathPrefix || 'root';
-    throw new ProofInputValidationError(`${path}: must be an object`);
+    throw new ValidationError(`${path}: must be an object`);
   }
 
   const castObj = obj as Record<string, unknown>;
@@ -72,7 +84,7 @@ export function assertExactStructure<S extends SchemaObject>(
       try {
         assertExactStructure(value, rule, context, currentPath);
       } catch (e: unknown) {
-        if (e instanceof ProofInputValidationError) {
+        if (e instanceof ValidationError) {
           // Extract error lines (skip the context header line)
           const lines = e.message.split('\n');
           const errorLines = lines.filter(line => line.trim() && !line.includes('validation failed:'));
@@ -97,7 +109,7 @@ export function assertExactStructure<S extends SchemaObject>(
   }
 
   if (errors.length > 0) {
-    throw new ProofInputValidationError(
+    throw new ValidationError(
       `${context} validation failed:\n${errors.join('\n')}`
     );
   }

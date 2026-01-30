@@ -22,7 +22,7 @@ import {
   VkDataOutput,
 } from '../../types.js';
 
-import { SnarkjsGroth16Input } from '../../../api/validation/snarkjs/schema.js';
+import { SnarkjsGroth16Input } from '../../../api/snarkjs/schema.js';
 import {
   computeAuxWitness,
   convertSnarkjsGroth16ToO1js,

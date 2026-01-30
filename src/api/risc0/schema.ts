@@ -1,10 +1,10 @@
 import type { O1jsVK, O1jsProof } from 'pairing-utils/pkg/pairing_utils.js';
-import { isString } from '../guards/primitives.js';
 import {
+  isString,
   isAffinePoint2d,
   isComplexAffinePoint2d,
   isField12,
-} from '../guards/crypto.js';
+} from '../validation/guards/index.js';
 
 // Types ======================================================================================
 
@@ -54,5 +54,4 @@ export const risc0Groth16ObjInputSchema = {
 };
 
 // Keys for the ApiMethod helper - must match the keys in the schema - must be explicit tuples with 'as const' for proper type inference
-export const risc0Groth16ArgsKeys = ['risc0_proof', 'raw_vk'] as const;
-export const risc0Groth16ObjKeys = ['risc0_proof', 'raw_vk'] as const;
+export const risc0Groth16ArgKeys = ['risc0_proof', 'raw_vk'] as const;

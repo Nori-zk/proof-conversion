@@ -1,7 +1,31 @@
 import { ComputationalPlanExecutor } from '../compute/executor.js';
-import { SchemaNode } from './validation/validation.js';
+import { SchemaNode } from './validation/guards/index.js';
 
-// Overload for supportsArgs = true
+/**
+ * Overload 1: ApiMethod with positional argument support (supportsArgs = true).
+ *
+ * Returns a decorator that adds a `fromArgs` function for converting ordered arguments into the input object.
+ *
+ * @param schema - Validation schema defining expected input structure
+ * @param supportsArgs - Must be true for this overload
+ * @param keys - Ordered array of input keys (must match schema keys in same order)
+ * @returns Decorator that enhances API methods with schema and fromArgs converter
+ *
+ * @example
+ * const decorator = ApiMethod(
+ *   { proof: isProof, vk: isVK, publicInputs: isInputs },
+ *   true,
+ *   ['proof', 'vk', 'publicInputs'] as const
+ * );
+ *
+ * const convert = decorator(async (executor, input) => {
+ *   return { result: input.proof };
+ * });
+ *
+ * // Convert positional args to input object
+ * const input = convert.fromArgs(proofData, vkData, inputsData);
+ * await convert(executor, input);
+ */
 export function ApiMethod<
   TInput,
   Schema extends { [K in keyof TInput]: SchemaNode },
@@ -17,7 +41,30 @@ export function ApiMethod<
   schema: Schema;
 };
 
-// Overload for supportsArgs = false
+/**
+ * Overload 2: ApiMethod without argument support (supportsArgs = false).
+ *
+ * Returns a decorator that only attaches the schema, with fromArgs set to false.
+ *
+ * @param schema - Validation schema defining expected input structure
+ * @param supportsArgs - Must be false for this overload
+ * @param keys - Unused (should be undefined)
+ * @returns Decorator that enhances API methods with schema only
+ *
+ * @example
+ * const decorator = ApiMethod(
+ *   { config: isConfig, options: isOptions },
+ *   false
+ * );
+ *
+ * const process = decorator(async (executor, input) => {
+ *   return { result: input.config };
+ * });
+ *
+ * // Must use object form, no fromArgs
+ * await process(executor, { config: configData, options: optionsData });
+ * console.log(process.fromArgs); // false
+ */
 export function ApiMethod<TInput, Schema extends { [K in keyof TInput]: SchemaNode }>(
   schema: Schema,
   supportsArgs: false,
@@ -29,7 +76,22 @@ export function ApiMethod<TInput, Schema extends { [K in keyof TInput]: SchemaNo
   schema: Schema;
 };
 
-// Implementation
+/**
+ * Implementation of ApiMethod that handles both overloads.
+ *
+ * Performs runtime validation when supportsArgs is true to ensure:
+ * 1. keys parameter is provided
+ * 2. keys array length matches schema keys length
+ * 3. keys array elements match schema keys in the same order
+ *
+ * Creates a fromArgs function (when supportsArgs is true) that:
+ * - Takes positional arguments in the order specified by keys
+ * - Converts them to the typed input object
+ * - Throws if any argument is undefined
+ * - Includes a `keys` property with the key order
+ *
+ * @internal
+ */
 export function ApiMethod<
   TInput,
   Schema extends { [K in keyof TInput]: SchemaNode },

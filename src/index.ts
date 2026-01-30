@@ -5,7 +5,7 @@
 // Types
 
 export type * from './compute/types.js';
-export type { Sp1Input as Sp1 } from './api/validation/sp1/schema.js';
+export type { Sp1Input as Sp1 } from './api/sp1/schema.js';
 
 // Utilities
 

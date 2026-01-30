@@ -1,9 +1,9 @@
 import { Logger } from 'esm-iso-logger';
-import { ApiMethod } from '../methodDecorator.js';
+import { ApiMethod } from '../ApiMethod.js';
 import {
   type SP1ProofWithPublicValuesGroth16NoTee,
   sp1Groth16InputSchema,
-} from '../validation/sp1/schema.js';
+} from './schema.js';
 import { Sp1Groth16ComputationalPlan } from '../../compute/plans/sp1/groth16.js';
 
 const logger = new Logger('API');

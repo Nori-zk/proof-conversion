@@ -30,7 +30,14 @@ export type AccumulatorRange<
             : AccumulatorRange<Min, Max, Elem, [...Acc, Elem], Result | Acc>
     : never;
 
-/** Extract length from tuple type (distributes over unions) */
+/**
+ * Helper type that extracts the length property from tuple types.
+ * Distributes over unions to extract each tuple's length.
+ *
+ * @example
+ * ExtractLength<[string, string]> = 2
+ * ExtractLength<[string] | [string, string]> = 1 | 2
+ */
 export type ExtractLength<T> = T extends readonly unknown[]
   ? T['length']
   : never;

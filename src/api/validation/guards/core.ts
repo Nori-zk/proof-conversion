@@ -2,31 +2,73 @@
 // CORE TYPES & REGISTRY
 // ============================================================================
 
+/**
+ * Type predicate function that validates a value and narrows its type.
+ *
+ * Returns true if the value matches type T, allowing TypeScript to narrow
+ * the type in the calling scope. This is the foundation for all type guard validators.
+ *
+ * @template T - The type to validate and narrow to
+ * @param val - The value to validate
+ * @returns Type predicate indicating whether val is of type T
+ *
+ * @example
+ * const isString: ValidatorFn<string> = (val): val is string => typeof val === 'string';
+ * if (isString(value)) {
+ *   // value is narrowed to type: string
+ * }
+ */
 export type ValidatorFn<T = unknown> = (val: unknown) => val is T;
 
-// Constraint-based metadata with optional constraint data
+/**
+ * Metadata associated with a registered type guard validator.
+ * Includes validator name, optional inner validators for composite types,
+ * and optional constraint data for bounded types.
+ *
+ * @template Options - The constraint type (never if no constraints)
+ */
 export type GuardMeta<Options = never> = {
+  /** Display name of the validator (without "is" prefix) */
   name: string;
+  /** Optional inner validator for composite types (arrays, objects) */
   inner?: ValidatorFn<unknown>;
 } & ([Options] extends [never]
-  ? { constraint?: never; printType?: never; printDiagnosis?: never }
+  ? { constraint?: never; printConstraint?: never; printDiagnosis?: never }
   : {
+      /** Constraint data (e.g., min/max bounds) */
       constraint: Options;
-      printType: (data: Options) => string;
+      /** Function to format constraint for display */
+      printConstraint: (data: Options) => string;
+      /** Function to generate diagnostic message for failed validation */
       printDiagnosis: (data: Options, val: unknown) => string;
     });
 
-// Internal storage type that can hold both constrained and unconstrained metadata
+/**
+ * Internal storage type that can hold both constrained and unconstrained metadata.
+ * Used by the guard registry to store metadata for all registered validators.
+ */
 type GuardMetaStorage = {
   name: string;
   inner?: ValidatorFn<unknown>;
   constraint?: unknown;
-  printType?: (data: unknown) => string;
+  printConstraint?: (data: unknown) => string;
   printDiagnosis?: (data: unknown, val: unknown) => string;
 };
 
+/**
+ * Global registry mapping validator functions to their metadata.
+ * Used by diagnostic and display functions to provide detailed error messages.
+ */
 const GUARD_REGISTRY = new Map<ValidatorFn<unknown>, GuardMetaStorage>();
 
+/**
+ * Retrieves metadata for a registered validator function.
+ *
+ * @template T - The validator's return type
+ * @template O - The constraint type (defaults to never)
+ * @param fn - The validator function to look up
+ * @returns The validator's metadata, or undefined if not registered
+ */
 export const getMeta = <T, O = never>(
   fn: ValidatorFn<T>
 ): GuardMeta<O> | undefined =>
@@ -36,7 +78,27 @@ export const getMeta = <T, O = never>(
 // GUARD - Overloads for with/without constraints
 // ============================================================================
 
-// Overload 1: No constraints (primitives and objects)
+/**
+ * Registers a type guard validator function with metadata for diagnostic purposes.
+ * This is the foundation for creating all type guard validators in the system.
+ *
+ * Two overloads:
+ * 1. Simple guards (no constraints) - for primitives and simple structural types
+ * 2. Constrained guards - for bounded types with validation constraints
+ *
+ * The function must be named (not anonymous) so the name can be extracted for diagnostics.
+ *
+ * @template T - The type the guard validates
+ * @param fn - The validator function with type predicate
+ * @param meta - Optional metadata (name, inner validators)
+ * @returns The same validator function, now registered in the guard registry
+ *
+ * @example
+ * // Simple guard
+ * const isString = guard(function isString(val: unknown): val is string {
+ *   return typeof val === 'string';
+ * });
+ */
 export function guard<T>(
   fn: ValidatorFn<T>,
   meta?: {
@@ -45,14 +107,35 @@ export function guard<T>(
   }
 ): ValidatorFn<T>;
 
-// Overload 2: With constraints (bounded types)
+/**
+ * Registers a constrained type guard validator with diagnostic metadata.
+ *
+ * @template T - The type the guard validates
+ * @template Options - The constraint type
+ * @param fn - The validator function with type predicate
+ * @param meta - Metadata including constraint, display, and diagnostic functions
+ * @returns The same validator function, now registered in the guard registry
+ *
+ * @example
+ * // Constrained guard
+ * const isBounded = guard<number, { min: number }>(
+ *   function isBounded(val: unknown): val is number {
+ *     return typeof val === 'number' && val >= 0;
+ *   },
+ *   {
+ *     constraint: { min: 0 },
+ *     printConstraint: (c) => `(>=${c.min})`,
+ *     printDiagnosis: (c, val) => `got ${val}, expected >= ${c.min}`
+ *   }
+ * );
+ */
 export function guard<T, Options>(
   fn: ValidatorFn<T>,
   meta: {
     name?: string;
     inner?: ValidatorFn<unknown>;
     constraint: Options;
-    printType: (data: Options) => string;
+    printConstraint: (data: Options) => string;
     printDiagnosis: (data: Options, val: unknown) => string;
   }
 ): ValidatorFn<T>;
@@ -64,7 +147,7 @@ export function guard<T, Options = never>(
     name?: string;
     inner?: ValidatorFn<unknown>;
     constraint?: Options;
-    printType?: (data: Options) => string;
+    printConstraint?: (data: Options) => string;
     printDiagnosis?: (data: Options, val: unknown) => string;
   }
 ): ValidatorFn<T> {
@@ -82,7 +165,7 @@ export function guard<T, Options = never>(
 
   if (meta?.constraint !== undefined) {
     entry.constraint = meta.constraint as unknown;
-    entry.printType = meta.printType as (data: unknown) => string;
+    entry.printConstraint = meta.printConstraint as (data: unknown) => string;
     entry.printDiagnosis = meta.printDiagnosis as (
       data: unknown,
       val: unknown
@@ -97,13 +180,26 @@ export function guard<T, Options = never>(
 // TYPE DISPLAY
 // ============================================================================
 
+/**
+ * Generates a human-readable type name for a validator function.
+ * Includes constraints and nested types in the output.
+ *
+ * @template T - The validator's return type
+ * @param fn - The validator function
+ * @returns A formatted string representing the full type (e.g., "Array<String>", "Number(0..255)")
+ *
+ * @example
+ * getFullTypeName(isString) // "String"
+ * getFullTypeName(isUint8) // "Number(0..255)"
+ * getFullTypeName(isStringArray) // "Array<String>"
+ */
 export const getFullTypeName = <T>(fn: ValidatorFn<T>): string => {
   const meta = getMeta<T, unknown>(fn);
   if (!meta) return 'unknown';
 
   let display = meta.name;
-  if (meta.printType && meta.constraint !== undefined) {
-    display += meta.printType(meta.constraint);
+  if (meta.printConstraint && meta.constraint !== undefined) {
+    display += meta.printConstraint(meta.constraint);
   }
   if (meta.inner) {
     display += `<${getFullTypeName(meta.inner)}>`;
@@ -115,6 +211,21 @@ export const getFullTypeName = <T>(fn: ValidatorFn<T>): string => {
 // IDENTIFICATION - Scans registry to identify value type
 // ============================================================================
 
+/**
+ * Identifies the runtime type of a value using registered validators.
+ * Returns a human-readable string describing the value's type structure.
+ *
+ * For primitives, tries to match against registered validators.
+ * For arrays and objects, recursively identifies nested structure.
+ *
+ * @param val - The value to identify
+ * @returns A string describing the value's type (e.g., "string", "[number, string]", "{x: string, y: number}")
+ *
+ * @example
+ * identify("hello") // "string"
+ * identify([1, 2, 3]) // "[number, number, number]"
+ * identify({ x: "a", y: 5 }) // "{x: string, y: number}"
+ */
 export const identify = (val: unknown): string => {
   // Try to identify using registered validators (primitives only, no constraints)
   for (const [validator, meta] of GUARD_REGISTRY) {
@@ -154,6 +265,10 @@ export const identify = (val: unknown): string => {
 // DESCRIBE SCHEMA - Recursively describe expected schema structure
 // ============================================================================
 
+/**
+ * Schema definition node - can be a literal, validator, or nested object.
+ * Used to define expected structure for validation.
+ */
 export type SchemaNode =
   | string
   | number
@@ -162,6 +277,36 @@ export type SchemaNode =
   | ValidatorFn
   | { [key: string]: SchemaNode };
 
+/**
+ * Schema definition for object validation.
+ * Maps property names to their expected types (validators, literals, or nested objects).
+ * This is the object-specific variant of SchemaNode.
+ */
+export interface SchemaObject {
+  [key: string]: SchemaNode;
+}
+
+/**
+ * Infers the TypeScript type from a schema definition.
+ * Recursively extracts types from validators and nested objects.
+ *
+ * @template S - The schema to infer from
+ * @returns The inferred TypeScript type
+ *
+ * @example
+ * const schema = { name: isString, age: isNumber };
+ * type Person = InferSchemaType<typeof schema>; // { name: string; age: number }
+ */
+export type InferSchemaType<S> = S extends (val: unknown) => val is infer T
+  ? T
+  : S extends object
+    ? { [K in keyof S]: InferSchemaType<S[K]> }
+    : S;
+
+/**
+ * Human-readable schema description - the output of describeSchema.
+ * Mirrors SchemaNode structure but with validators converted to type names.
+ */
 export type SchemaDescription =
   | string
   | number
@@ -169,6 +314,20 @@ export type SchemaDescription =
   | null
   | { [key: string]: SchemaDescription };
 
+/**
+ * Recursively converts a schema definition into a human-readable description.
+ * Replaces validator functions with their type names while preserving structure.
+ *
+ * @param schema - The schema definition to describe
+ * @returns A human-readable description of the schema structure
+ *
+ * @example
+ * describeSchema({ x: isString, y: isNumber })
+ * // Returns: { x: "String", y: "Number" }
+ *
+ * describeSchema({ items: isStringArray })
+ * // Returns: { items: "Array<String>" }
+ */
 export const describeSchema = (schema: SchemaNode): SchemaDescription => {
   // Literal primitives
   if (typeof schema === 'string') return schema;
@@ -197,6 +356,32 @@ export const describeSchema = (schema: SchemaNode): SchemaDescription => {
 // DIAGNOSE - Recursive with bespoke diagnostics and preserved path
 // ============================================================================
 
+/**
+ * Recursively validates a value and collects detailed error messages.
+ * Provides path-aware diagnostics showing exactly where and why validation failed.
+ *
+ * The function:
+ * 1. Validates the value using the provided validator
+ * 2. If validation fails, adds a detailed error message with path
+ * 3. If validation passes but the type has inner validators (array/object elements),
+ *    recursively validates nested values
+ * 4. Returns all collected errors with proper indentation and context
+ *
+ * @template T - The expected type
+ * @param fn - The validator function to use
+ * @param val - The value to validate
+ * @param path - The current path for error reporting (default: "value")
+ * @param errors - Accumulated error messages (internal use)
+ * @returns Array of error messages (empty if validation succeeds)
+ *
+ * @example
+ * const validator = isArrayOfLength(isUint8, 3);
+ * const errors = diagnose(validator, [1, 2, 300]);
+ * // Returns: [
+ * //   "value should have type Array[3]<Number(0..255)>",
+ * //   "  value[2]: expected Number(0..255), got 300 which exceeds maximum 255"
+ * // ]
+ */
 export const diagnose = <T>(
   fn: ValidatorFn<T>,
   val: unknown,
