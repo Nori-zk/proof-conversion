@@ -430,8 +430,9 @@ program
             );
 
           for (const errorLine of errorLines) {
-            // Extract the top-level key from the path (e.g., "proof" from "proof["protocol"]: ...")
-            const match = errorLine.match(/^(\w+)(?:\[|:)/);
+            // Extract the top-level key from the path
+            // Match patterns like: "key[...]", "key:", "key should have type"
+            const match = errorLine.match(/^\s*(\w+)(?:\[|:| )/);
             if (match) {
               const fileKey = match[1];
               if (!errorsByFile[fileKey]) {

@@ -223,6 +223,8 @@ export const diagnose = <T>(
 
   // Constraint passed - recurse into inner elements and collect all errors
   if (meta?.inner) {
+    const elementErrorsBefore = errors.length;
+
     if (Array.isArray(val)) {
       // Recurse into array elements
       for (let i = 0; i < val.length; i++) {
@@ -233,6 +235,20 @@ export const diagnose = <T>(
       for (const [key, value] of Object.entries(val)) {
         diagnose(meta.inner, value, `${path}.${key}`, errors);
       }
+    }
+
+    // If elements had errors, prepend parent type context and indent child errors
+    if (errors.length > elementErrorsBefore) {
+      // Indent all element errors
+      for (let i = elementErrorsBefore; i < errors.length; i++) {
+        errors[i] = `  ${errors[i]}`;
+      }
+      // Prepend parent type context
+      errors.splice(
+        elementErrorsBefore,
+        0,
+        `${path} should have type ${getFullTypeName(fn)}`
+      );
     }
   }
 
