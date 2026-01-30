@@ -56,7 +56,7 @@ export const snarkjsGroth16VKSchema = {
   IC: isConstrainedIC,
 };
 
-export const snarkjsGroth16PublicInputsSchema = isArrayOfLength(isString, 6);
+export const snarkjsGroth16PublicInputsSchema = isArrayOfBoundedLength(isString, {maxLength: 6});
 
 // Schema for obj form (proof + vk + publicInputs)
 export const snarkjsGroth16InputSchema = {

@@ -32,12 +32,14 @@ type InferSchemaType<S> = S extends (val: unknown) => val is infer T
 export function assertExactStructure<S extends SchemaObject>(
   obj: unknown,
   schema: S,
-  context: string
+  context: string,
+  pathPrefix: string = ''
 ): asserts obj is InferSchemaType<S> {
   const errors: string[] = [];
 
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
-    throw new ProofInputValidationError(`${context} must be an object.`);
+    const path = pathPrefix || 'root';
+    throw new ProofInputValidationError(`${path}: must be an object`);
   }
 
   const castObj = obj as Record<string, unknown>;
@@ -48,8 +50,11 @@ export function assertExactStructure<S extends SchemaObject>(
   const expectedKeys = Object.keys(castSchema);
 
   for (const key of expectedKeys) {
+    // Build path using bracket notation for consistency: root["key"]
+    const currentPath = pathPrefix ? `${pathPrefix}["${key}"]` : key;
+
     if (!(key in castObj)) {
-      errors.push(`missing required key: "${key}"`);
+      errors.push(`${currentPath}: missing required key`);
       continue;
     }
 
@@ -57,32 +62,28 @@ export function assertExactStructure<S extends SchemaObject>(
     const value = castObj[key];
 
     if (typeof rule === 'function') {
-      // Enhanced: Use diagnose for registered guards to get detailed error messages
-      const diagnosticErrors = diagnose(rule, value, key);
+      // Use diagnose for registered guards - it already provides full path with consistent notation
+      const diagnosticErrors = diagnose(rule, value, currentPath);
       if (diagnosticErrors.length > 0) {
-        // diagnose returns errors with full path, extract just the messages
-        errors.push(
-          ...diagnosticErrors.map((err) => {
-            // Remove the path prefix since we're already in context
-            return err.replace(new RegExp(`^${key}:\\s*`), `"${key}" `);
-          })
-        );
+        errors.push(...diagnosticErrors);
       }
     } else if (typeof rule === 'object' && rule !== null) {
+      // Recursively validate nested objects, passing down the path
       try {
-        assertExactStructure(value, rule, key);
+        assertExactStructure(value, rule, context, currentPath);
       } catch (e: unknown) {
         if (e instanceof ProofInputValidationError) {
-          errors.push(
-            e.message.replace(`${key} validation failed:\n- `, `in "${key}": `)
-          );
+          // Extract error lines (skip the context header line)
+          const lines = e.message.split('\n');
+          const errorLines = lines.filter(line => line.trim() && !line.includes('validation failed:'));
+          errors.push(...errorLines);
         }
       }
     } else {
       // Exact value comparison for primitives (string, number, boolean, null)
       if (value !== rule) {
         errors.push(
-          `"${key}" must be exactly ${JSON.stringify(rule)}, got ${JSON.stringify(value)}`
+          `${currentPath}: must be exactly ${JSON.stringify(rule)}, got ${JSON.stringify(value)}`
         );
       }
     }
@@ -90,13 +91,14 @@ export function assertExactStructure<S extends SchemaObject>(
 
   for (const key of actualKeys) {
     if (!(key in castSchema)) {
-      errors.push(`unexpected extra key: "${key}"`);
+      const currentPath = pathPrefix ? `${pathPrefix}["${key}"]` : key;
+      errors.push(`${currentPath}: unexpected extra key`);
     }
   }
 
   if (errors.length > 0) {
     throw new ProofInputValidationError(
-      `${context} validation failed:\n- ${errors.join('\n- ')}`
+      `${context} validation failed:\n${errors.join('\n')}`
     );
   }
 }
