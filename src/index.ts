@@ -1,14 +1,18 @@
-
-
 // Node.js dep free ===============================================================================
 
 // Types
 
+// Conversion output
 export type * from './compute/types.js';
-export type { Sp1Input as Sp1 } from './api/sp1/schema.js';
+
+// Proof input formats
+export type * from './api/risc0/schema.js';
+export type * from './api/snarkjs/schema.js';
+export type * from './api/sp1/schema.js';
 
 // Utilities
 
+export * from '@nori-zk/proof-conversion-utils';
 export { parsePublicInputsProvable as parsePlonkPublicInputsProvable } from './plonk/parse_pi.js';
 export { wordToBytes } from './sha/utils.js';
 export { NodeProofLeft } from './structs.js';

@@ -41,7 +41,7 @@ const proofVkCacheStructure: DirectoryStructure = {
 };
 
 const nodeCacheStructure: DirectoryStructure = range(4).map((i) => `node${i}`);
-// Sp1Input Sp1PlonkInputTransformed
+// SP1ProofWithPublicValues Sp1PlonkInputTransformed
 export class Sp1PlonkComputationalPlan implements ComputationPlan<
   State,
   ConversionOutput,

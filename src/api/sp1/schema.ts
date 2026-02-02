@@ -1,11 +1,9 @@
 import type {
-  SP1Proof,
-  SP1PublicValues,
-  SP1ProofWithPublicValues,
   O1jsVK,
   O1jsProof,
   Groth16Bn254Proof,
   PlonkBn254Proof,
+  SP1ProofWithPublicValues,
 } from '@nori-zk/proof-conversion-utils';
 import {
   isNumberArray,
@@ -15,11 +13,6 @@ import {
 } from '../validation/guards/index.js';
 
 // Types ===================================================================================
-
-// Re-exporting with the same naming to avoid a break in the api (FIXME we should just accept the change and move forward compare SP1 to Sp1)
-export type Sp1Proof = SP1Proof;
-export type Sp1PublicValues = SP1PublicValues;
-export type Sp1Input = SP1ProofWithPublicValues;
 
 // Must include the first ic (ic0), all the rest are optional up to ic6 (maximum of 7 in total)
 export type Sp1Groth16Vk = O1jsVK;
@@ -80,11 +73,3 @@ export const sp1Groth16InputSchema = {
   sp1_version: isString,
   tee_proof: null, // Explicitly must be null - no TEE support for now
 };
-
-// Keys for the ApiMethod helper
-export const sp1PlonkObjKeys = Object.keys(
-  sp1PlonkInputSchema
-) as (keyof Sp1Input)[];
-export const sp1Groth16ObjKeys = Object.keys(
-  sp1Groth16InputSchema
-) as (keyof Sp1Input)[];
