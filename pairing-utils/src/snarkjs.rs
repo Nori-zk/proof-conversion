@@ -145,7 +145,7 @@ mod tests {
         // Verify error message has proper context
         let err_msg = result.unwrap_err();
         assert!(
-            err_msg.contains("O1jsGroth16 <- SnarkjsVK/SnarkjsProof"),
+            err_msg.contains("O1jsGroth16 -> SnarkjsVK/SnarkjsProof"),
             "Error should include conversion context"
         );
     }
