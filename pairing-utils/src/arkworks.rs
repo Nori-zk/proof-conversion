@@ -12,7 +12,7 @@ use num_bigint::BigUint;
 use num_traits::Num;
 
 use crate::gnark::{load_ark_proof_from_bytes, load_ark_groth16_verifying_key_from_bytes, GROTH16_VK_5_0_0_BYTES};
-use crate::sp1::SP1ProofWithPublicValues;
+use crate::sp1::{SP1Proof, SP1ProofWithPublicValues};
 
 /// Groth16 proof and verification key in arkworks format.
 ///
@@ -109,9 +109,11 @@ impl TryFrom<&SP1ProofWithPublicValues> for ArkworksGroth16 {
     /// - The proof is empty (mock proof)
     /// - gnark decompression fails
     fn try_from(sp1: &SP1ProofWithPublicValues) -> Result<Self, Self::Error> {
-        // Extract Groth16 proof variant using TryFrom from sp1.rs
-        let groth16_proof: crate::sp1::Groth16Bn254Proof = sp1.proof.clone().try_into()
-            .map_err(|e| format!("ArkworksGroth16 <- SP1ProofWithPublicValues: {}", e))?;
+        // Extract Groth16 proof variant by direct matching (avoids clone)
+        let groth16_proof = match &sp1.proof {
+            SP1Proof::Groth16(proof) => proof,
+            _ => return Err("ArkworksGroth16 <- SP1ProofWithPublicValues: SP1Proof is not a Groth16 variant".to_string()),
+        };
 
         // Get proof bytes (this hex-decodes encoded_proof and prepends vkey hash)
         let proof_bytes = sp1.bytes();
@@ -134,5 +136,64 @@ impl TryFrom<&SP1ProofWithPublicValues> for ArkworksGroth16 {
             vk,
             public_inputs,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sp1::SP1ProofWithPublicValues;
+
+    fn load_example() -> SP1ProofWithPublicValues {
+        let sp1_json = std::fs::read_to_string("../example-proofs/sp1_groth16_obj_v5.json")
+            .expect("Failed to read SP1 example proof");
+        serde_json::from_str(&sp1_json)
+            .expect("Failed to parse SP1 proof")
+    }
+
+    #[test]
+    fn test_sp1_to_arkworks_conversion() {
+        let sp1_proof = load_example();
+
+        let ark: ArkworksGroth16 = (&sp1_proof)
+            .try_into()
+            .expect("Failed to convert SP1 to ArkworksGroth16");
+
+        assert_eq!(ark.public_inputs.len(), 2, "Expected 2 public inputs");
+        assert!(!ark.public_inputs[0].is_empty(), "Public input 1 should not be empty");
+        assert!(!ark.public_inputs[1].is_empty(), "Public input 2 should not be empty");
+    }
+
+    #[test]
+    fn test_arkworks_groth16_verification() {
+        let sp1_proof = load_example();
+
+        let ark: ArkworksGroth16 = (&sp1_proof)
+            .try_into()
+            .expect("Failed to convert SP1 to ArkworksGroth16");
+
+        // Valid proof should verify successfully
+        ark.verify()
+            .expect("Valid proof should pass verification");
+    }
+
+    #[test]
+    fn test_arkworks_groth16_invalid_proof_fails() {
+        let mut sp1_proof = load_example();
+
+        // Corrupt the public inputs
+        if let SP1Proof::Groth16(ref mut groth16) = sp1_proof.proof {
+            groth16.public_inputs[0] = "123".to_string();
+        }
+
+        let ark: ArkworksGroth16 = (&sp1_proof)
+            .try_into()
+            .expect("Conversion should succeed even with corrupted inputs");
+
+        // Verification should fail with corrupted public inputs
+        assert!(
+            ark.verify().is_err(),
+            "Verification should fail with corrupted public inputs"
+        );
     }
 }

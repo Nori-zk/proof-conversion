@@ -15,7 +15,7 @@ use crate::arkworks::ArkworksGroth16;
 use crate::gnark::load_ark_proof_from_bytes;
 use crate::serialize::{serialize_fq12, Field12};
 use crate::snarkjs::{SnarkjsProof, SnarkjsVK};
-use crate::sp1::{SP1ProofWithPublicValues, Groth16Bn254Proof};
+use crate::sp1::{SP1Proof, SP1ProofWithPublicValues};
 use crate::types::{AffinePoint2d, ComplexAffinePoint2d};
 
 fn get_pi(public_inputs: &[String], i: usize) -> Option<String> {
@@ -59,8 +59,6 @@ pub struct O1jsProof {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pi6: Option<String>,
 }
-
-impl O1jsProof {}
 
 impl TryFrom<(&SnarkjsProof, &[String])> for O1jsProof {
     type Error = String;
@@ -188,9 +186,11 @@ impl TryFrom<&SP1ProofWithPublicValues> for O1jsProof {
     /// - The proof is empty (mock proof)
     /// - gnark decompression fails
     fn try_from(sp1: &SP1ProofWithPublicValues) -> Result<Self, Self::Error> {
-        // Extract Groth16 proof variant using TryFrom from sp1.rs
-        let groth16_proof: Groth16Bn254Proof = sp1.proof.clone().try_into()
-            .map_err(|e| format!("O1jsProof <- SP1ProofWithPublicValues: {}", e))?;
+        // Extract Groth16 proof variant by direct matching (avoids clone)
+        let groth16_proof = match &sp1.proof {
+            SP1Proof::Groth16(proof) => proof,
+            _ => return Err("O1jsProof <- SP1ProofWithPublicValues: SP1Proof is not a Groth16 variant".to_string()),
+        };
 
         // Get proof bytes (this hex-decodes encoded_proof and prepends vkey hash)
         let proof_bytes = sp1.bytes();
@@ -246,8 +246,6 @@ pub struct O1jsVK {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ic6: Option<AffinePoint2d>,
 }
-
-impl O1jsVK {}
 
 impl TryFrom<&SnarkjsVK> for O1jsVK {
     type Error = String;
@@ -379,8 +377,6 @@ pub struct O1jsGroth16 {
     pub vk: O1jsVK,
 }
 
-impl O1jsGroth16 {}
-
 impl TryFrom<(&SnarkjsVK, &SnarkjsProof, &[String])> for O1jsGroth16 {
     type Error = String;
 
@@ -470,3 +466,4 @@ impl TryFrom<&SP1ProofWithPublicValues> for O1jsGroth16 {
             .map_err(|e: String| format!("O1jsGroth16 <- SP1ProofWithPublicValues: {}", e))
     }
 }
+

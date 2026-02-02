@@ -25,8 +25,6 @@ pub struct AffinePoint2d {
     pub y: String,
 }
 
-impl AffinePoint2d {}
-
 impl TryFrom<&AffinePoint2d> for G1Affine {
     type Error = String;
 
@@ -78,7 +76,6 @@ pub struct ComplexAffinePoint2d {
     pub y_c1: String,
 }
 
-impl ComplexAffinePoint2d {}
 
 impl TryFrom<&ComplexAffinePoint2d> for G2Affine {
     type Error = String;
@@ -140,7 +137,6 @@ pub struct ProjectivePoint {
     pub z: String,
 }
 
-impl ProjectivePoint {}
 
 impl TryFrom<&ProjectivePoint> for G1Affine {
     type Error = String;
@@ -191,7 +187,6 @@ pub struct ComplexProjectivePoint {
     pub z: (String, String),
 }
 
-impl ComplexProjectivePoint {}
 
 impl TryFrom<&ComplexProjectivePoint> for G2Affine {
     type Error = String;

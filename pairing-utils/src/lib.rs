@@ -32,6 +32,7 @@ pub use wasm::{
 };
 
 // Re-export commonly used types
+pub use arkworks::ArkworksGroth16;
 pub use serialize::{AuxWitness, Field12};
 pub use snarkjs::{SnarkjsProof, SnarkjsVK};
 pub use types::{AffinePoint2d, ComplexAffinePoint2d, ComplexProjectivePoint, ProjectivePoint};
