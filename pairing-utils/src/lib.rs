@@ -4,6 +4,7 @@ use serde_json::Value;
 use serialize::serialize_fq12;
 use serialize::{deserialize_fq12, serialize_aux_witness};
 
+pub mod arkworks;
 pub mod constants;
 pub mod eth_root;
 pub mod gnark;
