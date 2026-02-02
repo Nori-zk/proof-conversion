@@ -112,22 +112,22 @@ impl TryFrom<&SP1ProofWithPublicValues> for ArkworksGroth16 {
         // Extract Groth16 proof variant by direct matching (avoids clone)
         let groth16_proof = match &sp1.proof {
             SP1Proof::Groth16(proof) => proof,
-            _ => return Err("ArkworksGroth16 <- SP1ProofWithPublicValues: SP1Proof is not a Groth16 variant".to_string()),
+            _ => return Err("ArkworksGroth16 -> SP1ProofWithPublicValues: SP1Proof is not a Groth16 variant".to_string()),
         };
 
         // Get proof bytes (this hex-decodes encoded_proof and prepends vkey hash)
         let proof_bytes = sp1.bytes();
         if proof_bytes.is_empty() {
-            return Err("ArkworksGroth16 <- SP1ProofWithPublicValues: empty proof (mock proof not supported)".to_string());
+            return Err("ArkworksGroth16 -> SP1ProofWithPublicValues: empty proof (mock proof not supported)".to_string());
         }
 
         // Skip the first 4 bytes (vkey hash prefix) and load arkworks proof
         let proof = load_ark_proof_from_bytes(&proof_bytes[4..])
-            .map_err(|e| format!("ArkworksGroth16 <- SP1ProofWithPublicValues: failed to load arkworks proof: {}", e))?;
+            .map_err(|e| format!("ArkworksGroth16 -> SP1ProofWithPublicValues: failed to load arkworks proof: {}", e))?;
 
         // Load the embedded SP1 v5.0.0 VK
         let vk = load_ark_groth16_verifying_key_from_bytes(GROTH16_VK_5_0_0_BYTES)
-            .map_err(|e| format!("ArkworksGroth16 <- SP1ProofWithPublicValues: failed to load SP1 v5.0.0 VK: {}", e))?;
+            .map_err(|e| format!("ArkworksGroth16 -> SP1ProofWithPublicValues: failed to load SP1 v5.0.0 VK: {}", e))?;
 
         let public_inputs: Vec<String> = groth16_proof.public_inputs.to_vec();
 

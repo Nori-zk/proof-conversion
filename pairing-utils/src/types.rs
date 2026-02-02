@@ -11,6 +11,39 @@ use std::str::FromStr;
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
+/// Safely checks if a G1 point is on the BN254 curve without panicking.
+///
+/// BN254 G1 curve equation: y^2 = x^3 + 3
+///
+/// This is panic-free unlike `is_on_curve()` which can panic in WASM.
+fn is_on_g1_curve_safe(x: &Fq, y: &Fq) -> bool {
+    use ark_ff::MontFp;
+    let y_squared = *y * *y;
+    let x_cubed = *x * *x * *x;
+    let b = MontFp!("3"); // b = 3 for BN254 G1
+    let rhs = x_cubed + b;
+    y_squared == rhs
+}
+
+/// Safely checks if a G2 point is on the BN254 curve without panicking.
+///
+/// BN254 G2 curve equation: y^2 = x^3 + b
+/// where b = 3/(9+u) for BN254
+///
+/// This is panic-free unlike `is_on_curve()` which can panic in WASM.
+fn is_on_g2_curve_safe(x: &Fq2, y: &Fq2) -> bool {
+    use ark_ff::MontFp;
+    let y_squared = *y * *y;
+    let x_cubed = *x * *x * *x;
+    // b = 3/(9+u) for BN254 G2
+    let b = Fq2::new(
+        MontFp!("19485874751759354771024239261021720505790618469301721065564631296452457478373"),
+        MontFp!("266929791119991161246907387137283842545076965332900288569378510910307636690"),
+    );
+    let rhs = x_cubed + b;
+    y_squared == rhs
+}
+
 /// A 2D affine point with x and y coordinates.
 ///
 /// Each coordinate is a decimal string representing a large integer (BigInt in JS).
@@ -41,6 +74,12 @@ impl TryFrom<&AffinePoint2d> for G1Affine {
             .map_err(|_| format!("AffinePoint2d -> G1Affine: x: not a valid Fq '{}'", point.x))?;
         let y = Fq::from_str(&point.y)
             .map_err(|_| format!("AffinePoint2d -> G1Affine: y: not a valid Fq '{}'", point.y))?;
+
+        // Safely validate using panic-free curve equation check
+        if !is_on_g1_curve_safe(&x, &y) {
+            return Err(format!("AffinePoint2d -> G1Affine: point ({}, {}) is not on the curve", point.x, point.y));
+        }
+
         Ok(G1Affine::new(x, y))
     }
 }
@@ -101,6 +140,11 @@ impl TryFrom<&ComplexAffinePoint2d> for G2Affine {
         let x = Fq2::new(x_c0, x_c1);
         let y = Fq2::new(y_c0, y_c1);
 
+        // Safely validate using panic-free curve equation check
+        if !is_on_g2_curve_safe(&x, &y) {
+            return Err("ComplexAffinePoint2d -> G2Affine: point is not on the curve".to_string());
+        }
+
         Ok(G2Affine::new(x, y))
     }
 }
@@ -155,6 +199,12 @@ impl TryFrom<&ProjectivePoint> for G1Affine {
             .map_err(|_| format!("ProjectivePoint -> G1Affine: x: not a valid Fq '{}'", point.x))?;
         let y = Fq::from_str(&point.y)
             .map_err(|_| format!("ProjectivePoint -> G1Affine: y: not a valid Fq '{}'", point.y))?;
+
+        // Safely validate using panic-free curve equation check
+        if !is_on_g1_curve_safe(&x, &y) {
+            return Err(format!("ProjectivePoint -> G1Affine: point ({}, {}) is not on the curve", point.x, point.y));
+        }
+
         Ok(G1Affine::new(x, y))
     }
 }
@@ -212,6 +262,11 @@ impl TryFrom<&ComplexProjectivePoint> for G2Affine {
 
         let x = Fq2::new(x_c0, x_c1);
         let y = Fq2::new(y_c0, y_c1);
+
+        // Safely validate using panic-free curve equation check
+        if !is_on_g2_curve_safe(&x, &y) {
+            return Err("ComplexProjectivePoint -> G2Affine: point is not on the curve".to_string());
+        }
 
         Ok(G2Affine::new(x, y))
     }

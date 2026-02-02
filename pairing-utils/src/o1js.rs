@@ -85,18 +85,24 @@ impl TryFrom<(&SnarkjsProof, &[String])> for O1jsProof {
 
         if public_inputs.len() > 6 {
             return Err(format!(
-                "O1jsProof <- SnarkjsProof: too many public inputs ({}, max 6)",
+                "O1jsProof -> SnarkjsProof: too many public inputs ({}, max 6)",
                 public_inputs.len()
             ));
         }
 
         // Negate pi_a using arkworks
         let a_g1: G1Affine = (&proof.pi_a).try_into()
-            .map_err(|e: String| format!("O1jsProof <- SnarkjsProof: pi_a: {}", e))?;
+            .map_err(|e: String| format!("O1jsProof -> SnarkjsProof: pi_a: {}", e))?;
         let neg_a_g1 = -a_g1;
         let neg_a = AffinePoint2d {
-            x: neg_a_g1.x().unwrap().into_bigint().to_string(),
-            y: neg_a_g1.y().unwrap().into_bigint().to_string(),
+            x: neg_a_g1.x()
+                .ok_or_else(|| "O1jsProof -> SnarkjsProof: negated pi_a is point at infinity".to_string())?
+                .into_bigint()
+                .to_string(),
+            y: neg_a_g1.y()
+                .ok_or_else(|| "O1jsProof -> SnarkjsProof: negated pi_a is point at infinity".to_string())?
+                .into_bigint()
+                .to_string(),
         };
 
         // Convert B and C (no negation needed)
@@ -139,7 +145,7 @@ impl TryFrom<(&ark_groth16::Proof<Bn254>, &[String])> for O1jsProof {
 
         if public_inputs.len() > 6 {
             return Err(format!(
-                "O1jsProof <- Proof<Bn254>: too many public inputs ({}, max 6)",
+                "O1jsProof -> Proof<Bn254>: too many public inputs ({}, max 6)",
                 public_inputs.len()
             ));
         }
@@ -189,23 +195,23 @@ impl TryFrom<&SP1ProofWithPublicValues> for O1jsProof {
         // Extract Groth16 proof variant by direct matching (avoids clone)
         let groth16_proof = match &sp1.proof {
             SP1Proof::Groth16(proof) => proof,
-            _ => return Err("O1jsProof <- SP1ProofWithPublicValues: SP1Proof is not a Groth16 variant".to_string()),
+            _ => return Err("O1jsProof -> SP1ProofWithPublicValues: SP1Proof is not a Groth16 variant".to_string()),
         };
 
         // Get proof bytes (this hex-decodes encoded_proof and prepends vkey hash)
         let proof_bytes = sp1.bytes();
         if proof_bytes.is_empty() {
-            return Err("O1jsProof <- SP1ProofWithPublicValues: empty proof (mock proof not supported)".to_string());
+            return Err("O1jsProof -> SP1ProofWithPublicValues: empty proof (mock proof not supported)".to_string());
         }
 
         // Skip the first 4 bytes (vkey hash prefix) and load arkworks proof
         let ark_proof = load_ark_proof_from_bytes(&proof_bytes[4..])
-            .map_err(|e| format!("O1jsProof <- SP1ProofWithPublicValues: failed to load arkworks proof: {}", e))?;
+            .map_err(|e| format!("O1jsProof -> SP1ProofWithPublicValues: failed to load arkworks proof: {}", e))?;
 
         // Convert arkworks proof to o1js format
         let public_inputs: Vec<String> = groth16_proof.public_inputs.to_vec();
         (&ark_proof, &public_inputs[..]).try_into()
-            .map_err(|e: String| format!("O1jsProof <- SP1ProofWithPublicValues: arkworks -> o1js conversion failed: {}", e))
+            .map_err(|e: String| format!("O1jsProof -> SP1ProofWithPublicValues: arkworks -> o1js conversion failed: {}", e))
     }
 }
 
@@ -266,9 +272,9 @@ impl TryFrom<&SnarkjsVK> for O1jsVK {
     fn try_from(vk: &SnarkjsVK) -> Result<Self, Self::Error> {
         // Convert alpha and beta, then compute pairing
         let alpha_g1: G1Affine = (&vk.vk_alpha_1).try_into()
-            .map_err(|e: String| format!("O1jsVK <- SnarkjsVK: vk_alpha_1: {}", e))?;
+            .map_err(|e: String| format!("O1jsVK -> SnarkjsVK: vk_alpha_1: {}", e))?;
         let beta_g2: G2Affine = (&vk.vk_beta_2).try_into()
-            .map_err(|e: String| format!("O1jsVK <- SnarkjsVK: vk_beta_2: {}", e))?;
+            .map_err(|e: String| format!("O1jsVK -> SnarkjsVK: vk_beta_2: {}", e))?;
 
         // Compute alpha_beta pairing
         let alpha_beta_fq12 = Bn254::multi_miller_loop(&[alpha_g1], &[beta_g2]).0;
@@ -298,7 +304,7 @@ impl TryFrom<&SnarkjsVK> for O1jsVK {
             delta: ComplexAffinePoint2d::from(&vk.vk_delta_2),
             alpha_beta,
             w27,
-            ic0: get_ic(&vk.ic, 0).ok_or("O1jsVK <- SnarkjsVK: missing ic0 (constant term)")?,
+            ic0: get_ic(&vk.ic, 0).ok_or("O1jsVK -> SnarkjsVK: missing ic0 (constant term)")?,
             ic1: get_ic(&vk.ic, 1),
             ic2: get_ic(&vk.ic, 2),
             ic3: get_ic(&vk.ic, 3),
@@ -354,7 +360,7 @@ impl TryFrom<&ark_groth16::VerifyingKey<Bn254>> for O1jsVK {
             delta: ComplexAffinePoint2d::from(&vk.delta_g2),
             alpha_beta,
             w27,
-            ic0: get_ic(&vk.gamma_abc_g1, 0).ok_or("O1jsVK <- VerifyingKey<Bn254>: missing ic0 (constant term)")?,
+            ic0: get_ic(&vk.gamma_abc_g1, 0).ok_or("O1jsVK -> VerifyingKey<Bn254>: missing ic0 (constant term)")?,
             ic1: get_ic(&vk.gamma_abc_g1, 1),
             ic2: get_ic(&vk.gamma_abc_g1, 2),
             ic3: get_ic(&vk.gamma_abc_g1, 3),
@@ -393,12 +399,12 @@ impl TryFrom<(&SnarkjsVK, &SnarkjsProof, &[String])> for O1jsGroth16 {
     fn try_from((snarkjs_vk, snarkjs_proof, public_inputs): (&SnarkjsVK, &SnarkjsProof, &[String])) -> Result<Self, Self::Error> {
         // Validate vk against public inputs
         snarkjs_vk.validate(public_inputs.len())
-            .map_err(|e| format!("O1jsGroth16 <- SnarkjsVK/SnarkjsProof: {}", e))?;
+            .map_err(|e| format!("O1jsGroth16 -> SnarkjsVK/SnarkjsProof: {}", e))?;
         // Convert proof and vk format
         let proof: O1jsProof = (snarkjs_proof, public_inputs).try_into()
-            .map_err(|e: String| format!("O1jsGroth16 <- SnarkjsVK/SnarkjsProof: proof: {}", e))?;
+            .map_err(|e: String| format!("O1jsGroth16 -> SnarkjsVK/SnarkjsProof: proof: {}", e))?;
         let vk: O1jsVK = snarkjs_vk.try_into()
-            .map_err(|e: String| format!("O1jsGroth16 <- SnarkjsVK/SnarkjsProof: vk: {}", e))?;
+            .map_err(|e: String| format!("O1jsGroth16 -> SnarkjsVK/SnarkjsProof: vk: {}", e))?;
         Ok(O1jsGroth16 { proof, vk })
     }
 }
@@ -425,15 +431,15 @@ impl TryFrom<&ArkworksGroth16> for O1jsGroth16 {
     fn try_from(ark: &ArkworksGroth16) -> Result<Self, Self::Error> {
         // Verify proof at arkworks level (like SnarkjsVK::validate pattern)
         ark.verify()
-            .map_err(|e| format!("O1jsGroth16 <- ArkworksGroth16: {}", e))?;
+            .map_err(|e| format!("O1jsGroth16 -> ArkworksGroth16: {}", e))?;
 
         // Convert arkworks proof to o1js format
         let proof: O1jsProof = (&ark.proof, &ark.public_inputs[..]).try_into()
-            .map_err(|e: String| format!("O1jsGroth16 <- ArkworksGroth16: proof conversion failed: {}", e))?;
+            .map_err(|e: String| format!("O1jsGroth16 -> ArkworksGroth16: proof conversion failed: {}", e))?;
 
         // Convert arkworks VK to o1js format
         let vk: O1jsVK = (&ark.vk).try_into()
-            .map_err(|e: String| format!("O1jsGroth16 <- ArkworksGroth16: vk conversion failed: {}", e))?;
+            .map_err(|e: String| format!("O1jsGroth16 -> ArkworksGroth16: vk conversion failed: {}", e))?;
 
         Ok(O1jsGroth16 { proof, vk })
     }
@@ -459,11 +465,11 @@ impl TryFrom<&SP1ProofWithPublicValues> for O1jsGroth16 {
     fn try_from(sp1: &SP1ProofWithPublicValues) -> Result<Self, Self::Error> {
         // SP1 → arkworks (load and decompress)
         let ark: ArkworksGroth16 = sp1.try_into()
-            .map_err(|e: String| format!("O1jsGroth16 <- SP1ProofWithPublicValues: {}", e))?;
+            .map_err(|e: String| format!("O1jsGroth16 -> SP1ProofWithPublicValues: {}", e))?;
 
         // arkworks → o1js (verify and convert)
         (&ark).try_into()
-            .map_err(|e: String| format!("O1jsGroth16 <- SP1ProofWithPublicValues: {}", e))
+            .map_err(|e: String| format!("O1jsGroth16 -> SP1ProofWithPublicValues: {}", e))
     }
 }
 

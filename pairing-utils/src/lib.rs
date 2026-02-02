@@ -53,14 +53,16 @@ pub fn display_fq12(x: Fq12, label: &str) {
     println!("{}.h21: {}", label, x.c1.c2.c1);
 }
 
-pub fn compute_and_serialize_aux_witness(path_to_mlo: &str, path_to_aux_witness: &str) {
+pub fn compute_and_serialize_aux_witness(path_to_mlo: &str, path_to_aux_witness: &str) -> Result<(), String> {
     let mlo = deserialize_fq12(path_to_mlo);
 
     // make sure that it is indeed r-th residue
-    assert_o1js_mlo(mlo);
+    assert_o1js_mlo(mlo)?;
 
-    let (shift_pow, c) = compute_aux_witness_internal(mlo);
+    let (shift_pow, c) = compute_aux_witness_internal(mlo)?;
     serialize_aux_witness(c, shift_pow, path_to_aux_witness);
+
+    Ok(())
 }
 
 use ark_bn254::Bn254;

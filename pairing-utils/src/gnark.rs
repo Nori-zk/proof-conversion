@@ -22,6 +22,10 @@ pub enum ConversionError {
     G2CompressionError,
     #[error("Invalid input")]
     InvalidInput,
+    #[error("Invalid proof length")]
+    InvalidProofLength,
+    #[error("Invalid verification key length")]
+    InvalidVKLength,
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
     #[error("JSON error: {0}")]
@@ -94,7 +98,9 @@ fn gnark_compressed_x_to_ark_compressed_x(x: &[u8]) -> Result<Vec<u8>, Conversio
 /// Taken from https://github.com/anza-xyz/agave/blob/c54d840/curves/bn254/src/compression.rs#L219-L234
 pub fn decompress_g1(g1_bytes: &[u8; 32]) -> Result<G1Affine, ConversionError> {
     let g1_bytes = gnark_compressed_x_to_ark_compressed_x(g1_bytes)?;
-    let g1_bytes = convert_endianness::<32, 32>(&g1_bytes.as_slice().try_into().unwrap());
+    let g1_bytes: &[u8; 32] = g1_bytes.as_slice().try_into()
+        .map_err(|_| ConversionError::G1CompressionError)?;
+    let g1_bytes = convert_endianness::<32, 32>(g1_bytes);
     let decompressed_g1 = G1Affine::deserialize_with_mode(
         convert_endianness::<32, 32>(&g1_bytes).as_slice(),
         Compress::Yes,
@@ -109,7 +115,9 @@ pub fn decompress_g1(g1_bytes: &[u8; 32]) -> Result<G1Affine, ConversionError> {
 /// Adapted from https://github.com/anza-xyz/agave/blob/c54d840/curves/bn254/src/compression.rs#L255
 pub fn decompress_g2(g2_bytes: &[u8; 64]) -> Result<G2Affine, ConversionError> {
     let g2_bytes = gnark_compressed_x_to_ark_compressed_x(g2_bytes)?;
-    let g2_bytes = convert_endianness::<64, 64>(&g2_bytes.as_slice().try_into().unwrap());
+    let g2_bytes: &[u8; 64] = g2_bytes.as_slice().try_into()
+        .map_err(|_| ConversionError::G2CompressionError)?;
+    let g2_bytes = convert_endianness::<64, 64>(g2_bytes);
     let decompressed_g2 = G2Affine::deserialize_with_mode(
         convert_endianness::<64, 64>(&g2_bytes).as_slice(),
         Compress::Yes,
@@ -161,10 +169,20 @@ fn gnark_decompressed_g2_to_ark_decompressed_g2(
 ///
 /// Taken from https://github.com/SoundnessLabs/sp1-sui/blob/15d84fd/verifier/src/ark_converter.rs#L146-L152
 pub fn load_ark_proof_from_bytes(buffer: &[u8]) -> Result<Proof<Bn254>, ConversionError> {
+    let a_bytes: &[u8; 64] = buffer.get(..64)
+        .and_then(|s| s.try_into().ok())
+        .ok_or(ConversionError::InvalidProofLength)?;
+    let b_bytes: &[u8; 128] = buffer.get(64..192)
+        .and_then(|s| s.try_into().ok())
+        .ok_or(ConversionError::InvalidProofLength)?;
+    let c_bytes: &[u8; 64] = buffer.get(192..256)
+        .and_then(|s| s.try_into().ok())
+        .ok_or(ConversionError::InvalidProofLength)?;
+
     Ok(Proof::<Bn254> {
-        a: gnark_decompressed_g1_to_ark_decompressed_g1(buffer[..64].try_into().unwrap())?,
-        b: gnark_decompressed_g2_to_ark_decompressed_g2(buffer[64..192].try_into().unwrap())?,
-        c: gnark_decompressed_g1_to_ark_decompressed_g1(&buffer[192..256].try_into().unwrap())?,
+        a: gnark_decompressed_g1_to_ark_decompressed_g1(a_bytes)?,
+        b: gnark_decompressed_g2_to_ark_decompressed_g2(b_bytes)?,
+        c: gnark_decompressed_g1_to_ark_decompressed_g1(c_bytes)?,
     })
 }
 
@@ -174,16 +192,34 @@ pub fn load_ark_proof_from_bytes(buffer: &[u8]) -> Result<Proof<Bn254>, Conversi
 pub fn load_ark_groth16_verifying_key_from_bytes(
     buffer: &[u8],
 ) -> Result<VerifyingKey<Bn254>, ConversionError> {
-    let alpha_g1 = decompress_g1(buffer[..32].try_into().unwrap())?;
-    let beta_g2 = decompress_g2(buffer[64..128].try_into().unwrap())?;
-    let gamma_g2 = decompress_g2(buffer[128..192].try_into().unwrap())?;
-    let delta_g2 = decompress_g2(buffer[224..288].try_into().unwrap())?;
+    let alpha_bytes: &[u8; 32] = buffer.get(..32)
+        .and_then(|s| s.try_into().ok())
+        .ok_or(ConversionError::InvalidVKLength)?;
+    let beta_bytes: &[u8; 64] = buffer.get(64..128)
+        .and_then(|s| s.try_into().ok())
+        .ok_or(ConversionError::InvalidVKLength)?;
+    let gamma_bytes: &[u8; 64] = buffer.get(128..192)
+        .and_then(|s| s.try_into().ok())
+        .ok_or(ConversionError::InvalidVKLength)?;
+    let delta_bytes: &[u8; 64] = buffer.get(224..288)
+        .and_then(|s| s.try_into().ok())
+        .ok_or(ConversionError::InvalidVKLength)?;
 
-    let num_k = u32::from_be_bytes([buffer[288], buffer[289], buffer[290], buffer[291]]);
+    let alpha_g1 = decompress_g1(alpha_bytes)?;
+    let beta_g2 = decompress_g2(beta_bytes)?;
+    let gamma_g2 = decompress_g2(gamma_bytes)?;
+    let delta_g2 = decompress_g2(delta_bytes)?;
+
+    let num_k_bytes = buffer.get(288..292)
+        .ok_or(ConversionError::InvalidVKLength)?;
+    let num_k = u32::from_be_bytes([num_k_bytes[0], num_k_bytes[1], num_k_bytes[2], num_k_bytes[3]]);
     let mut k = Vec::new();
     let mut offset = 292;
     for _ in 0..num_k {
-        let point = decompress_g1(&buffer[offset..offset + 32].try_into().unwrap())?;
+        let point_bytes: &[u8; 32] = buffer.get(offset..offset + 32)
+            .and_then(|s| s.try_into().ok())
+            .ok_or(ConversionError::InvalidVKLength)?;
+        let point = decompress_g1(point_bytes)?;
         k.push(point);
         offset += 32;
     }

@@ -32,9 +32,16 @@ pub fn assert_kzg_pairing(srs: &SRS, a: G1Affine, b: G1Affine) {
     assert_eq!(e, Fq12::one());
 }
 
-pub fn assert_o1js_mlo(x: Fq12) {
-    let e = Bn254::final_exponentiation(MillerLoopOutput(x)).unwrap().0;
-    assert_eq!(e, Fq12::one());
+pub fn assert_o1js_mlo(x: Fq12) -> Result<(), String> {
+    let e = Bn254::final_exponentiation(MillerLoopOutput(x))
+        .ok_or_else(|| "final_exponentiation failed".to_string())?
+        .0;
+
+    if e != Fq12::one() {
+        return Err("Miller loop output validation failed: final exponentiation result is not one".to_string());
+    }
+
+    Ok(())
 }
 
 fn get_shift_factor() -> Fq12 {
@@ -88,7 +95,7 @@ fn make_fq12() -> Fq12 {
     x
 }
 
-pub fn compute_aux_witness(x: Fq12) -> (u8, Fq12) {
+pub fn compute_aux_witness(x: Fq12) -> Result<(u8, Fq12), String> {
     // here we build the auxiliary witness
     let w27 = get_shift_factor();
 
@@ -96,6 +103,7 @@ pub fn compute_aux_witness(x: Fq12) -> (u8, Fq12) {
 
     let mut eth_residue = Fq12::zero();
     let mut shift_power = 0u8;
+    let mut found = false;
 
     for i in 0..3 {
         let tmp_shift = w27.pow(&[i as u64, 0, 0, 0]);
@@ -106,9 +114,14 @@ pub fn compute_aux_witness(x: Fq12) -> (u8, Fq12) {
             shift_power = i;
             // shift = tmp_shift;
             eth_residue = tmp_eth;
+            found = true;
 
             break;
         }
+    }
+
+    if !found {
+        return Err("Failed to find valid shift power (0-2) for eth residue".to_string());
     }
 
     // this roots can be hardcoded instead of sampling each time
@@ -116,9 +129,13 @@ pub fn compute_aux_witness(x: Fq12) -> (u8, Fq12) {
     let ts = TS { w: w27 };
 
     let root = eth_root(eth_residue, ts);
-    assert_eq!(exp(root, &E), eth_residue);
 
-    (shift_power, root)
+    // Validate the root instead of asserting
+    if exp(root, &E) != eth_residue {
+        return Err("Root validation failed: exp(root, E) != eth_residue".to_string());
+    }
+
+    Ok((shift_power, root))
 }
 
 // kzg_cm_x:  901400747077620025400301297093108336754952977087255479152802078130377135061n
@@ -212,11 +229,11 @@ mod kzg_tests {
         assert_kzg_pairing(&srs, a, b);
 
         let mlo = make_fq12();
-        assert_o1js_mlo(mlo);
+        assert_o1js_mlo(mlo).expect("MLO validation should pass");
 
         // display_fq12(mlo, "mlo");
 
-        let (shift_pow, c) = compute_aux_witness(mlo);
+        let (shift_pow, c) = compute_aux_witness(mlo).expect("aux witness computation should succeed");
 
         println!("shift pow: {}", shift_pow);
 

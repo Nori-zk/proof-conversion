@@ -80,10 +80,12 @@ pub fn compute_aux_witness(input: Field12) -> Result<AuxWitness, JsError> {
         .map_err(|e| JsError::new(&format!("compute_aux_witness: {}", e)))?;
 
     // Validate Miller loop output
-    assert_o1js_mlo(mlo);
+    assert_o1js_mlo(mlo)
+        .map_err(|e| JsError::new(&format!("compute_aux_witness: {}", e)))?;
 
     // Compute
-    let (shift_pow, c) = compute_aux_witness_internal(mlo);
+    let (shift_pow, c) = compute_aux_witness_internal(mlo)
+        .map_err(|e| JsError::new(&format!("compute_aux_witness: {}", e)))?;
 
     // Return
     let c_serialized = serialize_fq12(c);
