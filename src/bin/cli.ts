@@ -46,28 +46,15 @@ async function executeCommand<K extends keyof CommandMap>(
   )(executor, input);
 }
 
-// registry of decorated API functions (must expose .fromArgs/.fromObject/.argsMetadata/.objMetadata as provided by the decorator)
+// registry of decorated API functions (must be decorated by ApiMethod)
 const commandMap = {
-  // p: Record<string, ApiCommandFunction>
-  sp1Plonk: performSp1Plonk, // as ApiCommandFunction,
-  risc0Groth16: performRisc0Groth16, // as ApiCommandFunction,
-  sp1Groth16: performSp1Groth16, // as ApiCommandFunction,
-  snarkjsGroth16: performSnarkjsGroth16, // as ApiCommandFunction,
+  sp1Plonk: performSp1Plonk,
+  risc0Groth16: performRisc0Groth16,
+  sp1Groth16: performSp1Groth16,
+  snarkjsGroth16: performSnarkjsGroth16,
 };
 type CommandMap = typeof commandMap;
-
-/*
-const a = commandMap['sp1Groth16'];
-// Risc0Groth16Proof | Risc0Groth16Vk Risc0Groth16Proof
-performRisc0Groth16.fromArgs({} as Risc0Groth16Vk, {} as Risc0Groth16Vk, );
-
-performRisc0Groth16.schema
-
-performSnarkjsGroth16.fromArgs({} as SnarkjsVK, {} as SnarkjsVK, {} as SnarkjsVK)
-
-
-performSnarkjsGroth16.schema;
-*/
+type CommandMapKey = keyof CommandMap;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -98,20 +85,46 @@ function writeJsonFile(
   return outPath;
 }
 
-// Strict: read a path as JSON file, or throw if missing / not a file / invalid json
-function readFileStrict(p: string) {
+// Strict: read a path as JSON file, or print help + error and exit
+function readFileStrict(
+  p: string,
+  commandName: CommandMapKey,
+  keyHint?: string
+): unknown {
   if (!fs.existsSync(p) || !fs.statSync(p).isFile()) {
-    throw new Error(
-      `Expected file path, but "${p}" does not exist or is not a file.`
+    const mode = keyHint ? 'Args-mode' : 'Object-mode';
+    const argInfo = keyHint ? ` for argument '${keyHint}':` : ':';
+    logger.error(
+      `${mode}: file does not exist${argInfo}. Printing usage information:`
     );
+    describeCommand(commandName);
+    logger.error(`Failed to read file${argInfo}`);
+    logger.error(`  File: ${p}${keyHint ? ` (expected ${keyHint}.json)` : ''}`);
+    logger.error(`  Reason: File does not exist or is not a file.`);
+    logger.error('');
+    logger.fatal(
+      `Due to the file read error running '${commandName}' in '${mode}' cannot continue`
+    );
+    process.exit(1);
   }
   try {
     return JSON.parse(fs.readFileSync(p, 'utf8'));
   } catch (e: unknown) {
     const error = e as Error;
-    throw new Error(
-      `Failed to parse JSON from file "${p}": ${error.message ?? error}`
+    const mode = keyHint ? 'Args-mode' : 'Object-mode';
+    const argInfo = keyHint ? ` for argument '${keyHint}'` : '';
+    logger.error(
+      `${mode}: invalid JSON${argInfo}. Printing usage information:`
     );
+    describeCommand(commandName);
+    logger.error(`Failed to parse JSON from file${argInfo}`);
+    logger.error(`  File: ${p}${keyHint ? ` (expected ${keyHint}.json)` : ''}`);
+    logger.error(`  Reason: ${error.message ?? error}`);
+    logger.error('');
+    logger.fatal(
+      `Due to the JSON parse error running '${commandName}' in '${mode}' cannot continue`
+    );
+    process.exit(1);
   }
 }
 
@@ -138,9 +151,51 @@ function summariseCommandMetadata(
   return { name, supportsArgs, argsMeta };
 }
 
+// Helper to print object-mode schema
+function printObjectModeSchema(schema: Record<string, SchemaNode>) {
+  logger.log('');
+  logger.log(`Provide one JSON file path arguments`);
+  logger.log('');
+  logger.log('Expected schemas for the file:');
+  const objectSchema = describeSchema(schema);
+  const schemaLines = JSON.stringify(objectSchema, null, 2).split('\n');
+  schemaLines.forEach((line) => logger.log(`    ${line}`));
+  logger.log('');
+}
+
+// Helper to print args-mode schemas for each file
+function printArgsModeSchemas(
+  argsKeys: readonly string[],
+  schema: Record<string, SchemaNode>,
+  filePaths?: string[]
+) {
+  logger.log('');
+  logger.log(
+    `Provide '${argsKeys.length}' JSON file path arguments, in order: ${argsKeys.join(', ')}`
+  );
+  logger.log('');
+  logger.log('Expected schemas for each file:');
+  for (let i = 0; i < argsKeys.length; i++) {
+    const key = argsKeys[i];
+    const filePath = filePaths ? filePaths[i] : undefined;
+    if (key in schema) {
+      logger.log('');
+      if (filePath) {
+        logger.log(`  ${filePath} (${key}.json):`);
+      } else {
+        logger.log(`  ${key}.json:`);
+      }
+      const keySchema = describeSchema(schema[key]);
+      const schemaLines = JSON.stringify(keySchema, null, 2).split('\n');
+      schemaLines.forEach((line) => logger.log(`    ${line}`));
+    }
+  }
+  logger.log('');
+}
+
 function buildHelpAfterText() {
   const lines: string[] = [];
-  lines.push('\nAvailable commands and metadata:');
+  lines.push('Available commands and metadata:');
   for (const name of Object.keys(commandMap)) {
     const fn = commandMap[name as keyof CommandMap];
     const meta = summariseCommandMetadata(name, fn);
@@ -155,10 +210,11 @@ function buildHelpAfterText() {
     lines.push(`  - ${name}    ${parts.join(' | ')}`);
   }
   lines.push('\nRun `describe <command>` for more details and examples.');
-  return lines.join('\n');
+  lines.forEach((line)=>logger.log(line));
+  return '';
 }
 
-function printDescribeDirect(commandName: keyof typeof commandMap) {
+function describeCommand(commandName: CommandMapKey) {
   const fn = commandMap[commandName];
   if (!fn) {
     logger.error(
@@ -177,9 +233,7 @@ function printDescribeDirect(commandName: keyof typeof commandMap) {
   // Print object-mode schema (always supported)
   logger.log('Object-mode schema:');
   if (typeof fn === 'function' && 'schema' in fn && fn.schema) {
-    const objectSchema = describeSchema(fn.schema);
-    const schemaLines = JSON.stringify(objectSchema, null, 2).split('\n');
-    schemaLines.forEach((line) => logger.log(line));
+    printObjectModeSchema(fn.schema);
   } else {
     logger.log('  (no schema available)');
   }
@@ -200,16 +254,7 @@ function printDescribeDirect(commandName: keyof typeof commandMap) {
     fn.schema
   ) {
     logger.log('Args-mode (file-per-key) schemas:');
-    type SchemaType = typeof fn.schema;
-    for (const key of meta.argsMeta) {
-      if (key in fn.schema) {
-        const keySchema = describeSchema(fn.schema[key as keyof SchemaType]);
-        logger.log(`  ${key}.json should have:`);
-        const schemaLines = JSON.stringify(keySchema, null, 2).split('\n');
-        schemaLines.forEach((line) => logger.log(`    ${line}`));
-      }
-    }
-    logger.log('');
+    printArgsModeSchemas(meta.argsMeta, fn.schema);
     logger.log('Args-mode usage:');
     const argsExamplePaths = meta.argsMeta
       .map((arg: string) => `path/to/${arg}.json`)
@@ -229,13 +274,35 @@ program
 // append metadata summary to help text
 program.addHelpText('after', () => buildHelpAfterText());
 
-// describe subcommand (same output as printDescribeDirect, but callable)
+// describe subcommand (same output as describeCommand, but callable)
 program
-  .command('describe <command>')
+  .command('describe [command]')
   .description('Show detailed metadata and examples for a command')
-  .action((commandName: keyof typeof commandMap) => {
+  .action((commandName: CommandMapKey | undefined) => {
+    logger.info(
+      `Running action for command='describe', args=[${commandName ? `'${commandName}'` : ''}]`
+    );
+    if (!commandName) {
+      logger.error(
+        `describe: missing required argument 'command'. Printing usage information:`
+      );
+      logger.log('');
+      logger.log('Usage:');
+      logger.log('  $ nori-proof-converter describe <command>');
+      logger.log('');
+      logger.log('Available commands:');
+      Object.keys(commandMap).forEach((name) => {
+        logger.log(`  - ${name}`);
+      });
+      logger.log('');
+      logger.fatal(
+        `Due to missing required argument running 'describe' cannot continue`
+      );
+      process.exit(1);
+    }
+
     try {
-      printDescribeDirect(commandName);
+      describeCommand(commandName);
       process.exit(0);
     } catch (e: unknown) {
       const error = e as Error;
@@ -252,8 +319,8 @@ program
     '[args...]',
     'optional arguments: single JSON file (object-mode) or multiple file paths (args-mode)'
   )
-  .action(async (commandName: keyof typeof commandMap, args: string[] = []) => {
-    logger.log(
+  .action(async (commandName: CommandMapKey, args: string[] = []) => {
+    logger.info(
       `Running action for command='${commandName}', args=${JSON.stringify(
         args
       )}`
@@ -271,7 +338,7 @@ program
     // If no args provided, print command-specific help/metadata and exit
     if (!Array.isArray(args) || args.length === 0) {
       logger.info(`No args provided for '${commandName}' — printing usage:`);
-      printDescribeDirect(commandName);
+      describeCommand(commandName);
       process.exit(0);
     }
 
@@ -283,7 +350,7 @@ program
 
     if (mode === 'object') {
       // object-mode: single arg MUST be a file path (no inline JSON)
-      const obj = readFileStrict(args[0]); // throws if missing or invalid
+      const obj = readFileStrict(args[0], commandName);
       if (typeof obj !== 'object' || obj === null) {
         logger.fatal('Object-mode requires a JSON object file.');
         process.exit(1);
@@ -298,12 +365,8 @@ program
           const error = e as Error;
           // Validation error - print schema
           logger.error(`Object-mode validation failed for '${commandName}'.`);
-          logger.error('');
-          logger.error(`Schema expected:`);
-          const objectSchema = describeSchema(fn.schema);
-          const schemaLines = JSON.stringify(objectSchema, null, 2).split('\n');
-          schemaLines.forEach((line) => logger.error(`  ${line}`));
-          logger.error('');
+
+          printObjectModeSchema(fn.schema);
           logger.error('Validation errors:');
           logger.error('');
 
@@ -316,7 +379,6 @@ program
             );
           errorLines.forEach((line) => logger.error(`    ${line}`));
           logger.error('');
-
           logger.fatal(
             `Due to the validation issues running '${commandName}' in '${mode}' mode cannot continue`
           );
@@ -372,8 +434,24 @@ program
       }
 
       if (args.length !== argsKeys.length) {
+        logger.error(
+          `Args-mode requires ${argsKeys.length} file arguments. Received ${args.length}.`
+        );
+
+        // Print schemas for each expected file
+        const schemaObj = fn.schema as Record<string, SchemaNode>;
+        printArgsModeSchemas(argsKeys, schemaObj);
+
+        logger.error('Usage:');
+        const argsExamplePaths = argsKeys
+          .map((arg: string) => `path/to/${arg}.json`)
+          .join(' ');
+        logger.error(
+          `  $ nori-proof-converter ${commandName} ${argsExamplePaths}`
+        );
+        logger.error('');
         logger.fatal(
-          `Args-mode requires ${argsKeys.length} file arguments (${argsKeys.join(', ')}). Received ${args.length}.`
+          `Due to wrong number of arguments running '${commandName}' in '${mode}' mode cannot continue`
         );
         process.exit(1);
       }
@@ -385,7 +463,7 @@ program
         for (let i = 0; i < argsKeys.length; i++) {
           const key = argsKeys[i];
           const filePath = args[i];
-          constructedObj[key] = readFileStrict(filePath);
+          constructedObj[key] = readFileStrict(filePath, commandName, key);
         }
 
         // Validation try-catch
@@ -399,26 +477,12 @@ program
           const error = e as Error;
           // Validation error - print schemas for each file
           logger.error(`Args-mode validation failed for '${commandName}'.`);
-          logger.error('');
-          logger.error('Schemas expected for each file:');
+
           const schemaObj = fn.schema as Record<string, SchemaNode>;
-          for (let i = 0; i < argsKeys.length; i++) {
-            const key = argsKeys[i];
-            const filePath = args[i];
-            if (key in schemaObj) {
-              logger.error('');
-              logger.error(`  ${filePath} (${key}.json):`);
-              const keySchema = describeSchema(schemaObj[key]);
-              const schemaLines = JSON.stringify(keySchema, null, 2).split(
-                '\n'
-              );
-              schemaLines.forEach((line) => logger.error(`    ${line}`));
-            }
-          }
-          logger.error('');
+          printArgsModeSchemas(argsKeys, schemaObj, args);
+
           logger.error('Validation errors:');
           logger.error('');
-          
 
           // Parse and group errors by file
           const errorsByFile: Record<string, string[]> = {};
@@ -506,8 +570,12 @@ if (process.argv.length <= 2) {
   process.exit(0);
 }
 
+// Override exit
 try {
   program.exitOverride((err) => {
+    if (err.exitCode === 0) {
+      process.exit(0);
+    }
     logger.log(program.helpInformation());
     logger.log(`Version: ${version}`);
     logger.log(`Available commands: ${Object.keys(commandMap).join(', ')}`);
@@ -524,6 +592,8 @@ try {
   logger.fatal(error.stack);
   process.exit(1);
 }
+
+// TODO Override help... How??
 
 // Ctrl+C handling
 process.on('SIGINT', async () => {
