@@ -218,7 +218,6 @@ function printDescribeDirect(commandName: keyof typeof commandMap) {
   } else {
     logger.log('Args-mode: not supported');
   }
-  logger.log('');
 }
 
 const program = new Command();
