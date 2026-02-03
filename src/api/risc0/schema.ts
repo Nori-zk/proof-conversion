@@ -1,4 +1,4 @@
-import type { O1jsVK, O1jsProof } from 'pairing-utils/pkg/pairing_utils.js';
+import type { O1jsVK, O1jsProof } from '@nori-zk/proof-conversion-utils';
 import {
   isString,
   isAffinePoint2d,

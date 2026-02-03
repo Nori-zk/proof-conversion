@@ -4,7 +4,7 @@ import { Fp12, Fp2, FpC } from '../towers/index.js';
 import fs from 'fs';
 import { bn254 } from '../ec/g1.js';
 import { ForeignCurve } from 'o1js';
-import { O1jsVK } from 'pairing-utils/pkg/pairing_utils.js';
+import { O1jsVK } from '@nori-zk/proof-conversion-utils';
 
 // Flexible SerializedVk type supporting all possible IC points
 type SerializedVk = Omit<O1jsVK, 'alpha' | 'beta'>;
