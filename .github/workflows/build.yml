@@ -15,7 +15,7 @@ jobs:
       contents: read
       pull-requests: write
     container:
-      image: docker.nori.it.com/stacksmith:1.0.0
+      image: docker.nori.it.com/stacksmith:2.0.0
       volumes:
         # SSH for git operations
         - /home/runner/.ssh:/root/.ssh:ro
@@ -63,7 +63,8 @@ jobs:
         run: |
           mkdir -p /tmp/stacksmith_repos
           stacksmith run proof-conversion \
-            --pr-number ${{ github.event.pull_request.number }} \
+            --build-source-repo-pr-number ${{ github.event.pull_request.number }} \
+            --build-source-repo ${{ github.event.repository.name }} \
             --build-id "proof-conversion-${{ github.event.pull_request.number }}-${{ github.run_id }}-${{ github.run_number }}" \
             --target-branch build \
             --envs-dir /root/.stacksmith.envs \
