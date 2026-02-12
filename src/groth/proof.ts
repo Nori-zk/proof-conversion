@@ -97,9 +97,10 @@ function createProofClass(inputCount: number) {
       });
 
       // FIXME CHECK THIS VS RUST
+      const piBn = computePI(vk, publicInputs);
       const PI = new G1Affine({
-        x: FpC.from(computePI(vk, publicInputs).x).assertCanonical(),
-        y: FpC.from(computePI(vk, publicInputs).y).assertCanonical(),
+        x: FpC.from(piBn.x).assertCanonical(),
+        y: FpC.from(piBn.y).assertCanonical(),
       });
 
       return new ProofClass({
