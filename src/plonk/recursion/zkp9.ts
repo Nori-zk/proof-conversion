@@ -1,6 +1,6 @@
 import { ZkProgram, Field, Poseidon } from 'o1js';
 import { Accumulator } from '../accumulator.js';
-import { fold_state_0, fold_state_1 } from '../piop/plonk_utils.js';
+import { fold_state_1 } from '../piop/plonk_utils.js';
 import { VK } from '../vk.js';
 
 const zkp9 = ZkProgram({

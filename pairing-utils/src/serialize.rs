@@ -3,7 +3,32 @@ use ark_std::Zero;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg(feature = "wasm")]
+use tsify::Tsify;
+
+/// A 12-element field value (Fq12) serialized as decimal strings.
+///
+/// Used for pairing outputs like `alpha_beta` and `w27` in verification keys.
+///
+/// # Structure
+///
+/// Fq12 is built from a "tower" of field extensions:
+/// - **Fq**: A single 254-bit integer (the base field)
+/// - **Fq2**: Two Fq values (real + imaginary)
+/// - **Fq6**: Three Fq2 values
+/// - **Fq12**: Two Fq6 values (`g` and `h` in our serialization)
+///
+/// So: Fq12 = 2 × Fq6 = 2 × 3 × Fq2 = 12 base field elements.
+///
+/// # Naming Convention
+///
+/// `{group}{pair}{component}`:
+/// - group: `g` or `h`
+/// - pair: `0`, `1`, or `2` (which pair within the group)
+/// - component: `0` (real) or `1` (imaginary)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Field12 {
     pub g00: String,
     pub g01: String,
@@ -24,10 +49,60 @@ pub struct Field12 {
     pub h21: String,
 }
 
+impl Field12 {
+    /// Converts to arkworks `Fq12` type.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any string cannot be parsed as a valid field element.
+    pub fn to_fq12(&self) -> Result<Fq12, String> {
+        let parse_fq = |s: &str| -> Result<Fq, String> {
+            Fq::from_str(s).map_err(|_| format!("not a valid Fq '{}'", s))
+        };
+
+        let g00 = parse_fq(&self.g00).map_err(|e| format!("Field12 -> Fq12: g00: {}", e))?;
+        let g01 = parse_fq(&self.g01).map_err(|e| format!("Field12 -> Fq12: g01: {}", e))?;
+        let g0 = Fq2::new(g00, g01);
+
+        let g10 = parse_fq(&self.g10).map_err(|e| format!("Field12 -> Fq12: g10: {}", e))?;
+        let g11 = parse_fq(&self.g11).map_err(|e| format!("Field12 -> Fq12: g11: {}", e))?;
+        let g1 = Fq2::new(g10, g11);
+
+        let g20 = parse_fq(&self.g20).map_err(|e| format!("Field12 -> Fq12: g20: {}", e))?;
+        let g21 = parse_fq(&self.g21).map_err(|e| format!("Field12 -> Fq12: g21: {}", e))?;
+        let g2 = Fq2::new(g20, g21);
+
+        let g = Fq6::new(g0, g1, g2);
+
+        let h00 = parse_fq(&self.h00).map_err(|e| format!("Field12 -> Fq12: h00: {}", e))?;
+        let h01 = parse_fq(&self.h01).map_err(|e| format!("Field12 -> Fq12: h01: {}", e))?;
+        let h0 = Fq2::new(h00, h01);
+
+        let h10 = parse_fq(&self.h10).map_err(|e| format!("Field12 -> Fq12: h10: {}", e))?;
+        let h11 = parse_fq(&self.h11).map_err(|e| format!("Field12 -> Fq12: h11: {}", e))?;
+        let h1 = Fq2::new(h10, h11);
+
+        let h20 = parse_fq(&self.h20).map_err(|e| format!("Field12 -> Fq12: h20: {}", e))?;
+        let h21 = parse_fq(&self.h21).map_err(|e| format!("Field12 -> Fq12: h21: {}", e))?;
+        let h2 = Fq2::new(h20, h21);
+
+        let h = Fq6::new(h0, h1, h2);
+
+        Ok(Fq12::new(g, h))
+    }
+}
+
+/// Auxiliary witness for pairing verification.
+///
+/// Contains precomputed hints for efficient final exponentiation:
+/// - `c`: A 12-element field value
+/// - `shift_power`: A small integer (0, 1, or 2) for the shift factor
 #[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi))]
 pub struct AuxWitness {
-    c: Field12,
-    shift_power: String,
+    pub c: Field12,
+    pub shift_power: String,
 }
 
 pub fn serialize_aux_witness(c: Fq12, shift_pow: u8, path: &str) {
@@ -74,34 +149,5 @@ pub fn serialize_fq12(f: Fq12) -> Field12 {
 pub fn deserialize_fq12(path: &str) -> Fq12 {
     let json = std::fs::read_to_string(path).unwrap();
     let f12: Field12 = serde_json::from_str(&json).unwrap();
-
-    let g00: Fq = Fq::from_str(&f12.g00).unwrap();
-    let g01: Fq = Fq::from_str(&f12.g01).unwrap();
-    let g0 = Fq2::new(g00, g01);
-
-    let g10: Fq = Fq::from_str(&f12.g10).unwrap();
-    let g11: Fq = Fq::from_str(&f12.g11).unwrap();
-    let g1 = Fq2::new(g10, g11);
-
-    let g20: Fq = Fq::from_str(&f12.g20).unwrap();
-    let g21: Fq = Fq::from_str(&f12.g21).unwrap();
-    let g2 = Fq2::new(g20, g21);
-
-    let g: Fq6 = Fq6::new(g0, g1, g2);
-
-    let h00: Fq = Fq::from_str(&f12.h00).unwrap();
-    let h01: Fq = Fq::from_str(&f12.h01).unwrap();
-    let h0 = Fq2::new(h00, h01);
-
-    let h10: Fq = Fq::from_str(&f12.h10).unwrap();
-    let h11: Fq = Fq::from_str(&f12.h11).unwrap();
-    let h1 = Fq2::new(h10, h11);
-
-    let h20: Fq = Fq::from_str(&f12.h20).unwrap();
-    let h21: Fq = Fq::from_str(&f12.h21).unwrap();
-    let h2 = Fq2::new(h20, h21);
-
-    let h: Fq6 = Fq6::new(h0, h1, h2);
-
-    Fq12::new(g, h)
+    f12.to_fq12().expect("deserialize_fq12: invalid field element in file")
 }

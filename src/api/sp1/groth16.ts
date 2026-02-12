@@ -1,18 +1,20 @@
-import { ComputationalPlanExecutor } from '../../compute/executor.js';
-import { Groth16ComputationalPlan } from '../../compute/plans/groth16/index.js';
-import { Risc0Proof, Risc0RawVk } from './types.js';
+import { Logger } from 'esm-iso-logger';
+import { ApiMethod } from '../ApiMethod.js';
+import {
+  type SP1ProofWithPublicValuesGroth16NoTee,
+  sp1Groth16InputSchema,
+} from './schema.js';
+import { Sp1Groth16ComputationalPlan } from '../../compute/plans/sp1/groth16.js';
 
-export async function performRisc0ToGroth16(
-  executor: ComputationalPlanExecutor,
-  risc0_proof: Risc0Proof,
-  risc0_raw_vk: Risc0RawVk,
-) {
-  // print performing sp1 to plonk
-    console.log('Performing Risc0 to Groth16 conversion...');
-    
-    // Invoke executor
-    return executor.execute(new Groth16ComputationalPlan(), {
-        risc0_proof: risc0_proof,
-        raw_vk: risc0_raw_vk,
-    });
-}
+const logger = new Logger('API');
+
+export const performSp1Groth16 = ApiMethod<
+  SP1ProofWithPublicValuesGroth16NoTee, // TInput (what executor expects)
+  typeof sp1Groth16InputSchema // Type of schema object for SP1ProofWithPublicValuesGroth16NoTee
+>(
+  sp1Groth16InputSchema, // Schema object for SP1ProofWithPublicValuesGroth16NoTee
+  false // Arguments mode disabled
+)(async (executor, input) => {
+  logger.log('Performing SP1 Groth16 conversion...');
+  return executor.execute(new Sp1Groth16ComputationalPlan(), input);
+});

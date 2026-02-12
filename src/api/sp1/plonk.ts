@@ -1,22 +1,20 @@
-import { ComputationalPlanExecutor } from '../../compute/executor.js';
-import { PlonkComputationalPlan } from '../../compute/plans/plonk/index.js';
-import { Sp1 } from './types.js';
+import { Logger } from 'esm-iso-logger';
+import { ApiMethod } from '../ApiMethod.js';
+import {
+  sp1PlonkInputSchema,
+  type SP1ProofWithPublicValuesPlonkNoTee,
+} from './schema.js';
+import { Sp1PlonkComputationalPlan } from '../../compute/plans/sp1/plonk.js';
 
-export async function performSp1ToPlonk(
-  executor: ComputationalPlanExecutor,
-  sp1: Sp1
-) {
-  // Unpack arguments
-  const hexPi = `0x${Buffer.from(sp1.public_values.buffer.data).toString(
-    'hex'
-  )}`;
-  const programVK = sp1.proof.Plonk.public_inputs[0];
-  const encodedProof = `0x00000000${sp1.proof.Plonk.encoded_proof}`;
+const logger = new Logger('API');
 
-  // Invoke executor
-  return executor.execute(new PlonkComputationalPlan(), {
-    hexPi,
-    programVK,
-    encodedProof,
-  });
-}
+export const performSp1Plonk = ApiMethod<
+  SP1ProofWithPublicValuesPlonkNoTee, // TInput (what executor expects)
+  typeof sp1PlonkInputSchema // Type of schema object for SP1ProofWithPublicValuesGroth16NoTee
+>(
+  sp1PlonkInputSchema, // Schema object for SP1ProofWithPublicValuesPlonkNoTee
+  false // Arguments mode disabled
+)(async (executor, input) => {
+  logger.log('Performing SP1 Plonk conversion...');
+  return executor.execute(new Sp1PlonkComputationalPlan(), input);
+});

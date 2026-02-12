@@ -86,6 +86,7 @@ const acc_21 = wt.zkp20();
 const acc_22 = wt.zkp21();
 const acc_23 = wt.zkp22();
 const _final = wt.zkp23();
+void _final;
 
 const g = wt.g;
 

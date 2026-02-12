@@ -3,7 +3,7 @@
  - It checks if lines are correct (if point is not fixed) and evaluates them with sparse mul 
 */
 
-import { G1Affine, G2Affine } from '../../ec/index.js';
+import { G1Affine } from '../../ec/index.js';
 import { G2Line } from '../../lines/index.js';
 import { AffineCache } from '../../lines/precompute.js';
 import { ATE_LOOP_COUNT } from '../../towers/consts.js';

@@ -1,7 +1,6 @@
-import { G2Line } from '../../lines/index.js';
-import fs from 'fs';
+import { G2Line, G2LineJSON } from '../../lines/index.js';
 import { ATE_LOOP_COUNT } from '../../towers/consts.js';
-import { createRequire } from 'node:module';
+import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const g2_lines_required = require('../mm_loop/g2_lines.json');
 const tau_lines_required = require('../mm_loop/tau_lines.json');
@@ -34,12 +33,12 @@ class LineParser {
   }
 
   static init() {
-    let parsed_g2_lines: any[] = JSON.parse(g2_lines_path);
-    let g2_lines = parsed_g2_lines.map((g: any): G2Line => G2Line.fromJSON(g));
+    let parsed_g2_lines: G2LineJSON[] = JSON.parse(g2_lines_path);
+    let g2_lines = parsed_g2_lines.map((g: G2LineJSON): G2Line => G2Line.fromJSON(g));
 
-    let parsed_tau_lines: any[] = JSON.parse(tau_lines_path);
+    let parsed_tau_lines: G2LineJSON[] = JSON.parse(tau_lines_path);
     let tau_lines = parsed_tau_lines.map(
-      (tau: any): G2Line => G2Line.fromJSON(tau)
+      (tau: G2LineJSON): G2Line => G2Line.fromJSON(tau)
     );
 
     return new LineParser(g2_lines, tau_lines);

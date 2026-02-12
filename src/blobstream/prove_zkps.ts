@@ -8,9 +8,6 @@ import {
   Cache,
   Bytes,
   Field,
-  Undefined,
-  ZkProgram,
-  Provable,
 } from 'o1js';
 import {
   blobstreamVerifier,
@@ -41,11 +38,9 @@ import {
   BlobstreamProcessor,
   adminPrivateKey,
 } from './blobstream_contract.js';
-import { HelloWorldRollup, StateBytes } from './rollup.js';
+import { HelloWorldRollup } from './rollup.js';
 import {
   parseDigestProvable,
-  parsePublicInputs,
-  parsePublicInputsProvable,
 } from '../plonk/parse_pi.js';
 
 const args = process.argv;
@@ -341,7 +336,7 @@ async function blobstream_contract() {
   const blobstreamProofPath = args[3];
   const cacheDir = args[4];
 
-  (await blobstreamVerifier.compile({ cache: Cache.FileSystem(cacheDir) }))
+  void (await blobstreamVerifier.compile({ cache: Cache.FileSystem(cacheDir) }))
     .verificationKey;
 
   const blobstreamTree = new MerkleTree(32);
@@ -420,7 +415,7 @@ async function rollup_contract() {
   const batcherProofPath = args[4];
   const cacheDir = args[5];
 
-  (await blobstreamVerifier.compile({ cache: Cache.FileSystem(cacheDir) }))
+  void (await blobstreamVerifier.compile({ cache: Cache.FileSystem(cacheDir) }))
     .verificationKey;
   const blobInclusionVk = (
     await blobInclusionVerifier.compile({ cache: Cache.FileSystem(cacheDir) })

@@ -1,4 +1,4 @@
-import { Bytes, Gadgets, UInt8, UInt32, Provable } from 'o1js';
+import { Bytes, Gadgets, UInt8, UInt32 } from 'o1js';
 import { FrC } from '../../towers/index.js';
 import { Hash, Struct } from 'o1js';
 import { FpC } from '../../towers/index.js';

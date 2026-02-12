@@ -1,4 +1,4 @@
-import { Logger } from '../logging/logger.js';
+import { Logger } from 'esm-iso-logger';
 import {
   ComputationalStage,
   ComputationPlan,
@@ -13,10 +13,6 @@ import {
   PlatformFeatures,
 } from './plans/platform/index.js';
 import { ProcessPool } from './processPool.js';
-
-type InferInput<P> = P extends ComputationPlan<any, any, infer I> ? I : never;
-type InferOutput<P> = P extends ComputationPlan<any, infer R, any> ? R : never;
-type InferState<P> = P extends ComputationPlan<infer S, any, any> ? S : never;
 
 function applyNumaOptimization<S extends PlatformFeatures>(
   stageProcessCommands: ProcessCmd[],
@@ -51,13 +47,15 @@ function applyNumaOptimization<S extends PlatformFeatures>(
 let executorId = 0;
 
 export class ComputationalPlanExecutor {
-  #poolSize: number;
   #processPool: ProcessPool;
   #logger: Logger;
   #planExecutionId = 0;
   #activePlans = new Map<
     number,
-    { plan: ComputationPlan<any, any, any>; state: any }
+    {
+      plan: ComputationPlan<PlatformFeatures, unknown, unknown>;
+      state: PlatformFeatures;
+    }
   >();
 
   async #performMainThreadStage<S extends PlatformFeatures>(
@@ -163,7 +161,10 @@ export class ComputationalPlanExecutor {
     let error: Error | undefined = undefined;
     const startTime = Date.now();
     try {
-      this.#activePlans.set(planId, { plan, state });
+      this.#activePlans.set(planId, {
+        plan: plan as ComputationPlan<PlatformFeatures, unknown, unknown>,
+        state: state as PlatformFeatures,
+      });
       if (plan.init) {
         this.#logger.log(
           `Calling the 'init' function of the '${plan.name}' computational plan.`
@@ -272,24 +273,24 @@ export class ComputationalPlanExecutor {
     }
   }
 
-  async execute<P extends ComputationPlan<any, any, any>>(
-    plan: P,
-    input: InferInput<P>
-  ) {
+  async execute<S extends PlatformFeatures, R, I>(
+    plan: ComputationPlan<S, R, I>,
+    input: I
+  ): Promise<R> {
     // Define platform features
     const plaformPlan = new PlatformFeatureDetectionComputationalPlan();
     // Execute platform plan
     const platformFeatures = await this.#executeComputationalPlanInner<
       PlatformFeatures,
       PlatformFeatures,
-      InferInput<P>
-    >({} as PlatformFeatures, plaformPlan as InferInput<P>, input);
+      I
+    >({} as PlatformFeatures, plaformPlan as unknown as ComputationPlan<PlatformFeatures, PlatformFeatures, I>, input);
     // Execute the given plan
-    return await this.#executeComputationalPlanInner<
-      InferState<P>,
-      InferOutput<P>,
-      InferInput<P>
-    >(platformFeatures as InferState<P>, plan, input);
+    return await this.#executeComputationalPlanInner<S, R, I>(
+      platformFeatures as S,
+      plan,
+      input
+    );
   }
 
   async terminate() {
@@ -309,7 +310,6 @@ export class ComputationalPlanExecutor {
 
   constructor(poolSize: number) {
     executorId++;
-    this.#poolSize = poolSize;
     this.#processPool = new ProcessPool(poolSize);
     this.#logger = new Logger(`ComputationalPlanExecutor${executorId}`);
   }

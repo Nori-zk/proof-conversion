@@ -1,36 +1,33 @@
-import { parsePublicInputsProvable as parsePlonkPublicInputsProvable } from './plonk/parse_pi.js';
-import { wordToBytes } from './sha/utils.js';
-import { NodeProofLeft } from './structs.js';
-import { FrC } from './towers/fr.js';
-import { performSp1ToPlonk } from './api/sp1/plonk.js';
-import { ComputationalPlanExecutor } from './compute/executor.js';
-import { LogPrinter } from './logging/log_printer.js';
-import { Sp1 } from './api/sp1/types.js';
-import { Logger } from './logging/logger.js';
-import { PlatformFeatureDetectionComputationalPlan } from './compute/plans/platform/index.js';
-import { ProcessCmd, ProcessCmdOutput } from './compute/plan.js';
-import { InvertedPromise } from './utils/InvertedPromise.js';
+// Node.js dep free ===============================================================================
 
-export {
-  parsePlonkPublicInputsProvable,
-  wordToBytes,
-  NodeProofLeft,
-  FrC,
+// Types
 
-  // Api
-  performSp1ToPlonk,
-  Sp1,
+// Conversion output
+export type * from './compute/types.js';
 
-  // Compute
-  ComputationalPlanExecutor,
-  PlatformFeatureDetectionComputationalPlan,
-  ProcessCmd,
-  ProcessCmdOutput,
+// Proof input formats
+export type * from './api/risc0/schema.js';
+export type * from './api/snarkjs/schema.js';
+export type * from './api/sp1/schema.js';
 
-  // Logging
-  LogPrinter,
-  Logger,
+// Utilities
 
-  // Utils
-  InvertedPromise,
-};
+export * from '@nori-zk/proof-conversion-utils';
+export { parsePublicInputsProvable as parsePlonkPublicInputsProvable } from './plonk/parse_pi.js';
+export { wordToBytes } from './sha/utils.js';
+export { NodeProofLeft } from './structs.js';
+export { FrC } from './towers/fr.js';
+export { DeferredPromise } from './utils/DeferredPromise.js';
+
+// Node.js ========================================================================================
+
+// Api
+export { performSp1Plonk } from './api/sp1/plonk.js';
+export { performRisc0Groth16 } from './api/risc0/groth16.js';
+export { performSnarkjsGroth16 } from './api/snarkjs/groth16.js';
+export { performSp1Groth16 } from './api/sp1/groth16.js';
+
+// Compute
+export { ComputationalPlanExecutor } from './compute/executor.js';
+export { PlatformFeatureDetectionComputationalPlan } from './compute/plans/platform/index.js';
+export { ProcessCmd, ProcessCmdOutput } from './compute/plan.js';

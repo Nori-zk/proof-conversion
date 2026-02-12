@@ -3,6 +3,7 @@ import { FpC, FrC, FrU } from '../../towers/index.js';
 import { provableBn254BaseFieldToBytes } from '../../sha/utils.js';
 
 class Bytes32 extends Bytes(32) {}
+void Bytes32;
 class Bytes64 extends Bytes(64) {}
 class Bytes3 extends Bytes(3) {}
 class Bytes1 extends Bytes(1) {}

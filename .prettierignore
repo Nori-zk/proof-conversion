@@ -4,6 +4,12 @@ build
 coverage
 .husky
 
+# Rust
+pairing-utils
+
+# Example proofs
+example-proofs
+
 # Editor
 .vscode
 

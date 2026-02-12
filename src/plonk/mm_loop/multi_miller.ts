@@ -1,4 +1,4 @@
-import { G2Line } from '../../lines/index.js';
+import { G2Line, G2LineJSON } from '../../lines/index.js';
 import { G1Affine } from '../../ec/index.js';
 import { ATE_LOOP_COUNT, Fp12 } from '../../towers/index.js';
 import { KZGLineAccumulator } from './accumulate_lines.js';
@@ -10,12 +10,12 @@ class KZGPairing {
   w27: Array<Fp12>;
 
   constructor(g2_lines: string, tau_lines: string, w27: Fp12) {
-    let parsed_g2_lines: any[] = JSON.parse(g2_lines);
-    this.g2_lines = parsed_g2_lines.map((g: any): G2Line => G2Line.fromJSON(g));
+    let parsed_g2_lines: G2LineJSON[] = JSON.parse(g2_lines);
+    this.g2_lines = parsed_g2_lines.map((g: G2LineJSON): G2Line => G2Line.fromJSON(g));
 
-    let parsed_tau_lines: any[] = JSON.parse(tau_lines);
+    let parsed_tau_lines: G2LineJSON[] = JSON.parse(tau_lines);
     this.tau_lines = parsed_tau_lines.map(
-      (g: any): G2Line => G2Line.fromJSON(g)
+      (g: G2LineJSON): G2Line => G2Line.fromJSON(g)
     );
 
     this.w27 = [Fp12.one(), w27, w27.mul(w27)];

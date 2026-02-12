@@ -1,7 +1,6 @@
 import { createForeignCurve } from 'o1js';
-import { createField } from 'o1js/dist/node/bindings/crypto/finite-field';
 
-var bn254Params = {
+const bn254Params = {
   name: 'bn254',
   modulus:
     21888242871839275222246405745257275088696311157297823662689037894645226208583n,

@@ -1,73 +1,61 @@
+import rootDir from '../../../utils/root_dir.js';
+import { range } from '../../../utils/range.js';
+import { parseProof } from '../../../groth/proof.js';
 import { resolve } from 'path';
-import { computeAuxWitness } from '../../../pairing-utils/index.js';
-import { Alpha } from '../../../pairing-utils/index.js';
-import { Beta } from '../../../pairing-utils/index.js';
-import { AlphaBetaWasm } from '../../../pairing-utils/index.js';
-import { makeAlphaBeta } from '../../../pairing-utils/index.js';
+import { Groth16Verifier } from '../../../groth/verifier.js';
+import { getRandomString } from '../../../utils/random.js';
+import { PlatformFeatures } from '../platform/index.js';
+import { readFileSync, rmSync, writeFileSync } from 'fs';
 import {
   createDirectories,
   createDirectory,
   DirectoryStructure,
 } from '../../../utils/cache.js';
-import { getRandomString } from '../../../utils/random.js';
-import { range } from '../../../utils/range.js';
 import {
   ComputationalStage,
   ComputationPlan,
   ParallelComputationStage,
 } from '../../plan.js';
-import { PlatformFeatures } from '../platform/index.js';
-import rootDir from '../../../utils/root_dir.js';
-import { readFileSync, rmSync, writeFileSync } from 'fs';
-import { Risc0Proof, Risc0RawVk, Risc0Vk } from '../../../api/sp1/types.js';
-import { Groth16Verifier } from '../../../groth/verifier.js';
-import { Proof } from '../../../groth/proof.js';
+import {
+  ConversionOutput,
+  ProofDataOutput,
+  VkDataOutput,
+} from '../../types.js';
 
-export type Groth16Input = {
-  risc0_proof: Risc0Proof;
-  raw_vk: Risc0RawVk;
-};
+import type { SP1ProofWithPublicValuesGroth16NoTee } from '../../../api/sp1/schema.js'; // FIXME
+import {
+  computeAuxWitness,
+  convertSp1Groth16ToO1js,
+} from '../../../pairing-utils/index.js';
 
-export interface Groth16ProofData {
-  maxProofsVerified: 0 | 1 | 2;
-  proof: string;
-  publicInput: string[];
-  publicOutput: string[];
-}
-
-export interface Groth16VkData {
-  data: string;
-  hash: string;
-}
-
-export interface Groth16Output {
-    vkData: Groth16VkData;
-    proofData: Groth16ProofData;
-}
-
-interface State extends PlatformFeatures, Groth16Output {
+interface State extends PlatformFeatures, ConversionOutput {
   workingDirName: string;
   workingDir: string;
   cacheDir: string;
-  input: Groth16Input;
+  input: SP1ProofWithPublicValuesGroth16NoTee;
   witnessPath: string;
   proofPath: string;
   vkPath: string;
 }
 
+// CHECKME FIXME - I CHANGE THE RANGE TO 6 it used to be 5
 const proofVkCacheStructure: DirectoryStructure = {
   proofs: range(5).map((i) => `layer${i}`),
   vks: range(5).map((i) => `layer${i}`),
 };
-
 const nodeCacheStructure: DirectoryStructure = range(4).map((i) => `node${i}`);
 
-export class Groth16ComputationalPlan
-  implements ComputationPlan<State, Groth16Output, Groth16Input>
-{
-  readonly __inputType!: Groth16Input;
-  name = 'Groth16Converter';
-  async init(state: State, input: Groth16Input): Promise<void> {
+export class Sp1Groth16ComputationalPlan implements ComputationPlan<
+  State,
+  ConversionOutput,
+  SP1ProofWithPublicValuesGroth16NoTee
+> {
+  readonly __inputType!: SP1ProofWithPublicValuesGroth16NoTee;
+  name = 'Sp1Groth16Converter';
+  async init(
+    state: State,
+    input: SP1ProofWithPublicValuesGroth16NoTee
+  ): Promise<void> {
     state.input = input;
     state.workingDirName = getRandomString(20);
     const pwd = process.cwd();
@@ -89,62 +77,56 @@ export class Groth16ComputationalPlan
       },
     },
     {
-      name: 'makeAlphaBeta',
+      name: 'ConvertSp1Groth16ToO1js',
       type: 'main-thread',
       execute: (state: State) => {
-        const raw_vk = state.input.raw_vk;
+        const o1jsGroth16 = convertSp1Groth16ToO1js(state.input);
 
-        const input: AlphaBetaWasm = {
-          alpha: {
-            x: raw_vk.alpha.x,
-            y: raw_vk.alpha.y,
-          },
-          beta: {
-            x_c0: raw_vk.beta.x_c0,
-            x_c1: raw_vk.beta.x_c1,
-            y_c0: raw_vk.beta.y_c0,
-            y_c1: raw_vk.beta.y_c1,
-          },
-        };
+        // o1jsGroth16.vk Need to remove alpha and beta
+        const {
+          vk: { alpha, beta, ...o1jsGroth16Vk },
+        } = o1jsGroth16;
+        // Just void alpha and beta because we won't use them and otherwise the linter complains
+        void alpha;
+        void beta;
 
-        const risc0_vk = makeAlphaBeta(raw_vk, input);
+        // Write vk and proof
+        writeFileSync(
+          resolve(state.workingDir, 'sp1_groth16_vk.json'),
+          JSON.stringify(o1jsGroth16Vk)
+        );
 
         writeFileSync(
-          resolve(state.workingDir, 'risc_zero_vk.json'), 
-          JSON.stringify(risc0_vk)
+          resolve(state.workingDir, 'sp1_groth16_proof.json'),
+          JSON.stringify(o1jsGroth16.proof)
         );
-        
-        writeFileSync(
-          resolve(state.workingDir, 'risc_zero_proof.json'),
-          JSON.stringify(state.input.risc0_proof)
-        );
-        
-        state.vkPath = resolve(state.workingDir, 'risc_zero_vk.json');
-        state.proofPath = resolve(state.workingDir, 'risc_zero_proof.json');
+
+        state.vkPath = resolve(state.workingDir, 'sp1_groth16_vk.json');
+        state.proofPath = resolve(state.workingDir, 'sp1_groth16_proof.json');
       },
     },
-    {     
-          name: 'GenerateWitness',
-          type: 'main-thread',
-          execute: (state: State) => {
-            // args = [vk_path, proof_path, mlo_write_path]
-            const vk_path = state.vkPath;
-            const proof_path = state.proofPath;
-            
-            const groth16 = new Groth16Verifier(vk_path);
-            const proof = Proof.parse(groth16.vk, proof_path);
-            const mlo = groth16.multiMillerLoop(proof).toJSON();
-    
-            const witness = computeAuxWitness(JSON.parse(mlo));
-            state.witnessPath = resolve(state.workingDir, 'aux_wtns.json');
-            
-            // Write the mlo and witness to the cache dir
-            writeFileSync(resolve(state.workingDir, 'mlo.json'), mlo);
-            writeFileSync(state.witnessPath, JSON.stringify(witness));
+    {
+      name: 'GenerateWitness',
+      type: 'main-thread',
+      execute: (state: State) => {
+        const { vkPath, proofPath } = state;
 
-            return;
-          },
-        },
+        const groth16 = new Groth16Verifier(vkPath);
+        // this extract the proof nega C B and public inputs but operates on the public inputs with the vk
+        const proof = parseProof(groth16.vk, proofPath); // CHECKME FIXME - I had to change this from Proof to parseProof see src/groth/proof.ts
+        // then this modified  proof goes through the multimillerloop and gives us an f1p
+        const mlo = groth16.multiMillerLoop(proof).toJSON();
+        // F12 goes to wasm to compute the witness
+        const witness = computeAuxWitness(JSON.parse(mlo));
+        state.witnessPath = resolve(state.workingDir, 'aux_wtns.json');
+
+        // Write the mlo and witness to the cache dir
+        writeFileSync(resolve(state.workingDir, 'mlo.json'), mlo);
+        writeFileSync(state.witnessPath, JSON.stringify(witness));
+
+        return;
+      },
+    },
     {
       name: 'CompileRecursion',
       type: 'serial-cmd',
@@ -166,7 +148,7 @@ export class Groth16ComputationalPlan
       name: 'ComputeZKP',
       type: 'parallel-cmd',
       processCmds: (state: State) => {
-        process.env.GROTH16_VK_PATH = state.vkPath;
+        process.env.GROTH16_VK_PATH = state.vkPath; // CHECKME what is this hackyness?
         return range(16).map((i) => {
           return {
             cmd: 'node',
@@ -194,6 +176,7 @@ export class Groth16ComputationalPlan
       numaOptimized: true,
     },
     ...range(1, 5).map((i) => {
+      // CHECKME FIXME - ...range(1, 5) i had change from this
       const stage: ParallelComputationStage<State> = {
         name: `CompressLayer${i}`,
         type: 'parallel-cmd',
@@ -221,17 +204,17 @@ export class Groth16ComputationalPlan
       return stage;
     }),
   ];
-  async then(state: State): Promise<Groth16Output> {
-    const output: Groth16Output = {
+  async then(state: State): Promise<ConversionOutput> {
+    const output: ConversionOutput = {
       vkData: JSON.parse(
         readFileSync(resolve(state.workingDir, 'vks', 'nodeVk.json'), 'utf8')
-      ) as Groth16VkData,
+      ) as VkDataOutput,
       proofData: JSON.parse(
         readFileSync(
           resolve(state.workingDir, 'proofs', 'layer4', 'p0.json'),
           'utf8'
         )
-      ) as Groth16ProofData,
+      ) as ProofDataOutput,
     };
     return output;
   }
