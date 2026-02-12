@@ -9,6 +9,12 @@ module.exports = (request, options) => {
           main: pkg.exports.node.import,
         };
       }
+      if (pkg.name === 'esm-iso-logger') {
+        return {
+          ...pkg,
+          main: pkg.exports['.'].node.import,
+        };
+      }
       if (pkg.name === 'node-fetch') {
         return { ...pkg, main: pkg.main };
       }

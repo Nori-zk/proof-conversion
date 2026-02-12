@@ -9,6 +9,19 @@ export default [
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    files: ['*.cjs'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: {
+        module: 'readonly',
+        require: 'readonly',
+        exports: 'readonly',
+        __dirname: 'readonly',
+        __filename: 'readonly',
+      },
+    },
+  },
+  {
     files: ['**/*.ts', '**/*.tsx'],
     plugins: {
       o1js: o1jsPlugin,

@@ -8,7 +8,6 @@ This PR integrates contributions from 0x471 enabling new proof format conversion
 - Renamed Rust crate from pairing-utils to proof-conversion-utils to better reflect its broader scope beyond pairing operations.
 - Removed custom SP1 type from TypeScript exports in favour of directly using the Rust type 'SP1ProofWithPublicValues' generated via Tsify, eliminating type duplication
 - Renamed API/CLI methods from 'sp1ToPlonk' and 'risc0ToGroth16' to 'sp1Plonk' and 'risc0Groth16' for more concise naming that better reflects the proof system source format
-- Removed ProcessCmd and ProcessCmdOutput from public exports as they are internal implementation details of the computational plan system
 - Renamed InvertedPromise to DeferredPromise for clearer naming convention
 - Moved o1js from direct dependency to peer dependency, requiring downstream projects to provide their own o1js version, resolving version conflicts and improving package compatibility
 

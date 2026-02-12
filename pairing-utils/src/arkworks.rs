@@ -120,6 +120,12 @@ impl TryFrom<&SP1ProofWithPublicValues> for ArkworksGroth16 {
         if proof_bytes.is_empty() {
             return Err("ArkworksGroth16 -> SP1ProofWithPublicValues: empty proof (mock proof not supported)".to_string());
         }
+        if proof_bytes.len() < 4 {
+            return Err(format!(
+                "ArkworksGroth16 -> SP1ProofWithPublicValues: malformed proof ({} bytes, expected at least 4 for vkey hash prefix)",
+                proof_bytes.len()
+            ));
+        }
 
         // Skip the first 4 bytes (vkey hash prefix) and load arkworks proof
         let proof = load_ark_proof_from_bytes(&proof_bytes[4..])

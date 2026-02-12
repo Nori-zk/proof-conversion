@@ -129,7 +129,7 @@ describe('Guard System - Schema Validation', () => {
       } catch (e) {
         console.error('\n Wrong protocol error:\n', (e as Error).message);
         expect((e as Error).message).toMatch(
-          /"protocol" must be exactly "groth16"/
+          /protocol: must be exactly "groth16"/
         );
       }
     });
@@ -258,7 +258,7 @@ describe('Guard System - Schema Validation', () => {
       } catch (e) {
         console.error('\n nPublic out of range error:\n', (e as Error).message);
         expect((e as Error).message).toMatch(
-          /"nPublic".*BoundedNumberUnion.*exceeds maximum 6/
+          /nPublic: expected BoundedNumberUnion.*exceeds maximum 6/
         );
       }
     });
@@ -378,7 +378,7 @@ describe('Guard System - Schema Validation', () => {
         fail('Should have thrown an error');
       } catch (e) {
         console.error('\n Missing field error:\n', (e as Error).message);
-        expect((e as Error).message).toMatch(/missing required key.*"pi5"/);
+        expect((e as Error).message).toMatch(/\["pi5"\]: missing required key/);
       }
     });
 
@@ -562,11 +562,11 @@ describe('Guard System - Schema Validation', () => {
 
         // Should report errors in proof, vk, and publicInputs
         expect(errorMsg).toMatch(
-          /in "proof".*protocol.*must be exactly "groth16"/
+          /proof\["protocol"\]: must be exactly "groth16"/
         );
-        expect(errorMsg).toMatch(/pi_a.*expected.*ProjectivePoint/);
-        expect(errorMsg).toMatch(/in "vk".*nPublic.*exceeds maximum 6/);
-        expect(errorMsg).toMatch(/publicInputs.*expected.*ArrayOfLength/);
+        expect(errorMsg).toMatch(/proof\["pi_a"\]: expected.*ProjectivePoint/);
+        expect(errorMsg).toMatch(/vk\["nPublic"\]:.*exceeds maximum 6/);
+        expect(errorMsg).toMatch(/publicInputs: expected.*ArrayOfLength/);
       }
     });
   });
