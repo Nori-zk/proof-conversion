@@ -1,27 +1,23 @@
-import { Groth16ComputationalPlan } from '../../compute/plans/groth16/index.js';
 import { Logger } from 'esm-iso-logger';
-import { ApiMethod } from '../methodDecorator.js';
-import { Risc0ToGroth16Input } from './types.js';
+import { ApiMethod } from '../ApiMethod.js';
+import {
+  type Risc0Groth16Input,
+  risc0Groth16ObjInputSchema,
+  risc0Groth16ArgKeys,
+} from './schema.js';
+import { Risc0Groth16ComputationalPlan } from '../../compute/plans/risc0/groth16.js';
 
 const logger = new Logger('API');
 
-const risc0ArgsKeys = ['risc0_proof', 'raw_vk'] as const;
-const risc0ObjKeys = ['risc0_proof', 'raw_vk'] as const;
-
-const fromRisc0Object = (obj: Risc0ToGroth16Input): Risc0ToGroth16Input => ({
-  risc0_proof: obj.risc0_proof,
-  raw_vk: obj.raw_vk,
-});
-
-export const performRisc0ToGroth16 = ApiMethod<
-  Risc0ToGroth16Input, // TInput (what executor expects)
-  typeof risc0ArgsKeys, // TKeys (what arguments mode expects to be provided) performRisc0ToGroth16.fromArgs(risc0_proof, raw_vk)
-  Risc0ToGroth16Input // TObject (what object mode expects as a single object) performRisc0ToGroth16.fromObject({} as Risc0ToGroth16Input)
+export const performRisc0Groth16 = ApiMethod<
+  Risc0Groth16Input, // TInput (what executor expects)
+  typeof risc0Groth16ObjInputSchema, // Type of schema object for Risc0Groth16Input
+  typeof risc0Groth16ArgKeys // TKeys: what arguments mode expects to be provided to performRisc0Groth16.fromArgs(risc0_proof, raw_vk)
 >(
-  risc0ArgsKeys,
-  fromRisc0Object,
-  risc0ObjKeys
+  risc0Groth16ObjInputSchema, // Schema object for Risc0Groth16Input
+  true, // If we support arguments mode
+  risc0Groth16ArgKeys // What arguments mode expects to be provided performRisc0Groth16.fromArgs(risc0_proof, raw_vk)
 )(async (executor, input) => {
-  logger.log('Performing Risc0 to Groth16 conversion...');
-  return executor.execute(new Groth16ComputationalPlan(), input);
+  logger.log('Performing Risc0 Groth16 conversion...');
+  return executor.execute(new Risc0Groth16ComputationalPlan(), input);
 });

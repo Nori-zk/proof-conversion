@@ -2,6 +2,11 @@ import { Field, Provable, Struct } from 'o1js';
 import { FpC, FpU, FpA } from './fp.js';
 import { AlmostReducedSum, UnreducedSum, assertMul } from './assert-mul.js';
 
+interface Fp2JSON {
+  c0: string;
+  c1: string;
+}
+
 class Fp2 extends Struct({ c0: FpA.provable, c1: FpA.provable }) {
   static zero(): Fp2 {
     return new Fp2({ c0: FpC.from(0n), c1: FpC.from(0n) });
@@ -146,7 +151,7 @@ class Fp2 extends Struct({ c0: FpA.provable, c1: FpA.provable }) {
     return Fp2.fromUnreduced({ c0, c1 });
   }
 
-  static loadFromJson(json: any): Fp2 {
+  static loadFromJson(json: Fp2JSON): Fp2 {
     const c0: FpC = FpC.provable.fromJSON(json.c0);
     const c1: FpC = FpC.provable.fromJSON(json.c1);
     return new Fp2({
@@ -187,4 +192,4 @@ class Fp2 extends Struct({ c0: FpA.provable, c1: FpA.provable }) {
 //     console.log(cs.summary());
 // })();
 
-export { Fp2 };
+export { Fp2, Fp2JSON };

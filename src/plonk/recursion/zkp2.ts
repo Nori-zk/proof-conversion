@@ -1,7 +1,6 @@
-import { ZkProgram, Field, Poseidon, Provable } from 'o1js';
+import { ZkProgram, Field, Poseidon } from 'o1js';
 import { Accumulator } from '../accumulator.js';
 import { fold_quotient_split_0 } from '../piop/plonk_utils.js';
-import { VK } from '../vk.js';
 
 const zkp2 = ZkProgram({
   name: 'zkp2',

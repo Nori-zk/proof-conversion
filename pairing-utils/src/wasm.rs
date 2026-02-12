@@ -1,158 +1,277 @@
-use crate::{kzg::{assert_o1js_mlo, compute_aux_witness}, serialize::{serialize_fq12, Field12}};
-use ark_bn254::{Bn254, Fq, Fq12, Fq2, Fq6, G1Affine, G2Affine};
+//! WebAssembly bindings for pairing-utils.
+//!
+//! This module provides wasm-bindgen exported functions for use from JavaScript.
+
+use ark_bn254::{Bn254, G1Affine, G2Affine};
 use ark_ec::pairing::Pairing;
 use serde::{Deserialize, Serialize};
-use serde_wasm_bindgen::{from_value, to_value};
-use std::str::FromStr;
-use wasm_bindgen::prelude::*;
+use tsify::Tsify;
+use wasm_bindgen::{prelude::*, JsError};
 
-/// Witness
+use crate::kzg::{assert_o1js_mlo, compute_aux_witness as compute_aux_witness_internal};
+use crate::o1js::O1jsGroth16;
+use crate::serialize::{serialize_fq12, AuxWitness, Field12};
+use crate::snarkjs::{SnarkjsProof, SnarkjsVK};
+use crate::sp1::SP1ProofWithPublicValues;
+use crate::types::{AffinePoint2d, ComplexAffinePoint2d};
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Field12JSValue {
-    pub g00: String,
-    pub g01: String,
-    pub g10: String,
-    pub g11: String,
-    pub g20: String,
-    pub g21: String,
-    pub h00: String,
-    pub h01: String,
-    pub h10: String,
-    pub h11: String,
-    pub h20: String,
-    pub h21: String,
+/// Input for computing a pairing operation.
+///
+/// A pairing combines a G1 point and a G2 point to produce a 12-element field value.
+/// In Groth16/PLONK verification keys, this is used to precompute e(alpha, beta).
+///
+/// - `alpha`: G1 curve point (simple 2D coordinates)
+/// - `beta`: G2 curve point (complex 2D coordinates, each coordinate is a pair)
+///
+/// See [`compute_pairing`] for the computation.
+#[derive(Serialize, Deserialize, Debug, Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct PairingInput {
+    pub alpha: AffinePoint2d,
+    pub beta: ComplexAffinePoint2d,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AuxWitnessJSValue {
-    c: Field12,
-    shift_power: String,
+impl PairingInput {
+
+    /// Converts to arkworks pairing input points (`G1Affine`, `G2Affine`).
+    ///
+    /// - `alpha` → `G1Affine`
+    /// - `beta` → `G2Affine`
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any coordinate cannot be parsed as a valid field element.
+    pub fn to_pairing_points(&self) -> Result<(G1Affine, G2Affine), String> {
+        let g1: G1Affine = (&self.alpha).try_into()
+            .map_err(|e: String| format!("PairingInput -> (G1Affine, G2Affine): alpha: {}", e))?;
+        let g2: G2Affine = (&self.beta).try_into()
+            .map_err(|e: String| format!("PairingInput -> (G1Affine, G2Affine): beta: {}", e))?;
+        Ok((g1, g2))
+    }
 }
 
-// Deserialize Fq12 from a JavaScript object
-pub fn deserialize_fq12_jsvalue(f12: Field12JSValue) -> Fq12 {
-    let g00: Fq = Fq::from_str(&f12.g00).unwrap();
-    let g01: Fq = Fq::from_str(&f12.g01).unwrap();
-    let g0 = Fq2::new(g00, g01);
-
-    let g10: Fq = Fq::from_str(&f12.g10).unwrap();
-    let g11: Fq = Fq::from_str(&f12.g11).unwrap();
-    let g1 = Fq2::new(g10, g11);
-
-    let g20: Fq = Fq::from_str(&f12.g20).unwrap();
-    let g21: Fq = Fq::from_str(&f12.g21).unwrap();
-    let g2 = Fq2::new(g20, g21);
-
-    let g: Fq6 = Fq6::new(g0, g1, g2);
-
-    let h00: Fq = Fq::from_str(&f12.h00).unwrap();
-    let h01: Fq = Fq::from_str(&f12.h01).unwrap();
-    let h0 = Fq2::new(h00, h01);
-
-    let h10: Fq = Fq::from_str(&f12.h10).unwrap();
-    let h11: Fq = Fq::from_str(&f12.h11).unwrap();
-    let h1 = Fq2::new(h10, h11);
-
-    let h20: Fq = Fq::from_str(&f12.h20).unwrap();
-    let h21: Fq = Fq::from_str(&f12.h21).unwrap();
-    let h2 = Fq2::new(h20, h21);
-
-    let h: Fq6 = Fq6::new(h0, h1, h2);
-
-    Fq12::new(g, h)
-}
-
+/// Computes the auxiliary witness from a Miller loop output.
+///
+/// # What This Does
+///
+/// Takes a 12-element field value (the result of a Miller loop pairing computation)
+/// and computes the auxiliary witness needed for efficient verification.
+///
+/// The Miller loop is the first step of pairing-based verification. Its output
+/// needs further processing (final exponentiation), which is expensive. The
+/// auxiliary witness provides precomputed hints that make this step efficient.
+///
+/// # Input
+///
+/// A JS object matching [`Field12`] structure (12 string fields: g00-g21, h00-h21).
+///
+/// # Output
+///
+/// A JS object matching [`AuxWitness`] structure containing:
+/// - `c`: A 12-element field value
+/// - `shift_power`: "0", "1", or "2"
+///
+/// # Error
+///
+/// Returns a JsError if the input is not a valid Miller loop output (fails internal assertion).
 #[wasm_bindgen]
-pub fn compute_and_serialize_aux_witness_js(mlo_js_input: JsValue) -> JsValue {
-    // Convert the JavaScript object to the Field12 struct
-    let f12_jsvalue: Field12JSValue = from_value(mlo_js_input).unwrap();
-    let mlo = deserialize_fq12_jsvalue(f12_jsvalue);
+pub fn compute_aux_witness(input: Field12) -> Result<AuxWitness, JsError> {
+    let mlo = input.to_fq12()
+        .map_err(|e| JsError::new(&format!("compute_aux_witness: {}", e)))?;
 
-    // Should probably do a softer version of assert.
-    assert_o1js_mlo(mlo);
+    // Validate Miller loop output
+    assert_o1js_mlo(mlo)
+        .map_err(|e| JsError::new(&format!("compute_aux_witness: {}", e)))?;
 
     // Compute
-    let (shift_pow, c) = compute_aux_witness(mlo);
+    let (shift_pow, c) = compute_aux_witness_internal(mlo)
+        .map_err(|e| JsError::new(&format!("compute_aux_witness: {}", e)))?;
 
-    // Return 
+    // Return
     let c_serialized = serialize_fq12(c);
-    let aux_witness = AuxWitnessJSValue {
+    Ok(AuxWitness {
         c: c_serialized,
         shift_power: shift_pow.to_string(),
-    };
-
-    to_value(&aux_witness).unwrap()
+    })
 }
 
-/// alphabeta
-
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Alpha {
-    pub x: String,
-    pub y: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Beta {
-    pub x_c0: Option<String>,
-    pub x_c1: Option<String>,
-    pub y_c0: Option<String>,
-    pub y_c1: Option<String>,
-}
-
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AlphaBetaJSInputValue {
-    pub alpha: Alpha,
-    pub beta: Beta,
-}
-
+/// Computes a pairing for a verification key.
+///
+/// # What This Does
+///
+/// Takes two curve points (alpha and beta from the trusted setup) and computes
+/// their pairing using the Miller loop algorithm. The result is a 12-element
+/// field value that gets stored in the verification key.
+///
+/// This pairing e(alpha, beta) is constant for a given verification key, so it's
+/// precomputed once and reused for all proof verifications.
+///
+/// # Input
+///
+/// A JS object matching [`PairingInput`] structure:
+/// - `alpha`: An [`AffinePoint2d`] with `x` and `y` fields
+/// - `beta`: A [`ComplexAffinePoint2d`] with `x_c0`, `x_c1`, `y_c0`, `y_c1` fields
+///
+/// # Output
+///
+/// A JS object matching [`Field12`] structure (12 string fields: g00-g21, h00-h21).
+///
+/// # Errors
+///
+/// Returns a JS error if input parsing or coordinate conversion fails.
 #[wasm_bindgen]
-pub fn make_alpha_beta_js(alpha_beta_js_input: JsValue) -> JsValue {
-    // Convert the JavaScript object to the AlphaBetaJSValue struct
-    let alpha_beta_data: AlphaBetaJSInputValue = from_value(alpha_beta_js_input).unwrap();
-
-    // Parse alpha and beta points
-    let alpha_x: Fq = Fq::from_str(&alpha_beta_data.alpha.x).unwrap();
-    let alpha_y: Fq = Fq::from_str(&alpha_beta_data.alpha.y).unwrap();
-
-    let beta_x_c0: Fq = Fq::from_str(&alpha_beta_data.beta.x_c0.unwrap()).unwrap();
-    let beta_x_c1: Fq = Fq::from_str(&alpha_beta_data.beta.x_c1.unwrap()).unwrap();
-
-    let beta_y_c0: Fq = Fq::from_str(&alpha_beta_data.beta.y_c0.unwrap()).unwrap();
-    let beta_y_c1: Fq = Fq::from_str(&alpha_beta_data.beta.y_c1.unwrap()).unwrap();
-
-    let beta_x = Fq2::new(beta_x_c0, beta_x_c1);
-    let beta_y = Fq2::new(beta_y_c0, beta_y_c1);
-
-    let alpha = G1Affine::new(alpha_x, alpha_y);
-    let beta = G2Affine::new(beta_x, beta_y);
+pub fn compute_pairing(input: PairingInput) -> Result<Field12, JsError> {
+    let (alpha, beta) = input.to_pairing_points()
+        .map_err(|e| JsError::new(&format!("compute_pairing: {}", e)))?;
 
     // Perform the multi-miller loop
     let alpha_beta = Bn254::multi_miller_loop(&[alpha], &[beta]).0;
 
     // Serialize the Fq12 result
-    let serialized_alpha_beta = serialize_fq12(alpha_beta);
+    Ok(serialize_fq12(alpha_beta))
+}
 
-    // Update the input data with the serialized result
+/// Converts a snarkjs/circom Groth16 proof and verification key to o1js format.
+///
+/// This function takes Groth16 proofs generated by snarkjs (the JavaScript implementation
+/// of Groth16 commonly used with circom circuits) and converts them to o1js format for
+/// verification in Mina Protocol zkApps.
+///
+/// # Conversion Details
+///
+/// ## Proof Conversion
+/// - The A point (`pi_a`) is **negated** for o1js compatibility. The o1js verification
+///   equation uses `-A` rather than `A` in the pairing check.
+/// - Points are converted from projective coordinates (with z component) to affine form.
+/// - The B point is a G2 point with complex coordinates (x_c0, x_c1, y_c0, y_c1).
+/// - The C point is a G1 point with simple coordinates (x, y).
+///
+/// ## Verification Key Conversion
+/// - All curve points are converted from projective to affine form.
+/// - The `alpha_beta` pairing e(α, β) is computed using arkworks `multi_miller_loop`.
+///   This is a constant for each VK and is precomputed to save verification time.
+/// - A hardcoded `w27` (27th root of unity) is added for pairing optimizations.
+///   See https://eprint.iacr.org/2024/640 for the optimization technique.
+/// - IC (input commitment) points are mapped to ic0-ic6 fields.
+///
+/// ## Validation
+/// - The `nPublic` field in the VK must match the number of public inputs provided.
+/// - The IC array length must equal nPublic + 1 (ic0 is the constant term).
+///
+/// # Input Format
+///
+/// - `proof`: snarkjs proof JSON object with:
+///   - `pi_a`: `[x, y, z]` - A point in G1 projective coordinates
+///   - `pi_b`: `[[x_c0, x_c1], [y_c0, y_c1], [z_c0, z_c1]]` - B point in G2 projective
+///   - `pi_c`: `[x, y, z]` - C point in G1 projective coordinates
+///
+/// - `public_inputs`: Array of public input strings as decimal numbers, e.g., `["123", "456"]`.
+///   Maximum 6 public inputs are supported.
+///
+/// - `vk`: snarkjs verification key JSON object with:
+///   - `nPublic`: Number of public inputs
+///   - `vk_alpha_1`: Alpha point (G1 projective)
+///   - `vk_beta_2`: Beta point (G2 projective)
+///   - `vk_gamma_2`: Gamma point (G2 projective)
+///   - `vk_delta_2`: Delta point (G2 projective)
+///   - `IC`: Array of IC points (G1 projective), length = nPublic + 1
+///
+/// # Output Format
+///
+/// Returns an [`O1jsGroth16`] object containing:
+///
+/// - `proof`: o1js-formatted proof with:
+///   - `negA`: Negated A point `{x, y}` as decimal strings
+///   - `B`: B point `{x_c0, x_c1, y_c0, y_c1}` as decimal strings
+///   - `C`: C point `{x, y}` as decimal strings
+///   - `pi1` through `pi6`: Public inputs (only present if provided)
+///
+/// - `vk`: o1js-formatted verification key with:
+///   - `alpha`, `beta`, `gamma`, `delta`: Curve points
+///   - `alpha_beta`: Precomputed pairing as 12-element Fq12 field
+///   - `w27`: 27th root of unity as 12-element Fq12 field
+///   - `ic0` through `ic6`: Input commitment points (only present if in VK)
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Input JSON parsing fails (invalid structure or types)
+/// - VK validation fails (`nPublic` doesn't match public inputs count, wrong IC length)
+/// - Point coordinate parsing fails (invalid field element strings)
+/// - More than 6 public inputs are provided
+#[wasm_bindgen]
+pub fn convert_snarkjs_groth16_to_o1js(
+    proof: SnarkjsProof,
+    public_inputs: Vec<String>,
+    vk: SnarkjsVK,
+) -> Result<O1jsGroth16, JsError> {
+    // Convert proof to o1js format (negates A point, converts to affine) and VK to o1js format
+    // (computes alpha_beta pairing, adds w27)
+    (&vk, &proof, &public_inputs[..]).try_into()
+        .map_err(|e: String| JsError::new(&format!("convert_snarkjs_groth16_to_o1js: {}", e)))
+}
 
-    let result_data = Field12JSValue {
-        g00: serialized_alpha_beta.g00,
-        g01: serialized_alpha_beta.g01,
-        g10: serialized_alpha_beta.g10,
-        g11: serialized_alpha_beta.g11,
-        g20: serialized_alpha_beta.g20,
-        g21: serialized_alpha_beta.g21,
-        h00: serialized_alpha_beta.h00,
-        h01: serialized_alpha_beta.h01,
-        h10: serialized_alpha_beta.h10,
-        h11: serialized_alpha_beta.h11,
-        h20: serialized_alpha_beta.h20,
-        h21: serialized_alpha_beta.h21,
-    };
-
-    // Serialize to JsValue for passing to JS
-    to_value(&result_data).unwrap()
+/// Converts an SP1 Groth16 proof to o1js format.
+///
+/// This function takes Groth16 proofs generated by SP1 (Succinct's zkVM) and converts
+/// them to o1js format for verification in Mina Protocol zkApps. SP1 uses gnark's
+/// Groth16 implementation internally, which produces proofs in a compressed format
+/// that must be decompressed before conversion.
+///
+/// # Conversion Details
+///
+/// ## Proof Extraction & Decompression
+/// - The `encoded_proof` field contains hex-encoded gnark proof bytes.
+/// - The first 4 bytes of the proof are a vkey hash prefix (skipped during parsing).
+/// - gnark uses a compressed point format that differs from arkworks. This function
+///   decompresses G1 and G2 points using endianness conversion and flag translation.
+/// - The decompression follows the gnark → arkworks conversion from sp1-sui.
+///
+/// ## Proof Conversion
+/// - The A point is **negated** for o1js compatibility. The o1js verification
+///   equation uses `-A` rather than `A` in the pairing check.
+/// - SP1 Groth16 proofs have exactly 2 public inputs (vkey_hash and public_values_hash).
+///
+/// ## Verification Key
+/// - All SP1 v5.0.0 Groth16 proofs use the **same verification key**. This VK is
+///   embedded in the library (`GROTH16_VK_5_0_0_BYTES`) and loaded automatically.
+/// - The VK is decompressed from gnark format to arkworks format.
+/// - The `alpha_beta` pairing e(α, β) is computed and included in the output.
+/// - The hardcoded `w27` (27th root of unity) is added for pairing optimizations.
+///
+/// # Input Format
+///
+/// - `sp1_proof`: SP1ProofWithPublicValues JSON shim object representation
+/// - FIXME write an example here!
+///
+/// # Output Format
+///
+/// Returns an [`O1jsGroth16`] object containing:
+///
+/// - `proof`: o1js-formatted proof with:
+///   - `negA`: Negated A point `{x, y}` as decimal strings
+///   - `B`: B point `{x_c0, x_c1, y_c0, y_c1}` as decimal strings
+///   - `C`: C point `{x, y}` as decimal strings
+///   - `pi1`: First public input (vkey_hash)
+///   - `pi2`: Second public input (public_values_hash)
+///
+/// - `vk`: o1js-formatted SP1 v5.0.0 verification key with:
+///   - `alpha`, `beta`, `gamma`, `delta`: Curve points
+///   - `alpha_beta`: Precomputed pairing as 12-element Fq12 field
+///   - `w27`: 27th root of unity as 12-element Fq12 field
+///   - `ic0`, `ic1`, `ic2`: Input commitment points (SP1 VK has 3 IC points)
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Input JSON parsing fails (invalid structure or types)
+/// - Proof is not the `Groth16` variant (e.g., it's a PLONK proof)
+/// - Proof is empty (mock proof - not supported)
+/// - Hex decoding of `encoded_proof` fails
+/// - gnark point decompression fails (invalid curve points)
+#[wasm_bindgen]
+pub fn convert_sp1_groth16_to_o1js(sp1_proof: SP1ProofWithPublicValues) -> Result<O1jsGroth16, JsError> {
+    // Convert to o1js format (extracts proof bytes, decompresses gnark format, negates A)
+    (&sp1_proof).try_into()
+        .map_err(|e: String| JsError::new(&format!("convert_sp1_groth16_to_o1js: {}", e)))
 }

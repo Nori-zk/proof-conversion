@@ -2,7 +2,7 @@ import { Field, Provable } from 'o1js';
 import { ATE_LOOP_COUNT, Fp12 } from '../towers/index.js';
 import { LineAccumulator } from './accumulate_lines.js';
 import { GrothVk } from './vk.js';
-import { Proof } from './proof.js';
+import { ProofData } from './proof.js';
 import { AuXWitness } from '../aux_witness.js';
 
 class Groth16Verifier {
@@ -12,7 +12,7 @@ class Groth16Verifier {
     this.vk = GrothVk.parse(path_to_vk);
   }
 
-  multiMillerLoop(proof: Proof) {
+  multiMillerLoop(proof: ProofData) {
     let g = LineAccumulator.accumulate(
       proof.b_lines,
       this.vk.gamma_lines,
@@ -37,7 +37,7 @@ class Groth16Verifier {
     return mlo;
   }
 
-  verify(proof: Proof, aux_witness: AuXWitness) {
+  verify(proof: ProofData, aux_witness: AuXWitness) {
     let g = LineAccumulator.accumulate(
       proof.b_lines,
       this.vk.gamma_lines,

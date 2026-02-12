@@ -1,50 +1,37 @@
+import rootDir from '../../../utils/root_dir.js';
+import { range } from '../../../utils/range.js';
+import { getMlo } from '../../../plonk/get_mlo.js';
 import { resolve } from 'path';
+import { getRandomString } from '../../../utils/random.js';
+import { PlatformFeatures } from '../platform/index.js';
 import { computeAuxWitness } from '../../../pairing-utils/index.js';
+import { readFileSync, rmSync, writeFileSync } from 'fs';
+import type {
+  ConversionOutput,
+  ProofDataOutput,
+  VkDataOutput,
+} from '../../types.js';
 import {
   createDirectories,
   createDirectory,
   DirectoryStructure,
 } from '../../../utils/cache.js';
-import { getRandomString } from '../../../utils/random.js';
-import { range } from '../../../utils/range.js';
 import {
   ComputationalStage,
   ComputationPlan,
   ParallelComputationStage,
 } from '../../plan.js';
-import { PlatformFeatures } from '../platform/index.js';
-import rootDir from '../../../utils/root_dir.js';
-import { readFileSync, rmSync, writeFileSync } from 'fs';
-import { getMlo } from '../../../plonk/get_mlo.js';
 
-export type PlonkInput = {
-  hexPi: string;
-  programVK: string;
-  encodedProof: string;
-};
+import type {
+  Sp1PlonkInputTransformed,
+  SP1ProofWithPublicValuesPlonkNoTee,
+} from '../../../api/sp1/schema.js';
 
-export interface PlonkProofData {
-  maxProofsVerified: 0 | 1 | 2;
-  proof: string;
-  publicInput: string[];
-  publicOutput: string[];
-}
-
-export interface PlonkVkData {
-  data: string;
-  hash: string;
-}
-
-export interface PlonkOutput {
-  vkData: PlonkVkData;
-  proofData: PlonkProofData;
-}
-
-interface State extends PlatformFeatures, PlonkOutput {
+interface State extends PlatformFeatures, ConversionOutput {
   workingDirName: string;
   workingDir: string;
   cacheDir: string;
-  input: PlonkInput;
+  input: Sp1PlonkInputTransformed;
   witnessPath: string;
 }
 
@@ -54,18 +41,25 @@ const proofVkCacheStructure: DirectoryStructure = {
 };
 
 const nodeCacheStructure: DirectoryStructure = range(4).map((i) => `node${i}`);
-
-export class PlonkComputationalPlan
-  implements ComputationPlan<State, PlonkOutput, PlonkInput>
-{
-  readonly __inputType!: PlonkInput;
-  name = 'PlonkConverter';
-  async init(state: State, input: PlonkInput): Promise<void> {
-    state.input = input;
+// SP1ProofWithPublicValues Sp1PlonkInputTransformed
+export class Sp1PlonkComputationalPlan implements ComputationPlan<
+  State,
+  ConversionOutput,
+  SP1ProofWithPublicValuesPlonkNoTee
+> {
+  readonly __inputType!: SP1ProofWithPublicValuesPlonkNoTee;
+  name = 'Sp1PlonkConverter';
+  async init(state: State, input: SP1ProofWithPublicValuesPlonkNoTee): Promise<void> {
+    const inputTransformed: Sp1PlonkInputTransformed = {
+      hexPi: `0x${Buffer.from(input.public_values.buffer.data).toString('hex')}`,
+      programVK: input.proof.Plonk.public_inputs[0],
+      encodedProof: `0x00000000${input.proof.Plonk.encoded_proof}`,
+    };
+    state.input = inputTransformed;
     state.workingDirName = getRandomString(20);
     const pwd = process.cwd();
     state.workingDir = resolve(pwd, '.conversion-cache', state.workingDirName);
-    state.cacheDir = resolve(pwd, '.conversion-cache', 'plonk_cache');
+    state.cacheDir = resolve(pwd, '.conversion-cache', 'sp1_plonk_cache');
   }
   stages: ComputationalStage<State>[] = [
     {
@@ -78,7 +72,7 @@ export class PlonkComputationalPlan
         createDirectories(state.workingDir, nodeCacheStructure);
       },
     },
-    {      
+    {
       name: 'GenerateWitness',
       type: 'main-thread',
       execute: (state: State) => {
@@ -175,17 +169,17 @@ export class PlonkComputationalPlan
       return stage;
     }),
   ];
-  async then(state: State): Promise<PlonkOutput> {
-    const output: PlonkOutput = {
+  async then(state: State): Promise<ConversionOutput> {
+    const output: ConversionOutput = {
       vkData: JSON.parse(
         readFileSync(resolve(state.workingDir, 'vks', 'nodeVk.json'), 'utf8')
-      ) as PlonkVkData,
+      ) as VkDataOutput,
       proofData: JSON.parse(
         readFileSync(
           resolve(state.workingDir, 'proofs', 'layer5', 'p0.json'),
           'utf8'
         )
-      ) as PlonkProofData,
+      ) as ProofDataOutput,
     };
     return output;
   }

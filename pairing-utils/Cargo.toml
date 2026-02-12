@@ -1,12 +1,29 @@
 [package]
-name = "proof-conversion-pairing-utils"
-version = "0.4.0"
+name = "proof-conversion-utils"
+version = "0.5.3"
 edition = "2021"
 
 [lib]
 name = "pairing_utils"
 path = "src/lib.rs"
 crate-type = ["rlib", "cdylib"]
+
+[[bin]]
+name = "convert_from_sp1_groth16"
+path = "src/bin/convert_from_sp1_groth16.rs"
+required-features = ["sp1-bin"]
+
+[[bin]]
+name = "convert_from_snarkjs"
+path = "src/bin/convert_from_snarkjs.rs"
+
+[[bin]]
+name = "alphabeta"
+path = "src/bin/alphabeta.rs"
+
+[[bin]]
+name = "aux_witness"
+path = "src/bin/aux_witness.rs"
 
 [dependencies]
 ark-ff = "0.4.2"
@@ -16,20 +33,29 @@ ark-std = "0.4.0"
 ark-ec = "0.4.2"
 ark-poly = "0.4.0"
 ark-serialize = "0.4.2"
+ark-groth16 = "0.4.0"
+ark-snark = "0.4.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+serde_tuple = "1.1"
 num-bigint = "0.4"
+num-traits = "0.2"
+hex = "0.4"
+sp1-sdk = { version = "5.0.0", optional = true }
+thiserror = "1.0"
 
 # WebAssembly-specific output (for wasm-pack)
-[target.wasm32-unknown-unknown.dependencies]
+# [target.wasm32-unknown-unknown.dependencies]
 wasm-bindgen = "0.2"
 serde-wasm-bindgen = "0.4"
+tsify = "0.5"
 
-# WebAssembly feature
 [features]
-wasm = ["wasm-bindgen", "serde-wasm-bindgen"]
+wasm = ["wasm-bindgen", "serde-wasm-bindgen", "tsify"]
+sp1-bin = ["sp1-sdk"]
 
 # Conditional dependencies for Wasm
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2", optional = true }
 serde-wasm-bindgen = { version = "0.4", optional = true }
+tsify = { version = "0.5", optional = true }

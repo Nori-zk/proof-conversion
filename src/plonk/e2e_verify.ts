@@ -2,7 +2,6 @@ import { Provable } from 'o1js';
 import v8 from 'v8';
 import { Sp1PlonkVerifier } from './verifier.js';
 import { VK } from './vk.js';
-import fs from 'fs';
 import { FrC } from '../towers/fr.js';
 import { Sp1PlonkProof, deserializeProof } from './proof.js';
 import { parsePublicInputs } from './parse_pi.js';

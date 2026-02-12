@@ -1,17 +1,22 @@
-import { Field, Struct } from 'o1js';
+import { Struct } from 'o1js';
 import { G1Affine, G2Affine } from '../ec/index.js';
-import { FpC, Fp2, Fp6, Fp12 } from '../towers/index.js';
+import { FpC, Fp2, Fp6, Fp12, Fp2JSON } from '../towers/index.js';
 import { computeLineCoeffs } from './coeffs.js';
 import { AffineCache } from './precompute.js';
 
 const ZERO = Fp2.zero();
+
+interface G2LineJSON {
+  lambda: Fp2JSON;
+  neg_mu: Fp2JSON;
+}
 
 class G2Line extends Struct({ lambda: Fp2, neg_mu: Fp2 }) {
   constructor(lambda: Fp2, neg_mu: Fp2) {
     super({ lambda, neg_mu });
   }
 
-  static fromJSON(json: any): G2Line {
+  static fromJSON(json: G2LineJSON): G2Line {
     let value = super.fromJSON(json);
     return new G2Line(value.lambda, value.neg_mu);
   }
@@ -80,4 +85,4 @@ class G2Line extends Struct({ lambda: Fp2, neg_mu: Fp2 }) {
   }
 }
 
-export { G2Line, computeLineCoeffs };
+export { G2Line, G2LineJSON, computeLineCoeffs };

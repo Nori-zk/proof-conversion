@@ -1,7 +1,7 @@
 import { FpC, FrC } from '../../towers/index.js';
 import { powFr } from '../../towers/fr.js';
 import { Sp1PlonkVk } from '../vk.js';
-import { ForeignCurve, Provable, assert } from 'o1js';
+import { Provable } from 'o1js';
 import { bn254 } from '../../ec/g1.js';
 import { HashFr } from './hash_fr.js';
 import { Sp1PlonkProof } from '../proof.js';

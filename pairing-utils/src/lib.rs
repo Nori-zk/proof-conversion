@@ -1,22 +1,41 @@
 use ark_bn254::Fq12;
-use kzg::{assert_o1js_mlo, compute_aux_witness};
+use kzg::{assert_o1js_mlo, compute_aux_witness as compute_aux_witness_internal};
 use serde_json::Value;
 use serialize::serialize_fq12;
 use serialize::{deserialize_fq12, serialize_aux_witness};
 
+pub mod arkworks;
 pub mod constants;
 pub mod eth_root;
+pub mod gnark;
 pub mod kzg;
 mod risc0_vk;
 pub mod serialize;
+pub mod o1js;
+pub mod snarkjs;
+pub mod sp1;
 pub mod tonelli_shanks;
+pub mod types;
 pub mod utils;
 pub mod write;
+
+// Disable these feature flags to bring rust analyzer back to life for the wasm.rs file
 
 #[cfg(feature = "wasm")]
 pub mod wasm;
 #[cfg(feature = "wasm")]
-pub use wasm::{compute_and_serialize_aux_witness_js, make_alpha_beta_js};
+pub use wasm::{
+    compute_aux_witness,
+    compute_pairing,
+    convert_snarkjs_groth16_to_o1js,
+    convert_sp1_groth16_to_o1js,
+};
+
+// Re-export commonly used types
+pub use arkworks::ArkworksGroth16;
+pub use serialize::{AuxWitness, Field12};
+pub use snarkjs::{SnarkjsProof, SnarkjsVK};
+pub use types::{AffinePoint2d, ComplexAffinePoint2d, ComplexProjectivePoint, ProjectivePoint};
 
 pub fn display_fq12(x: Fq12, label: &str) {
     println!("{}.g00: {}", label, x.c0.c0.c0);
@@ -34,14 +53,16 @@ pub fn display_fq12(x: Fq12, label: &str) {
     println!("{}.h21: {}", label, x.c1.c2.c1);
 }
 
-pub fn compute_and_serialize_aux_witness(path_to_mlo: &str, path_to_aux_witness: &str) {
+pub fn compute_and_serialize_aux_witness(path_to_mlo: &str, path_to_aux_witness: &str) -> Result<(), String> {
     let mlo = deserialize_fq12(path_to_mlo);
 
     // make sure that it is indeed r-th residue
-    assert_o1js_mlo(mlo);
+    assert_o1js_mlo(mlo)?;
 
-    let (shift_pow, c) = compute_aux_witness(mlo);
+    let (shift_pow, c) = compute_aux_witness_internal(mlo)?;
     serialize_aux_witness(c, shift_pow, path_to_aux_witness);
+
+    Ok(())
 }
 
 use ark_bn254::Bn254;

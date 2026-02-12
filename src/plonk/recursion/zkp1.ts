@@ -1,4 +1,4 @@
-import { ZkProgram, Field, Poseidon, Provable } from 'o1js';
+import { ZkProgram, Field, Poseidon } from 'o1js';
 import { Accumulator } from '../accumulator.js';
 import {
   compute_alpha_square_lagrange_0,

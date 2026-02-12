@@ -1,5 +1,5 @@
 {
-    "name": "@nori-zk/proof-conversion-pairing-utils",
+    "name": "@nori-zk/proof-conversion-utils",
     "type": "module",
     "version": "0.3.0",
     "license": "Apache-2.0",
@@ -11,7 +11,8 @@
       "pairing_utils_bg.wasm",
       "pairing_utils.js",
       "pairing_utils_bg.js",
-      "pairing_utils.d.ts"
+      "pairing_utils.d.ts",
+      "README.md"
     ],
     "main": "pairing_utils.js",
     "types": "pairing_utils.d.ts",

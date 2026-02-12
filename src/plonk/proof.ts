@@ -1,8 +1,8 @@
-import { Fp12, FpC, FrC } from '../towers/index.js';
+import { FpC, FrC } from '../towers/index.js';
 import { ethers } from 'ethers';
-import { assertPointOnBn, assertInBnField, numOfUin256s } from './utils.js';
+import { assertPointOnBn, assertInBnField } from './utils.js';
 import assert from 'assert';
-import { Field, Struct } from 'o1js';
+import { Struct } from 'o1js';
 
 const NUM_OF_UIN265s = 27;
 

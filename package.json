@@ -24,6 +24,9 @@
     "./min": {
       "import": "./build/src/index.min.js"
     },
+    "./validation": {
+      "import": "./build/src/api/validation/index.js"
+    },
     "./compute/plan": {
       "import": "./build/src/compute/plan.js"
     },
@@ -40,18 +43,22 @@
   "scripts": {
     "build": "tsc",
     "buildw": "tsc --watch",
-    "coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "build:precompute:towers": "npm run build && node build/src/towers/precompute.js",
+    "build:precompute:lines": "npm run build && node build/src/plonk/mm_loop/precompute_lines.js",
+    "build:precompute": "npm run build:precompute:towers && npm run build:precompute:lines",
+    "coverage": "node node_modules/jest/bin/jest.js --coverage",
     "format": "prettier --check --ignore-unknown --ignore-path .prettierignore **/*",
     "format:fix": "prettier --write --ignore-unknown --ignore-path .prettierignore **/*",
-    "test": "npm run build && node --max-old-space-size=65536 build/src/plonk/e2e_test.js && node --max-old-space-size=65536 build/src/plonk/mm_loop/e2e_test.js && node --max-old-space-size=65536 build/src/plonk/piop/e2e_test.js && node --max-old-space-size=65536 build/src/plonk/piop/e2e_test.js && node --max-old-space-size=65536 build/src/groth/e2e_test.js",
-    "testw": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
-    "test:compute": "npm run build && node --experimental-vm-modules ./build/src/compute/test.js",
+    "test": "npm run build && node --max-old-space-size=65536 --",
+    "test:e2e": "npm run build && npm run test build/src/plonk/mm_loop/e2e_test.js && npm run test build/src/plonk/piop/e2e_test.js && npm run test build/src/plonk/piop/e2e_test.js && npm run test build/src/groth/e2e_test.js && npm run test build/src/plonk/e2e_test.js",
+    "test:compute": "npm run build && node ./build/src/compute/compute_test.js",
+    "test:validation": "jest --testMatch '**/guards/test.spec.ts'",
     "lint": "eslint src/*",
     "lint:fix": "eslint src/* --fix",
     "relink": "npm unlink nori-proof-converter && npm run build && npm link"
   },
   "dependencies": {
-    "@nori-zk/proof-conversion-pairing-utils": "0.4.0",
+    "@nori-zk/proof-conversion-utils": "0.5.3",
     "commander": "14.0.2",
     "esm-iso-logger": "1.0.2",
     "ethers": "^6.16.0"

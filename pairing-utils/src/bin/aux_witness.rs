@@ -10,5 +10,8 @@ fn main() {
         process::exit(1);
     }
 
-    compute_and_serialize_aux_witness(&args[1], &args[2]);
+    if let Err(e) = compute_and_serialize_aux_witness(&args[1], &args[2]) {
+        eprintln!("Error computing auxiliary witness: {}", e);
+        process::exit(1);
+    }
 }
