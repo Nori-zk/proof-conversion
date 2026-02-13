@@ -407,7 +407,7 @@ interface ConversionOutput {
 
 ### Minimal export
 
-The package exports via the `/min` path, useful types and some limited utilities omitting anything which relies on a Node.js dependancy. This is largely to support frontend applications. **Note** none of the proof conversion "plans" e.g. `performSp1Plonk` nor the `ComputationalPlanExecutor` are exported.
+The package exports via the `/min` path, useful types and some limited utilities omitting anything which relies on a Node.js dependancy. This is largely to support frontend applications. **Note** none of the proof conversion "plans" e.g. `performSp1Plonk`, the `ComputationalPlanExecutor` nor the wasm based utilities are exported.
 
 ```typescript
 import {
@@ -415,11 +415,7 @@ import {
   wordToBytes,
   NodeProofLeft,
   FrC,
-  DeferredPromise,
-  computeAuxWitness,
-  convertSp1Groth16ToO1js,
-  convertSnarkjsGroth16ToO1js,
-  computeRisc0Groth16Pairing,
+  DeferredPromise
 } from '@nori-zk/proof-conversion/min'; // These utilities are also available in '@nori-zk/proof-conversion'
 
 import type {
@@ -435,6 +431,19 @@ import type {
   SP1ProofWithPublicValuesGroth16NoTee,
   SP1ProofWithPublicValuesPlonkNoTee,
 } from '@nori-zk/proof-conversion/min'; // These types are also available in '@nori-zk/proof-conversion'
+```
+
+### Wasm utilities
+
+The package exports via the `/wasm-utils` path, useful wasm based utilities are included to assist proof conversions from one format to another - omitting anything which relies on a Node.js dependancy. 
+
+```typescript
+import {
+  computeAuxWitness,
+  convertSp1Groth16ToO1js,
+  convertSnarkjsGroth16ToO1js,
+  computeRisc0Groth16Pairing,
+} from '@nori-zk/proof-conversion/wasm-utils'; // These types are also available in '@nori-zk/proof-conversion'
 ```
 
 ### Validation utilities
