@@ -91,6 +91,23 @@ impl SP1ProofWithPublicValues {
     /// For Groth16 proofs, returns `[vkey_hash[..4], proof_bytes].concat()`.
     /// For Plonk proofs, returns `[vkey_hash[..4], proof_bytes].concat()`.
     ///
+    /// The layout of `proof_bytes` (i.e. `encoded_proof` hex-decoded) changed between SP1 versions:
+    ///
+    /// **SP1 v5 (old):** `encoded_proof` was 256 bytes — the raw Groth16 proof points directly:
+    ///   - bytes   0- 63: A (G1 affine, gnark uncompressed)
+    ///   - bytes  64-191: B (G2 affine, gnark uncompressed)
+    ///   - bytes 192-255: C (G1 affine, gnark uncompressed)
+    ///
+    /// **SP1 v6 (current):** `encoded_proof` is 352 bytes — gnark on-chain calldata format with
+    /// a 96-byte commitment prefix prepended before the same 256 bytes of proof points:
+    ///   - bytes   0- 31: zeros (empty commitment slot)
+    ///   - bytes  32- 63: gnark commitment identifier
+    ///   - bytes  64- 95: zeros (empty CommitmentPok slot)
+    ///   - bytes  96-351: A, B, C proof points (same layout as v5)
+    ///
+    /// If you need the raw proof points for arkworks, use `raw_proof` from `Groth16Bn254Proof`
+    /// instead — it starts directly with A, B, C without the prefix.
+    ///
     /// # Panics
     ///
     /// Panics if the proof is not Groth16 or Plonk, or if hex decoding fails.

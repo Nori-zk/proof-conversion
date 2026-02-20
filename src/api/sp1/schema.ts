@@ -47,14 +47,14 @@ export type SP1ProofWithPublicValuesPlonkNoTee = Omit<
 // Runtime validation ======================================================================
 
 const plonkProofSchema = {
-  public_inputs: isStringArrayOfLength(2), // [String; 2]
+  public_inputs: isStringArrayOfLength(5), // [String; 5]
   encoded_proof: isString,
   raw_proof: isString,
   plonk_vkey_hash: isUint8Array(32), // [u8; 32]
 };
 
 const groth16ProofSchema = {
-  public_inputs: isStringArrayOfLength(2), // [String; 2]
+  public_inputs: isStringArrayOfLength(5), // [String; 5]
   encoded_proof: isString,
   raw_proof: isString,
   groth16_vkey_hash: isUint8Array(32), // [u8; 32]

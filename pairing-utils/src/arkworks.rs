@@ -12,6 +12,7 @@ use num_bigint::BigUint;
 use num_traits::Num;
 
 use crate::gnark::{load_ark_proof_from_bytes, load_ark_groth16_verifying_key_from_bytes, GROTH16_VK_6_0_0_BYTES};
+use hex;
 use crate::sp1::{SP1Proof, SP1ProofWithPublicValues};
 
 /// Groth16 proof and verification key in arkworks format.
@@ -115,20 +116,34 @@ impl TryFrom<&SP1ProofWithPublicValues> for ArkworksGroth16 {
             _ => return Err("ArkworksGroth16 -> SP1ProofWithPublicValues: SP1Proof is not a Groth16 variant".to_string()),
         };
 
-        // Get proof bytes (this hex-decodes encoded_proof and prepends vkey hash)
-        let proof_bytes = sp1.bytes();
-        if proof_bytes.is_empty() {
+        // We use raw_proof rather than encoded_proof here.
+        //
+        // In SP1 v6, encoded_proof is formatted for the on-chain Solidity verifier and
+        // includes a 96-byte gnark commitment calldata prefix before the actual proof points:
+        //   bytes   0- 31: zeros (empty commitment slot)
+        //   bytes  32- 63: gnark commitment identifier
+        //   bytes  64- 95: zeros (empty CommitmentPok slot)
+        //   bytes  96-351: actual Groth16 proof points (A, B, C) in gnark uncompressed format
+        //
+        // raw_proof starts directly with the proof points in gnark uncompressed format:
+        //   bytes   0- 63: A (G1 affine, X then Y, each 32 bytes big-endian)
+        //   bytes  64-191: B (G2 affine, 4 x 32 bytes big-endian)
+        //   bytes 192-255: C (G1 affine, X then Y, each 32 bytes big-endian)
+        //   bytes 256-323: trailing zeros (ignored)
+        //
+        // load_ark_proof_from_bytes reads A[0..64] + B[64..192] + C[192..256], which
+        // aligns exactly with raw_proof — so we use raw_proof to skip the prefix entirely.
+        //
+        // NOTE: encoded_proof being empty is SP1's convention for a mock/empty proof (unchanged
+        // from v5). We check encoded_proof here, not raw_proof, to preserve that behaviour.
+        // (The test for mock proofs only clears encoded_proof, leaving raw_proof populated.)
+        if groth16_proof.encoded_proof.is_empty() {
             return Err("ArkworksGroth16 -> SP1ProofWithPublicValues: empty proof (mock proof not supported)".to_string());
         }
-        if proof_bytes.len() < 4 {
-            return Err(format!(
-                "ArkworksGroth16 -> SP1ProofWithPublicValues: malformed proof ({} bytes, expected at least 4 for vkey hash prefix)",
-                proof_bytes.len()
-            ));
-        }
+        let raw_proof_bytes = hex::decode(&groth16_proof.raw_proof)
+            .map_err(|e| format!("ArkworksGroth16 -> SP1ProofWithPublicValues: failed to decode raw_proof hex: {}", e))?;
 
-        // Skip the first 4 bytes (vkey hash prefix) and load arkworks proof
-        let proof = load_ark_proof_from_bytes(&proof_bytes[4..])
+        let proof = load_ark_proof_from_bytes(&raw_proof_bytes)
             .map_err(|e| format!("ArkworksGroth16 -> SP1ProofWithPublicValues: failed to load arkworks proof: {}", e))?;
 
         // Load the embedded SP1 v6.0.0 VK
