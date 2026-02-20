@@ -55,7 +55,7 @@ pub const ARK_COMPRESSED_NEGATIVE: u8 = 0b10 << 6;
 pub const ARK_COMPRESSED_INFINITY: u8 = 0b01 << 6;
 
 // SP1 v5 Groth16 VK embedded
-pub const GROTH16_VK_5_0_0_BYTES: &[u8] = include_bytes!("../../sp1_v5_groth16_vk.bin");
+pub const GROTH16_VK_6_0_0_BYTES: &[u8] = include_bytes!("../../sp1_v6_groth16_vk.bin");
 
 // ============= Output Types =============
 #[derive(Serialize, Debug)]
@@ -387,8 +387,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load arkworks proof from gnark bytes
     let ark_proof = load_ark_proof_from_bytes(&proof_bytes[4..])?;
 
-    // Load arkworks VK for SP1 v5.0.0
-    let ark_vk = load_ark_groth16_verifying_key_from_bytes(GROTH16_VK_5_0_0_BYTES)?;
+    // Load arkworks VK for SP1 v6.0.0
+    let ark_vk = load_ark_groth16_verifying_key_from_bytes(GROTH16_VK_6_0_0_BYTES)?;
 
     println!("✅ Verifying proof with arkworks...");
 
@@ -468,7 +468,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ark_vk.gamma_abc_g1.len(),
         ark_vk.gamma_abc_g1.len() - 1
     );
-    println!("🔧 Using SP1 v5.0.0 verification key");
+    println!("🔧 Using SP1 v6.0.0 verification key");
 
     Ok(())
 }

@@ -11,7 +11,7 @@ use ark_snark::SNARK;
 use num_bigint::BigUint;
 use num_traits::Num;
 
-use crate::gnark::{load_ark_proof_from_bytes, load_ark_groth16_verifying_key_from_bytes, GROTH16_VK_5_0_0_BYTES};
+use crate::gnark::{load_ark_proof_from_bytes, load_ark_groth16_verifying_key_from_bytes, GROTH16_VK_6_0_0_BYTES};
 use crate::sp1::{SP1Proof, SP1ProofWithPublicValues};
 
 /// Groth16 proof and verification key in arkworks format.
@@ -100,7 +100,7 @@ impl TryFrom<&SP1ProofWithPublicValues> for ArkworksGroth16 {
     /// Converts from `SP1ProofWithPublicValues` to arkworks format.
     ///
     /// This extracts the gnark-formatted proof from SP1, decompresses it to arkworks format,
-    /// and loads the embedded SP1 v5.0.0 verification key.
+    /// and loads the embedded SP1 v6.0.0 verification key.
     ///
     /// # Errors
     ///
@@ -131,9 +131,9 @@ impl TryFrom<&SP1ProofWithPublicValues> for ArkworksGroth16 {
         let proof = load_ark_proof_from_bytes(&proof_bytes[4..])
             .map_err(|e| format!("ArkworksGroth16 -> SP1ProofWithPublicValues: failed to load arkworks proof: {}", e))?;
 
-        // Load the embedded SP1 v5.0.0 VK
-        let vk = load_ark_groth16_verifying_key_from_bytes(GROTH16_VK_5_0_0_BYTES)
-            .map_err(|e| format!("ArkworksGroth16 -> SP1ProofWithPublicValues: failed to load SP1 v5.0.0 VK: {}", e))?;
+        // Load the embedded SP1 v6.0.0 VK
+        let vk = load_ark_groth16_verifying_key_from_bytes(GROTH16_VK_6_0_0_BYTES)
+            .map_err(|e| format!("ArkworksGroth16 -> SP1ProofWithPublicValues: failed to load SP1 v6.0.0 VK: {}", e))?;
 
         let public_inputs: Vec<String> = groth16_proof.public_inputs.to_vec();
 
