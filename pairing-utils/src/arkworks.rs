@@ -151,7 +151,7 @@ mod tests {
     use crate::sp1::SP1ProofWithPublicValues;
 
     fn load_example() -> SP1ProofWithPublicValues {
-        let sp1_json = std::fs::read_to_string("../example-proofs/sp1_groth16_obj_v5.json")
+        let sp1_json = std::fs::read_to_string("../example-proofs/sp1_groth16_obj_v6.json")
             .expect("Failed to read SP1 example proof");
         serde_json::from_str(&sp1_json)
             .expect("Failed to parse SP1 proof")
@@ -165,7 +165,7 @@ mod tests {
             .try_into()
             .expect("Failed to convert SP1 to ArkworksGroth16");
 
-        assert_eq!(ark.public_inputs.len(), 2, "Expected 2 public inputs");
+        assert_eq!(ark.public_inputs.len(), 5, "Expected 5 public inputs");
         assert!(!ark.public_inputs[0].is_empty(), "Public input 1 should not be empty");
         assert!(!ark.public_inputs[1].is_empty(), "Public input 2 should not be empty");
     }

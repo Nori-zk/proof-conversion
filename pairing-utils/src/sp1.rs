@@ -15,7 +15,7 @@ use tsify::Tsify;
 #[cfg_attr(feature = "wasm", derive(Tsify))]
 #[cfg_attr(feature = "wasm", tsify(from_wasm_abi))]
 pub struct Groth16Bn254Proof {
-    pub public_inputs: [String; 2],
+    pub public_inputs: [String; 5],
     pub encoded_proof: String,
     pub raw_proof: String,
     pub groth16_vkey_hash: [u8; 32],
@@ -28,7 +28,7 @@ pub struct Groth16Bn254Proof {
 #[cfg_attr(feature = "wasm", derive(Tsify))]
 #[cfg_attr(feature = "wasm", tsify(from_wasm_abi))]
 pub struct PlonkBn254Proof {
-    pub public_inputs: [String; 2],
+    pub public_inputs: [String; 5],
     pub encoded_proof: String,
     pub raw_proof: String,
     pub plonk_vkey_hash: [u8; 32],
@@ -94,7 +94,7 @@ impl SP1ProofWithPublicValues {
     /// # Panics
     ///
     /// Panics if the proof is not Groth16 or Plonk, or if hex decoding fails.
-    /// Taken from https://github.com/succinctlabs/sp1/blob/main/crates/sdk/src/proof.rs#L124
+    /// Taken from https://github.com/succinctlabs/sp1/blob/v6.0.1/crates/sdk/src/proof.rs
     pub fn bytes(&self) -> Vec<u8> {
         match &self.proof {
             SP1Proof::Groth16(groth16_proof) => {
@@ -147,7 +147,7 @@ mod tests {
     use crate::o1js::{O1jsGroth16, O1jsProof};
 
     fn load_example() -> SP1ProofWithPublicValues {
-        let sp1_json = std::fs::read_to_string("../example-proofs/sp1_groth16_obj_v5.json")
+        let sp1_json = std::fs::read_to_string("../example-proofs/sp1_groth16_obj_v6.json")
             .expect("Failed to read SP1 example proof");
         serde_json::from_str(&sp1_json)
             .expect("Failed to parse SP1 proof")
