@@ -1,5 +1,4 @@
 use std::fs;
-
 use sp1_verifier::GROTH16_VK_BYTES;
 
 fn main() {
