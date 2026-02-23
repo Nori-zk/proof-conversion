@@ -20,10 +20,14 @@ export type Sp1Groth16Vk = O1jsVK;
 export type Sp1Groth16Proof = O1jsProof;
 
 // Transformed Plonk computational plan input
+// SP1 v6: pi2/pi3/pi4 = exit_code/vk_root/proof_nonce from public_inputs[2..4]
 export type Sp1PlonkInputTransformed = {
   hexPi: string;
   programVK: string;
   encodedProof: string;
+  pi2: string;
+  pi3: string;
+  pi4: string;
 };
 
 // SP1ProofWithPublicValue Groth16 type

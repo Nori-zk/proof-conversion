@@ -4,6 +4,10 @@ import { FpC, FrC } from '../towers/index.js';
 class StateUntilPairing extends Struct({
   pi0: FrC.provable,
   pi1: FrC.provable,
+  // SP1 v6: exit_code / vk_root / proof_nonce from public_inputs[2..4]
+  pi2: FrC.provable,
+  pi3: FrC.provable,
+  pi4: FrC.provable,
 
   zeta_pow_n: FrC.provable,
   zh_eval: FrC.provable,
@@ -42,6 +46,9 @@ class StateUntilPairing extends Struct({
     return new StateUntilPairing({
       pi0: FrC.from(this.pi0.toBigInt()),
       pi1: FrC.from(this.pi1.toBigInt()),
+      pi2: FrC.from(this.pi2.toBigInt()),
+      pi3: FrC.from(this.pi3.toBigInt()),
+      pi4: FrC.from(this.pi4.toBigInt()),
 
       zeta_pow_n: FrC.from(this.zeta_pow_n.toBigInt()),
       zh_eval: FrC.from(this.zh_eval.toBigInt()),
@@ -78,6 +85,10 @@ class StateUntilPairing extends Struct({
 type StateUntilPairingType = {
   pi0: FrC;
   pi1: FrC;
+  // SP1 v6: exit_code / vk_root / proof_nonce from public_inputs[2..4]
+  pi2: FrC;
+  pi3: FrC;
+  pi4: FrC;
 
   zeta_pow_n: FrC;
   zh_eval: FrC;
@@ -112,10 +123,13 @@ type StateUntilPairingType = {
   H: Array<UInt32>;
 };
 
-function empty(pi0: FrC, pi1: FrC): StateUntilPairingType {
+function empty(pi0: FrC, pi1: FrC, pi2: FrC, pi3: FrC, pi4: FrC): StateUntilPairingType {
   return {
     pi0,
     pi1,
+    pi2,
+    pi3,
+    pi4,
 
     zeta_pow_n: FrC.from(0n),
     zh_eval: FrC.from(0n),
