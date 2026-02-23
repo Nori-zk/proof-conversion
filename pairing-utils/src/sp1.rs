@@ -8,6 +8,46 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
+/// Parsed SP1 PLONK verification key with all field elements as decimal strings.
+///
+/// Produced by `save_plonk_vk_json` from the embedded `plonk_vk.bin` artifact.
+/// All G1 point coordinates and field elements are decimal strings (BigInt-compatible).
+/// Small integers (domain_size, counts, indexes) are plain numbers.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
+pub struct Sp1PlonkVk {
+    pub nb_public_inputs: u64,
+    pub domain_size: u64,
+    pub inv_domain_size: String,
+    pub omega: String,
+    pub coset_shift: String,
+    pub g1_gen_x: String,
+    pub g1_gen_y: String,
+    pub ql_x: String,
+    pub ql_y: String,
+    pub qr_x: String,
+    pub qr_y: String,
+    pub qm_x: String,
+    pub qm_y: String,
+    pub qo_x: String,
+    pub qo_y: String,
+    pub qk_x: String,
+    pub qk_y: String,
+    pub qs1_x: String,
+    pub qs1_y: String,
+    pub qs2_x: String,
+    pub qs2_y: String,
+    pub qs3_x: String,
+    pub qs3_y: String,
+    pub qcp_0_x: String,
+    pub qcp_0_y: String,
+    pub index_commit_api_0: u64,
+    pub num_custom_gates: u64,
+    pub omega_pow_i: String,
+    pub omega_pow_i_div_n: String,
+}
+
 /// Groth16 proof in SP1/gnark format.
 ///
 /// Mirrors `sp1_prover::Groth16Bn254Proof`.

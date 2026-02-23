@@ -29,6 +29,10 @@ path = "src/bin/aux_witness.rs"
 name = "save_sp1_groth16_bin"
 path = "src/bin/save_sp1_groth16_bin.rs"
 
+[[bin]]
+name = "save_plonk_vk_json"
+path = "src/bin/save_plonk_vk_json.rs"
+
 [dependencies]
 ark-ff = "0.4.2"
 ark-ff-macros = "0.4.2"
