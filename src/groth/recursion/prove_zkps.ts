@@ -1,4 +1,4 @@
-import { Poseidon, verify, Cache, Provable, Field } from 'o1js';
+import { Poseidon, verify, Cache, Provable, Field, setBackend } from 'o1js';
 import { zkp0 } from './zkp0.js';
 import fs from 'fs';
 import { AuXWitness } from '../../aux_witness.js';
@@ -24,6 +24,8 @@ import { G1Affine } from '../../ec/index.js';
 import { FrC } from '../../towers/fr.js';
 import { VK } from '../vk_from_env.js';
 import { getDistribution } from '../config.js';
+
+setBackend('native');
 
 // npm run build && node build/src/groth/recursion/prove_zkps.js zkp0 ./src/groth/jsons/proof.json ./src/groth/jsons/aux_witness.json ../scripts/risc_zero_example/work_dir ../scripts/risc_zero_example/cache_dir
 

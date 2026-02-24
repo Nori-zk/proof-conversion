@@ -1,4 +1,4 @@
-import { Bool, Field, VerificationKey, Cache } from 'o1js';
+import { Bool, Field, VerificationKey, Cache, setBackend } from 'o1js';
 import fs from 'fs';
 import {
   NodeProofLeft,
@@ -8,6 +8,8 @@ import {
 } from './structs.js';
 import { layer1 } from './compressor/layer1node.js';
 import { node } from './compressor/compressor.js';
+
+setBackend('native');
 
 const NUM_OF_ZKPS = parseInt(process.argv[2]);
 

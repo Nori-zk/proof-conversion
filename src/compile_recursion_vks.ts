@@ -1,7 +1,9 @@
 import fs from 'fs';
-import { Cache } from 'o1js';
+import { Cache, setBackend } from 'o1js';
 import { layer1 } from './compressor/layer1node.js';
 import { node } from './compressor/compressor.js';
+
+setBackend('native');
 
 const workDir = process.argv[2];
 const cacheDir = process.argv[3];

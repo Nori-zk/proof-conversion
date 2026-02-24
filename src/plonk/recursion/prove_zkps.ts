@@ -1,4 +1,4 @@
-import { Poseidon, verify, Cache } from 'o1js';
+import { Poseidon, verify, Cache, setBackend } from 'o1js';
 import { zkp0 } from './zkp0.js';
 import fs from 'fs';
 import { Sp1PlonkProof, deserializeProof } from '../proof.js';
@@ -32,6 +32,8 @@ import { zkp22 } from './zkp22.js';
 import { zkp23 } from './zkp23.js';
 import { AuXWitness } from '../aux_witness.js';
 import { parsePublicInputs } from '../parse_pi.js';
+
+setBackend('native');
 
 const args = process.argv;
 
