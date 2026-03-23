@@ -23,7 +23,6 @@ import { createZkp15 } from './zkp15.js';
 import { G1Affine } from '../../ec/index.js';
 import { FrC } from '../../towers/fr.js';
 import { VK } from '../vk_from_env.js';
-import { getDistribution } from '../config.js';
 
 // npm run build && node build/src/groth/recursion/prove_zkps.js zkp0 ./src/groth/jsons/proof.json ./src/groth/jsons/aux_witness.json ../scripts/risc_zero_example/work_dir ../scripts/risc_zero_example/cache_dir
 
@@ -355,11 +354,8 @@ async function prove_zkp14() {
     .verificationKey;
 
   const cin14 = Poseidon.hashPacked(G1Affine, proof.PI);
-  const distribution = getDistribution(inputCount);
-  const zkp14Inputs = distribution.zkp14.map(index => proof.pis[index]);
 
-  // zkp14 needs access to ALL public inputs for the full pis_hash
-  const proof14 = await zkp14.compute(cin14, zkp14Inputs, proof.pis);
+  const proof14 = await zkp14.compute(cin14, proof.pis);
 
   const valid = await verify(proof14.proof, vk14);
   console.log('valid zkp14?: ', valid);
@@ -377,8 +373,6 @@ async function prove_zkp15() {
     .verificationKey;
 
   const pi_hash = Poseidon.hashPacked(G1Affine, proof.PI);
-  const distribution = getDistribution(inputCount);
-  const zkp15Inputs = distribution.zkp15.map((index: number) => proof.pis[index]);
 
   const acc_hash = Poseidon.hashPacked(G1Affine, partialPiAcc);
 
@@ -394,7 +388,7 @@ async function prove_zkp15() {
     full_pis_hash,
     acc_hash,
   ]);
-  const proof15 = await zkp15.compute(cin15, proof.PI, partialPiAcc, zkp15Inputs, proof.pis);
+  const proof15 = await zkp15.compute(cin15, proof.PI, partialPiAcc, proof.pis);
 
   const valid = await verify(proof15.proof, vk15);
   console.log('valid zkp15?: ', valid);

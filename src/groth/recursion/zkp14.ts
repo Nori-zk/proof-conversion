@@ -16,8 +16,8 @@ export function createZkp14(inputCount: number) {
     publicOutput: Field,
     methods: {
       compute: {
-        privateInputs: [Provable.Array(FrC.provable, zkp14InputCount), Provable.Array(FrC.provable, inputCount)],
-        async method(input: Field, zkp14_pis: Array<FrC>, full_pis: Array<FrC>) {
+        privateInputs: [Provable.Array(FrC.provable, inputCount)],
+        async method(input: Field, full_pis: Array<FrC>) {
           const pis_hash = Poseidon.hashPacked(
             Provable.Array(FrC.provable, inputCount),
             full_pis
@@ -26,13 +26,16 @@ export function createZkp14(inputCount: number) {
           let acc = new bn254({ x: VK.ic0.x, y: VK.ic0.y });
 
           // Handle inputs based on distribution strategy
+          // Index directly into full_pis to ensure accumulation uses the same
+          // values that are hashed into pis_hash (prevents unconstrained witness attack)
           for (let i = 0; i < zkp14InputCount; i++) {
-            const icIndex = distribution.zkp14[i] + 1; // ic1, ic2, etc.
+            const originalIndex = distribution.zkp14[i];
+            const icIndex = originalIndex + 1; // ic1, ic2, etc.
             const icPoint = VK.getIcPoint(icIndex);
             if (!icPoint) {
               throw new Error(`Missing IC point ic${icIndex} for zkp14 input ${i}`);
             }
-            acc = acc.add(icPoint.scale(zkp14_pis[i]));
+            acc = acc.add(icPoint.scale(full_pis[originalIndex]));
           }
 
           const acc_aff = new G1Affine({

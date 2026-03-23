@@ -16,8 +16,8 @@ export function createZkp15(inputCount: number) {
     publicOutput: Field,
     methods: {
       compute: {
-        privateInputs: [G1Affine, G1Affine, Provable.Array(FrC.provable, zkp15InputCount), Provable.Array(FrC.provable, inputCount)],
-        async method(input: Field, PI: G1Affine, acc: G1Affine, zkp15_pis: Array<FrC>, full_pis: Array<FrC>) {
+        privateInputs: [G1Affine, G1Affine, Provable.Array(FrC.provable, inputCount)],
+        async method(input: Field, PI: G1Affine, acc: G1Affine, full_pis: Array<FrC>) {
           const pi_hash = Poseidon.hashPacked(G1Affine, PI);
           const pis_hash = Poseidon.hashPacked(
             Provable.Array(FrC.provable, inputCount),
@@ -35,6 +35,8 @@ export function createZkp15(inputCount: number) {
           let accBn = new bn254({ x: acc.x, y: acc.y });
 
           // Handle inputs based on distribution strategy
+          // Index directly into full_pis to ensure accumulation uses the same
+          // values that are hashed into pis_hash (prevents unconstrained witness attack)
           for (let i = 0; i < zkp15InputCount; i++) {
             const originalIndex = distribution.zkp15[i]; // original index in pis array
             const icIndex = originalIndex + 1; // ic1, ic2, etc.
@@ -42,7 +44,7 @@ export function createZkp15(inputCount: number) {
             if (!icPoint) {
               throw new Error(`Missing IC point ic${icIndex} for zkp15 input ${i}`);
             }
-            accBn = accBn.add(icPoint.scale(zkp15_pis[i])); // Use local index i for the zkp15 subset
+            accBn = accBn.add(icPoint.scale(full_pis[originalIndex]));
           }
 
           // Verify that the accumulated result equals PI
