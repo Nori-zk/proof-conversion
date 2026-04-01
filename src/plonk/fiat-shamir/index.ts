@@ -532,11 +532,11 @@ class Sp1PlonkFiatShamir extends Struct({
       chunks.push(chunk);
     }
 
-    let H = Gadgets.SHA256.initialState;
+    let H = Gadgets.SHA2.initialState<UInt32>(256);
     for (let i = 0; i < 11; i++) {
       const messageBlock = chunks.slice(16 * i, 16 * (i + 1));
-      let W = Gadgets.SHA256.createMessageSchedule(messageBlock);
-      H = Gadgets.SHA256.compression(H, W);
+      let W = Gadgets.SHA2.messageSchedule(256, messageBlock);
+      H = Gadgets.SHA2.compression(256, H, W);
     }
 
     return H;
@@ -564,8 +564,8 @@ class Sp1PlonkFiatShamir extends Struct({
     }
 
     const messageBlock = chunks;
-    let W = Gadgets.SHA256.createMessageSchedule(messageBlock);
-    H = Gadgets.SHA256.compression(H, W);
+    let W = Gadgets.SHA2.messageSchedule(256, messageBlock);
+    H = Gadgets.SHA2.compression(256, H, W);
 
     this.gamma_kzg_digest = Bytes.from(
       H.map((x) => wordToBytes(x.value, 4).reverse()).flat()
