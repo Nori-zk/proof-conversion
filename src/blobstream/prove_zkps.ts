@@ -8,6 +8,7 @@ import {
   Cache,
   Bytes,
   Field,
+  setBackend,
 } from 'o1js';
 import {
   blobstreamVerifier,
@@ -42,6 +43,8 @@ import { HelloWorldRollup } from './rollup.js';
 import {
   parseDigestProvable,
 } from '../plonk/parse_pi.js';
+
+setBackend('native');
 
 const args = process.argv;
 

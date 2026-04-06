@@ -3,6 +3,7 @@ import {
   Poseidon,
   verify,
   Cache,
+  setBackend,
 } from 'o1js';
 import {
   riscZeroExampleVerifier,
@@ -12,6 +13,8 @@ import fs from 'fs';
 import { Proof } from '../groth/proof.js';
 import { FrC } from '../towers/fr.js';
 import { VK } from '../groth/vk_from_env.js';
+
+setBackend('native');
 
 const args = process.argv;
 
