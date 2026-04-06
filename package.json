@@ -62,12 +62,13 @@
   },
   "dependencies": {
     "@nori-zk/proof-conversion-utils": "0.5.3",
+    "@o1js/native": "^2.14.0-dev.876f2",
     "commander": "14.0.2",
     "esm-iso-logger": "1.0.2",
     "ethers": "^6.16.0"
   },
   "peerDependencies": {
-    "o1js": "^2.10.0-dev.be63f"
+    "o1js": "^2.14.0-dev.876f2"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.28.6",
