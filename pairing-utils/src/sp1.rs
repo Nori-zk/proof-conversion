@@ -8,6 +8,46 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wasm")]
 use tsify::Tsify;
 
+/// Parsed SP1 PLONK verification key with all field elements as decimal strings.
+///
+/// Produced by `save_plonk_vk_json` from the embedded `plonk_vk.bin` artifact.
+/// All G1 point coordinates and field elements are decimal strings (BigInt-compatible).
+/// Small integers (domain_size, counts, indexes) are plain numbers.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm", derive(Tsify))]
+#[cfg_attr(feature = "wasm", tsify(into_wasm_abi, from_wasm_abi))]
+pub struct Sp1PlonkVk {
+    pub nb_public_inputs: u64,
+    pub domain_size: u64,
+    pub inv_domain_size: String,
+    pub omega: String,
+    pub coset_shift: String,
+    pub g1_gen_x: String,
+    pub g1_gen_y: String,
+    pub ql_x: String,
+    pub ql_y: String,
+    pub qr_x: String,
+    pub qr_y: String,
+    pub qm_x: String,
+    pub qm_y: String,
+    pub qo_x: String,
+    pub qo_y: String,
+    pub qk_x: String,
+    pub qk_y: String,
+    pub qs1_x: String,
+    pub qs1_y: String,
+    pub qs2_x: String,
+    pub qs2_y: String,
+    pub qs3_x: String,
+    pub qs3_y: String,
+    pub qcp_0_x: String,
+    pub qcp_0_y: String,
+    pub index_commit_api_0: u64,
+    pub num_custom_gates: u64,
+    pub omega_pow_i: String,
+    pub omega_pow_i_div_n: String,
+}
+
 /// Groth16 proof in SP1/gnark format.
 ///
 /// Mirrors `sp1_prover::Groth16Bn254Proof`.
@@ -15,7 +55,7 @@ use tsify::Tsify;
 #[cfg_attr(feature = "wasm", derive(Tsify))]
 #[cfg_attr(feature = "wasm", tsify(from_wasm_abi))]
 pub struct Groth16Bn254Proof {
-    pub public_inputs: [String; 2],
+    pub public_inputs: [String; 5],
     pub encoded_proof: String,
     pub raw_proof: String,
     pub groth16_vkey_hash: [u8; 32],
@@ -28,7 +68,7 @@ pub struct Groth16Bn254Proof {
 #[cfg_attr(feature = "wasm", derive(Tsify))]
 #[cfg_attr(feature = "wasm", tsify(from_wasm_abi))]
 pub struct PlonkBn254Proof {
-    pub public_inputs: [String; 2],
+    pub public_inputs: [String; 5],
     pub encoded_proof: String,
     pub raw_proof: String,
     pub plonk_vkey_hash: [u8; 32],
@@ -91,10 +131,27 @@ impl SP1ProofWithPublicValues {
     /// For Groth16 proofs, returns `[vkey_hash[..4], proof_bytes].concat()`.
     /// For Plonk proofs, returns `[vkey_hash[..4], proof_bytes].concat()`.
     ///
+    /// The layout of `proof_bytes` (i.e. `encoded_proof` hex-decoded) changed between SP1 versions:
+    ///
+    /// **SP1 v5 (old):** `encoded_proof` was 256 bytes — the raw Groth16 proof points directly:
+    ///   - bytes   0- 63: A (G1 affine, gnark uncompressed)
+    ///   - bytes  64-191: B (G2 affine, gnark uncompressed)
+    ///   - bytes 192-255: C (G1 affine, gnark uncompressed)
+    ///
+    /// **SP1 v6 (current):** `encoded_proof` is 352 bytes — gnark on-chain calldata format with
+    /// a 96-byte commitment prefix prepended before the same 256 bytes of proof points:
+    ///   - bytes   0- 31: zeros (empty commitment slot)
+    ///   - bytes  32- 63: gnark commitment identifier
+    ///   - bytes  64- 95: zeros (empty CommitmentPok slot)
+    ///   - bytes  96-351: A, B, C proof points (same layout as v5)
+    ///
+    /// If you need the raw proof points for arkworks, use `raw_proof` from `Groth16Bn254Proof`
+    /// instead — it starts directly with A, B, C without the prefix.
+    ///
     /// # Panics
     ///
     /// Panics if the proof is not Groth16 or Plonk, or if hex decoding fails.
-    /// Taken from https://github.com/succinctlabs/sp1/blob/main/crates/sdk/src/proof.rs#L124
+    /// Taken from https://github.com/succinctlabs/sp1/blob/v6.0.1/crates/sdk/src/proof.rs
     pub fn bytes(&self) -> Vec<u8> {
         match &self.proof {
             SP1Proof::Groth16(groth16_proof) => {
@@ -147,7 +204,7 @@ mod tests {
     use crate::o1js::{O1jsGroth16, O1jsProof};
 
     fn load_example() -> SP1ProofWithPublicValues {
-        let sp1_json = std::fs::read_to_string("../example-proofs/sp1_groth16_obj_v5.json")
+        let sp1_json = std::fs::read_to_string("../example-proofs/sp1_groth16_obj_v6.json")
             .expect("Failed to read SP1 example proof");
         serde_json::from_str(&sp1_json)
             .expect("Failed to parse SP1 proof")

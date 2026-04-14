@@ -16,7 +16,9 @@ NODE_SCRIPT="./build/src/plonk/serialize_mlo.js"
 
 # obtain mlo result
 
-node $NODE_SCRIPT $MLO_RELATIVE_PATH $HEX_PROOF $PROGRAM_VK $HEX_PI &
+# SP1 v5: args were MLO_PATH HEX_PROOF PROGRAM_VK HEX_PI.
+# SP1 v6: PI2 PI3 PI4 appended after HEX_PI (public_inputs[2..4]).
+node $NODE_SCRIPT $MLO_RELATIVE_PATH $HEX_PROOF $PROGRAM_VK $HEX_PI $PI2 $PI3 $PI4 &
 
 node_pid=$!
 wait $node_pid

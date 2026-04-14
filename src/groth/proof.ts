@@ -66,12 +66,13 @@ function createProofClass(inputCount: number) {
     static parse(vk: GrothVk, path: string) {
       const json: O1jsProof = JSON.parse(fs.readFileSync(path, 'utf-8'));
 
-      // Get public inputs (pi1, pi2, etc)
+      // Get public inputs (pi1, pi2, etc).
       const publicInputs: FrC[] = [];
       for (let i = 1; i <= inputCount; i++) {
         const key = `pi${i}` as PiKey;
-        if (json[key]) {
-          publicInputs.push(FrC.from(json[key]));
+        const val = json[key];
+        if (val) {
+          publicInputs.push(FrC.from(val));
         }
       }
 

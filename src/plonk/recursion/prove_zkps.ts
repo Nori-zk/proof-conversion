@@ -32,23 +32,31 @@ import { zkp22 } from './zkp22.js';
 import { zkp23 } from './zkp23.js';
 import { AuXWitness } from '../aux_witness.js';
 import { parsePublicInputs } from '../parse_pi.js';
+import { FrC } from '../../towers/index.js';
 
 const args = process.argv;
 
 const hexProof = args[3];
 const programVk = args[4];
 const hexPi = args[5];
-const auxWtnsPath = args[6];
+// SP1 v5: args[6]=auxWtnsPath, args[7]=workDir, args[8]=cacheDir (only 2 public inputs).
+// SP1 v6: pi2/pi3/pi4 inserted at args[6..8], shifting the rest by 3.
+const pi2 = args[6];
+const pi3 = args[7];
+const pi4 = args[8];
+const auxWtnsPath = args[9];
 const auxWitness = AuXWitness.loadFromPath(auxWtnsPath);
-const workDir = args[7];
-const cacheDir = args[8];
+const workDir = args[10];
+const cacheDir = args[11];
 
 const make_acc = () => {
   const [pi0, pi1] = parsePublicInputs(programVk, hexPi);
 
   let proof = new Sp1PlonkProof(deserializeProof(hexProof));
   let fs = Sp1PlonkFiatShamir.empty();
-  let state = new StateUntilPairing(empty(pi0, pi1));
+  // SP1 v5: empty(pi0, pi1) — only 2 public inputs.
+  // SP1 v6: all 5 public inputs passed; pi2/pi3/pi4 are hex strings from public_inputs[2..4].
+  let state = new StateUntilPairing(empty(pi0, pi1, FrC.from(pi2), FrC.from(pi3), FrC.from(pi4)));
 
   let acc = new Accumulator({
     proof,

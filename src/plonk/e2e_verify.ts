@@ -19,7 +19,12 @@ const args = process.argv;
 const hexProof = args[2];
 const programVk = args[3];
 const hexPi = args[4];
-const auxWtnsPath = args[5];
+// SP1 v5: args[5]=auxWtnsPath (only 2 public inputs).
+// SP1 v6: pi2/pi3/pi4 inserted at args[5..7], auxWtnsPath shifted to args[8].
+const pi2 = args[5];
+const pi3 = args[6];
+const pi4 = args[7];
+const auxWtnsPath = args[8];
 const auxWitness = AuXWitness.loadFromPath(auxWtnsPath);
 
 const Verifier = new Sp1PlonkVerifier(VK, g2_lines, tau_lines);
@@ -28,12 +33,16 @@ function main() {
   const [pi0, pi1] = Provable.witness(Provable.Array(FrC.provable, 2), () =>
     parsePublicInputs(programVk, hexPi)
   );
+  // SP1 v5: only pi0/pi1 passed to verify.
+  // SP1 v6: pi2/pi3/pi4 (exit_code/vk_root/proof_nonce) added.
+  const pi2F = Provable.witness(FrC.provable, () => FrC.from(pi2));
+  const pi3F = Provable.witness(FrC.provable, () => FrC.from(pi3));
+  const pi4F = Provable.witness(FrC.provable, () => FrC.from(pi4));
   const proof = Provable.witness(
     Sp1PlonkProof,
     () => new Sp1PlonkProof(deserializeProof(hexProof))
   );
-
-  Verifier.verify(proof, pi0, pi1, auxWitness);
+  Verifier.verify(proof, pi0, pi1, pi2F, pi3F, pi4F, auxWitness);
 }
 
 // npm run build && node --max-old-space-size=65536 build/src/plonk/e2e_verify.js

@@ -14,7 +14,9 @@ const zkp0 = ZkProgram({
         const inDigest = Poseidon.hashPacked(Accumulator, acc);
         inDigest.assertEquals(input);
 
-        acc.fs.squeezeGamma(acc.proof, acc.state.pi0, acc.state.pi1, VK);
+        // SP1 v5: only pi0/pi1 were hashed into gamma.
+        // SP1 v6: pi2/pi3/pi4 (exit_code/vk_root/proof_nonce) must also be hashed.
+        acc.fs.squeezeGamma(acc.proof, acc.state.pi0, acc.state.pi1, acc.state.pi2, acc.state.pi3, acc.state.pi4, VK);
         acc.fs.squeezeBeta();
 
         return {

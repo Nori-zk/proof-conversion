@@ -41,8 +41,9 @@ compute_zkp() {
   local ZKP_I=$1
   local NUMA_NODES=$(numactl --hardware | grep -oP '(?<=available: )\d+')
   local NUMA_NODE=$((ZKP_I % NUMA_NODES))
-  
-  # Pass arguments as positional parameters using ::::
+
+  # SP1 v5: args were HEX_PROOF PROGRAM_VK HEX_PI AUX_WITNESS_PATH WORK_DIR CACHE_DIR.
+  # SP1 v6: PI2 PI3 PI4 inserted before AUX_WITNESS_PATH (public_inputs[2..4]).
   numactl --cpunodebind=$NUMA_NODE --membind=$NUMA_NODE \
     node --max-old-space-size=$NODE_MEMORY_LIMIT \
     ./build/src/plonk/recursion/prove_zkps.js \
@@ -50,13 +51,16 @@ compute_zkp() {
     "$HEX_PROOF" \
     "$PROGRAM_VK" \
     "$HEX_PI" \
+    "$PI2" \
+    "$PI3" \
+    "$PI4" \
     "$AUX_WITNESS_PATH" \
     "$WORK_DIR" \
     "$CACHE_DIR"
 }
 
 # Export variables explicitly for parallel
-export HEX_PROOF PROGRAM_VK HEX_PI AUX_WITNESS_PATH WORK_DIR CACHE_DIR
+export HEX_PROOF PROGRAM_VK HEX_PI PI2 PI3 PI4 AUX_WITNESS_PATH WORK_DIR CACHE_DIR
 export -f compute_zkp
 
 # Use env_parallel to preserve environment

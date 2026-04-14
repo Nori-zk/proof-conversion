@@ -198,14 +198,19 @@ impl TryFrom<&SP1ProofWithPublicValues> for O1jsProof {
             _ => return Err("O1jsProof -> SP1ProofWithPublicValues: SP1Proof is not a Groth16 variant".to_string()),
         };
 
-        // Get proof bytes (this hex-decodes encoded_proof and prepends vkey hash)
-        let proof_bytes = sp1.bytes();
-        if proof_bytes.is_empty() {
+        // encoded_proof being empty is SP1's convention for a mock/empty proof (unchanged from v5).
+        if groth16_proof.encoded_proof.is_empty() {
             return Err("O1jsProof -> SP1ProofWithPublicValues: empty proof (mock proof not supported)".to_string());
         }
 
-        // Skip the first 4 bytes (vkey hash prefix) and load arkworks proof
-        let ark_proof = load_ark_proof_from_bytes(&proof_bytes[4..])
+        // SP1 v6 change: encoded_proof now has a 96-byte gnark on-chain calldata prefix before
+        // the actual proof points, so we can no longer use encoded_proof directly. raw_proof
+        // starts directly with A, B, C in gnark uncompressed format (same layout as v5
+        // encoded_proof), so we use that instead. See sp1.rs SP1ProofWithPublicValues::bytes()
+        // for a full breakdown of what changed.
+        let raw_proof_bytes = hex::decode(&groth16_proof.raw_proof)
+            .map_err(|e| format!("O1jsProof -> SP1ProofWithPublicValues: failed to decode raw_proof hex: {}", e))?;
+        let ark_proof = load_ark_proof_from_bytes(&raw_proof_bytes)
             .map_err(|e| format!("O1jsProof -> SP1ProofWithPublicValues: failed to load arkworks proof: {}", e))?;
 
         // Convert arkworks proof to o1js format

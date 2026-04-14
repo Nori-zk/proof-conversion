@@ -1,6 +1,6 @@
 [package]
 name = "proof-conversion-utils"
-version = "0.5.3"
+version = "1.0.0"
 edition = "2021"
 
 [lib]
@@ -25,6 +25,14 @@ path = "src/bin/alphabeta.rs"
 name = "aux_witness"
 path = "src/bin/aux_witness.rs"
 
+[[bin]]
+name = "save_sp1_groth16_bin"
+path = "src/bin/save_sp1_groth16_bin.rs"
+
+[[bin]]
+name = "save_plonk_vk_json"
+path = "src/bin/save_plonk_vk_json.rs"
+
 [dependencies]
 ark-ff = "0.4.2"
 ark-ff-macros = "0.4.2"
@@ -41,7 +49,7 @@ serde_tuple = "1.1"
 num-bigint = "0.4"
 num-traits = "0.2"
 hex = "0.4"
-sp1-sdk = { version = "5.0.0", optional = true }
+sp1-sdk = { version = "6.0.1", optional = true }
 thiserror = "1.0"
 
 # WebAssembly-specific output (for wasm-pack)
@@ -53,6 +61,9 @@ tsify = "0.5"
 [features]
 wasm = ["wasm-bindgen", "serde-wasm-bindgen", "tsify"]
 sp1-bin = ["sp1-sdk"]
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+sp1-verifier = "6.0.1"
 
 # Conditional dependencies for Wasm
 [target.'cfg(target_arch = "wasm32")'.dependencies]

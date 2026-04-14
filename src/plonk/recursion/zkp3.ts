@@ -28,8 +28,10 @@ const zkp3 = ZkProgram({
         acc.state.hx = hx;
         acc.state.hy = hy;
 
+        // SP1 v5: only [pi0, pi1] contributed to the public input sum.
+        // SP1 v6: all 5 public inputs [pi0..pi4] must be included.
         const pis = pi_contribution(
-          [acc.state.pi0, acc.state.pi1],
+          [acc.state.pi0, acc.state.pi1, acc.state.pi2, acc.state.pi3, acc.state.pi4],
           acc.fs.zeta,
           acc.state.zh_eval,
           VK.inv_domain_size,

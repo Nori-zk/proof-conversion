@@ -58,10 +58,15 @@ class WitnessTracker {
   }
 
   zkp0(): Accumulator {
+    // SP1 v5: only pi0/pi1 were hashed into gamma.
+    // SP1 v6: pi2/pi3/pi4 (exit_code/vk_root/proof_nonce) must also be hashed.
     this.acc.fs.squeezeGamma(
       this.acc.proof,
       this.acc.state.pi0,
       this.acc.state.pi1,
+      this.acc.state.pi2,
+      this.acc.state.pi3,
+      this.acc.state.pi4,
       VK
     );
     this.acc.fs.squeezeBeta();
@@ -116,8 +121,10 @@ class WitnessTracker {
     this.acc.state.hx = hx;
     this.acc.state.hy = hy;
 
+    // SP1 v5: only [pi0, pi1] contributed to the public input sum.
+    // SP1 v6: all 5 public inputs [pi0..pi4] must be included.
     const pis = pi_contribution(
-      [this.acc.state.pi0, this.acc.state.pi1],
+      [this.acc.state.pi0, this.acc.state.pi1, this.acc.state.pi2, this.acc.state.pi3, this.acc.state.pi4],
       this.acc.fs.zeta,
       this.acc.state.zh_eval,
       VK.inv_domain_size,
