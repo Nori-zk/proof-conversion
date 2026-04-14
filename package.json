@@ -53,7 +53,7 @@
     "format": "prettier --check --ignore-unknown --ignore-path .prettierignore **/*",
     "format:fix": "prettier --write --ignore-unknown --ignore-path .prettierignore **/*",
     "test": "npm run build && node --max-old-space-size=65536 --",
-    "test:e2e": "npm run build && npm run test build/src/plonk/mm_loop/e2e_test.js && npm run test build/src/plonk/piop/e2e_test.js && npm run test build/src/plonk/piop/e2e_test.js && npm run test build/src/groth/e2e_test.js && npm run test build/src/plonk/e2e_test.js",
+    "test:e2e": "npm run build && npm run test build/src/plonk/mm_loop/e2e_test.js && npm run test build/src/plonk/piop/e2e_test.js && npm run test build/src/plonk/piop/e2e_playground.js && npm run test build/src/groth/e2e_test.js && npm run test build/src/plonk/e2e_test.js",
     "test:compute": "npm run build && node ./build/src/compute/compute_test.js",
     "test:validation": "jest --testMatch '**/guards/test.spec.ts'",
     "lint": "eslint src/*",
@@ -61,7 +61,7 @@
     "relink": "npm unlink nori-proof-converter && npm run build && npm link"
   },
   "dependencies": {
-    "@nori-zk/proof-conversion-utils": "0.5.3",
+    "@nori-zk/proof-conversion-utils": "^1.0.0",
     "commander": "14.0.2",
     "esm-iso-logger": "1.0.2",
     "ethers": "^6.16.0"

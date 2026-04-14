@@ -25,14 +25,22 @@ export function createZkp14(inputCount: number) {
 
           let acc = new bn254({ x: VK.ic0.x, y: VK.ic0.y });
 
-          // Handle inputs based on distribution strategy
+          // Handle inputs based on distribution strategy.
+          // In provable code both branches of Provable.if are always evaluated, so we
+          // cannot guard scale() with a plain if. Instead we replace a zero scalar with
+          // a dummy non-zero value (1) so scale() never sees zero, then use Provable.if
+          // to keep acc unchanged when the original scalar was zero.
           for (let i = 0; i < zkp14InputCount; i++) {
             const icIndex = distribution.zkp14[i] + 1; // ic1, ic2, etc.
             const icPoint = VK.getIcPoint(icIndex);
             if (!icPoint) {
               throw new Error(`Missing IC point ic${icIndex} for zkp14 input ${i}`);
             }
-            acc = acc.add(icPoint.scale(zkp14_pis[i]));
+            const isZero = zkp14_pis[i].equals(0n);
+            const safeScalar = Provable.if(isZero, FrC.provable, FrC.from(1n), zkp14_pis[i]);
+            const scaled = icPoint.scale(safeScalar);
+            const accWithScaled = acc.add(scaled);
+            acc = Provable.if(isZero, bn254.provable, acc, accWithScaled);
           }
 
           const acc_aff = new G1Affine({

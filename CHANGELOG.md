@@ -1,3 +1,87 @@
+# 24-02-2026
+
+SP1 v6 PLONK and Groth16 Support
+
+## proof-conversion-utils (pairing-utils)
+
+The Rust crate is the source of truth for SP1 VK artifacts and proof byte parsing. All TypeScript changes in the PLONK and Groth16 sections below depend on outputs produced here.
+
+### Changed
+
+- **`pairing-utils/Cargo.toml`**: `sp1-sdk` bumped from `5.0.0` to `6.0.1`; `sp1-verifier = "6.0.1"` added as a non-wasm dependency (provides `PLONK_VK_BYTES` and `GROTH16_VK_BYTES` for the new VK extraction binaries); `save_sp1_groth16_bin` and `save_plonk_vk_json` registered as new `[[bin]]` targets
+- **`pairing-utils/src/sp1.rs`**: `public_inputs` array size updated from `[String; 2]` to `[String; 5]` for both `Groth16Bn254Proof` and `PlonkBn254Proof`; added `Sp1PlonkVk` struct (serialisable, all field elements as decimal strings) consumed by `save_plonk_vk_json`; `bytes()` doc updated to describe v5 vs v6 `encoded_proof` layout difference (v6 prepends a 96-byte gnark calldata prefix before the proof points)
+- **`pairing-utils/src/gnark.rs`**: `GROTH16_VK_5_0_0_BYTES` renamed to `GROTH16_VK_6_0_0_BYTES`; embedded binary updated to `sp1_v6_groth16_vk.bin`
+- **`pairing-utils/src/arkworks.rs`**: Switched from `encoded_proof` with 4-byte skip to `raw_proof` for proof byte extraction; v6 `encoded_proof` has a 96-byte calldata prefix so `raw_proof` (which starts directly with A, B, C points) is used instead; VK updated to v6; test updated to use `sp1_groth16_obj_v6.json` and assert 5 public inputs
+- **`pairing-utils/src/o1js.rs`**: Same `encoded_proof` to `raw_proof` switch as `arkworks.rs`
+- **`pairing-utils/src/wasm.rs`**: Doc comments updated from v5.0.0 to v6.0.0 VK references
+- **`pairing-utils/src/bin/convert_from_sp1_groth16.rs`**: VK constant updated from `GROTH16_VK_5_0_0_BYTES` to `GROTH16_VK_6_0_0_BYTES`
+
+### Added
+
+- **`pairing-utils/sp1_v6_groth16_vk.bin`**: Embedded SP1 v6.0.0 Groth16 verification key binary; produced by `save_sp1_groth16_bin`, consumed by `gnark.rs` at compile time
+- **`pairing-utils/src/bin/save_sp1_groth16_bin.rs`**: New binary; extracts and writes `sp1_v6_groth16_vk.bin` from `sp1_verifier::GROTH16_VK_BYTES`
+- **`pairing-utils/src/bin/save_plonk_vk_json.rs`**: New binary; parses `sp1_verifier::PLONK_VK_BYTES`, decompresses all G1 points, derives `omega_pow_i` and `omega_pow_i_div_n`, and writes `src/plonk/plonk_vk_v6.0.0.json` (consumed by `src/plonk/vk.ts`)
+- **`pairing-utils/README.md`**: Added "Updating vks after an SP1 upgrade" section documenting the `save_plonk_vk_json` / `save_sp1_groth16_bin` workflow for future SP1 upgrades
+
+---
+
+## PLONK
+
+SP1 v6 changed the PLONK proof format in two ways: (1) `encoded_proof` gained a 96-byte prefix `[exit_code(32B)][vk_root(32B)][proof_nonce(32B)]` before the gnark proof bytes; (2) `public_inputs` expanded from 2 to 5: `[sp1_vkey_hash, committed_values_digest, exit_code, vk_root, proof_nonce]`.
+
+### Changed
+
+- **`src/api/sp1/schema.ts`**: `public_inputs` array length validation updated from 2 to 5; `Sp1PlonkInputTransformed` extended with `pi2`, `pi3`, `pi4` fields (`exit_code`, `vk_root`, `proof_nonce` from `public_inputs[2..4]`)
+- **`src/plonk/proof.ts`**: Removed `slice(10)` that skipped the v5 4-byte vkey-hash prefix from `encoded_proof`; v6 caller strips the 96-byte SP1 prefix upstream and passes the gnark proof directly
+- **`src/plonk/vk.ts`**: Replaced hardcoded v5 constants with JSON-driven construction; reads from `src/plonk/plonk_vk_v6.0.0.json` (produced by `pairing-utils/src/bin/save_plonk_vk_json.rs`) via `Sp1PlonkVkJson` type; `pub_inputs` updated from 2 to 5; domain size, omega, all curve points, and Lagrange values updated to v6
+- **`src/plonk/state.ts`**: `StateUntilPairing` struct, `StateUntilPairingType`, `deepClone()`, and `empty()` extended with `pi2`, `pi3`, `pi4` fields; invalidates `sp1_plonk_cache`
+- **`src/plonk/fiat-shamir/index.ts`**: `squeezeGamma` extended to accept all 5 PIs; VK moved to end of argument list per pre-existing convention
+- **`src/plonk/recursion/zkp0.ts`**: `squeezeGamma` call site updated; all 5 PIs passed, VK last
+- **`src/plonk/recursion/zkp3.ts`**: `pi_contribution` now receives all 5 PIs `[pi0..pi4]`
+- **`src/plonk/recursion/witness_tracker.ts`**: `squeezeGamma` call site updated; all 5 PIs passed, VK last
+- **`src/plonk/recursion/prove_zkps.ts`**: `pi2`/`pi3`/`pi4` read from `args[6..8]`; `auxWtnsPath`, `workDir`, `cacheDir` shifted by 3
+- **`src/plonk/piop/piop.ts`**: `piop()` and `squeezeGamma` call updated; all 5 PIs passed, VK last
+- **`src/plonk/verifier.ts`**: `verify()` and `computeMlo()` signatures extended with `pi2`, `pi3`, `pi4`
+- **`src/plonk/get_mlo.ts`**: `getMlo()` signature extended with `pi2`, `pi3`, `pi4`
+- **`src/plonk/serialize_mlo.ts`**: `pi2`/`pi3`/`pi4` read from `args[6..8]`
+- **`src/plonk/e2e_verify.ts`**: `pi2`/`pi3`/`pi4` read from `args[5..7]`; `auxWtnsPath` shifted to `args[8]`
+- **`src/compute/plans/sp1/plonk.ts`**: `encodedProof` now strips the 96-byte SP1 prefix (`slice(192)` hex chars); `pi2`/`pi3`/`pi4` threaded through state and all downstream calls
+- **`src/blobstream/sp1_to_env.ts`**: `encoded_proof` stripped of 96-byte prefix; `PI2`/`PI3`/`PI4` emitted to env from `public_inputs[2..4]`
+- **`scripts/get_aux_witness_plonk.sh`**: `$PI2 $PI3 $PI4` appended to `serialize_mlo.js` invocation
+- **`scripts/e2e_verify_plonk.sh`**: `$PI2 $PI3 $PI4` appended before `$AUX_WITNESS_RELATIVE_PATH`
+- **`scripts/plonk_tree.sh`**: `$PI2 $PI3 $PI4` added to `prove_zkps.js` invocation; exported in parallel env
+- **`package.json`**: Fixed duplicate `piop/e2e_test.js` in `test:e2e`; replaced second instance with `piop/e2e_playground.js`; `@nori-zk/proof-conversion-utils` switched from published `0.5.3` to local `file:./pairing-utils/pkg` (until we are ready for release)
+
+### Added
+
+- **`src/plonk/plonk_vk_v6.0.0.json`**: New v6 PLONK verification key; produced by `pairing-utils/src/bin/save_plonk_vk_json.rs`; 5 public inputs, domain size 2^25, updated omega, all circuit selector and commitment points
+- **`src/plonk/vk_5.0.0.ts`**: v5 VK preserved as a standalone file for reference
+
+### Fixed
+
+- **`src/plonk/e2e_test.ts`**, **`src/plonk/piop/e2e_test.ts`**, **`src/plonk/piop/e2e_playground.ts`**: Replaced v5 test data with real v6 values from example-proofs and `.conversion-cache`; removed all `@ts-ignore` suppressions; added `pi2`/`pi3`/`pi4` constants and `Provable.witness` calls
+
+---
+
+## Groth16
+
+SP1 v6 changed the Groth16 `encoded_proof` layout; a 96-byte gnark on-chain calldata prefix is now prepended before the proof points. `raw_proof` (unchanged layout, starts directly with A, B, C) is used instead. Additionally `public_inputs` expanded from 2 to 5, requiring zero-scalar guards since `ForeignCurve.scale()` asserts non-zero in o1js.
+
+### Changed
+
+- **`src/groth/compute_pi.ts`**: Zero-scalar guard added; skips `icPoint.scale(pis[i])` when `pis[i] === 0n` (mirrors SP1's own `prepare_inputs`; `ForeignCurve.scale()` asserts non-zero)
+- **`src/groth/recursion/zkp14.ts`**, **`src/groth/recursion/zkp15.ts`**: Zero-scalar guard added in provable context; replaces zero with dummy scalar `1` via `Provable.if`, then conditionally keeps `acc` unchanged when original was zero
+- **`src/groth/witness_tracker.ts`**: Zero-scalar guard added; skips scale for zero PI entries (non-provable context, same logic as `compute_pi.ts`)
+- **`src/groth/proof.ts`**: Minor: extracted `json[key]` to `val` to avoid double-indexing
+- **`example-proofs/`**: `sp1_groth16_obj_v5.json` and `sp1_plonk_obj_v5.json` removed; `sp1_groth16_obj_v6.json` and `sp1_plonk_obj_v6.json` added
+
+### Fixed
+
+- **`README.md`**: Example proof filenames updated from `v5` to `v6` in `sp1Plonk` and `sp1Groth16` CLI examples
+- **`pairing-utils/README.NPM.md`**: VK references updated from v5.0.0 to v6.0.0 throughout
+
+---
+
 # 03-02-2026
 
 This PR integrates contributions from 0x471 enabling new proof format conversions (snarkjs and sp1 groth16), with comprehensive improvements to error handling, type safety, validation, and codebase quality across both TypeScript and Rust components.

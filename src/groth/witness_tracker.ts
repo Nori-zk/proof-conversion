@@ -339,7 +339,10 @@ class WitnessTracker {
       if (!icPoint) {
         throw new Error(`Missing IC point ic${icIndex} for zkp14 input ${i}`);
       }
-      acc = acc.add(icPoint.scale(this.proof.pis[originalIndex]));
+      // Skip zero scalars — same guard as computePI (non-provable context)
+      if (this.proof.pis[originalIndex].toBigInt() !== 0n) {
+        acc = acc.add(icPoint.scale(this.proof.pis[originalIndex]));
+      }
     }
 
     return new G1Affine({

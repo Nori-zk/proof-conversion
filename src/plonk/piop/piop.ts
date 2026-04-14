@@ -14,7 +14,8 @@ import {
   preparePairing,
 } from './plonk_utils.js';
 
-// expects only two public inputs as in Sp1 Plonk verifier
+// SP1 v5: expects only two public inputs (pi0, pi1).
+// SP1 v6: expects all five public inputs (pi0..pi4).
 
 class PlonkVerifierPIOP {
   VK: Sp1PlonkVk;
@@ -22,10 +23,12 @@ class PlonkVerifierPIOP {
     this.VK = VK;
   }
 
-  piop(proof: Sp1PlonkProof, pi0: FrC, pi1: FrC): [FpC, FpC, FpC, FpC] {
+  piop(proof: Sp1PlonkProof, pi0: FrC, pi1: FrC, pi2: FrC, pi3: FrC, pi4: FrC): [FpC, FpC, FpC, FpC] {
     const fs = Sp1PlonkFiatShamir.empty();
 
-    fs.squeezeGamma(proof, pi0, pi1, this.VK);
+    // SP1 v5: squeezeGamma(proof, pi0, pi1, VK).
+    // SP1 v6: pi2/pi3/pi4 added to the hash.
+    fs.squeezeGamma(proof, pi0, pi1, pi2, pi3, pi4, this.VK);
     fs.squeezeBeta();
     fs.squeezeAlpha(proof);
     fs.squeezeZeta(proof);
@@ -51,8 +54,10 @@ class PlonkVerifierPIOP {
       zh_eval
     );
 
+    // SP1 v5: pi_contribution([pi0, pi1], ...).
+    // SP1 v6: all 5 public inputs contribute to the polynomial sum.
     const pis = pi_contribution(
-      [pi0, pi1],
+      [pi0, pi1, pi2, pi3, pi4],
       fs.zeta,
       zh_eval,
       this.VK.inv_domain_size,

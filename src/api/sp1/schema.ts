@@ -20,10 +20,14 @@ export type Sp1Groth16Vk = O1jsVK;
 export type Sp1Groth16Proof = O1jsProof;
 
 // Transformed Plonk computational plan input
+// SP1 v6: pi2/pi3/pi4 = exit_code/vk_root/proof_nonce from public_inputs[2..4]
 export type Sp1PlonkInputTransformed = {
   hexPi: string;
   programVK: string;
   encodedProof: string;
+  pi2: string;
+  pi3: string;
+  pi4: string;
 };
 
 // SP1ProofWithPublicValue Groth16 type
@@ -47,14 +51,14 @@ export type SP1ProofWithPublicValuesPlonkNoTee = Omit<
 // Runtime validation ======================================================================
 
 const plonkProofSchema = {
-  public_inputs: isStringArrayOfLength(2), // [String; 2]
+  public_inputs: isStringArrayOfLength(5), // [String; 5]
   encoded_proof: isString,
   raw_proof: isString,
   plonk_vkey_hash: isUint8Array(32), // [u8; 32]
 };
 
 const groth16ProofSchema = {
-  public_inputs: isStringArrayOfLength(2), // [String; 2]
+  public_inputs: isStringArrayOfLength(5), // [String; 5]
   encoded_proof: isString,
   raw_proof: isString,
   groth16_vkey_hash: isUint8Array(32), // [u8; 32]
