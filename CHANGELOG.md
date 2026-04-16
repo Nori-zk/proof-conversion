@@ -1,3 +1,59 @@
+# 16-04-2026
+
+SP1 v6.0.1 → v6.1.0 emergency upgrade
+
+SP1 shipped an emergency release v6.1.0. The verifying keys were regenerated (new `groth16_vk.bin` / `plonk_vk.bin` / `verifier_vks.bin`) and the PLONK VK binary layout changed in `crates/verifier/src/plonk/converter.rs`: SRS padding grew by 4 bytes (`33788` → `33792`) and `num_commitment_constraint_indexes` is now a `u32` (4 bytes) instead of a `u64` (8 bytes). Our PLONK VK extractor mirrored the old layout and had to be patched. Versioned artifact filenames were also moved to the full `vMAJOR.MINOR.PATCH` form so the name reflects which SP1 release produced the bytes.
+
+## proof-conversion-utils (pairing-utils)
+
+### Changed
+
+- **`pairing-utils/Cargo.toml`**: `sp1-sdk` and `sp1-verifier` bumped from `6.0.1` to `6.1.0`
+- **`pairing-utils/src/bin/save_plonk_vk_json.rs`**: PLONK VK layout updated for v6.1.0 — SRS padding `33788` → `33792`; `num_commitment_constraint_indexes` read as `u32` (4 bytes) instead of `u64` (8 bytes); output path renamed from `plonk_vk_v6.0.0.json` to `plonk_vk_sp1_v6.1.0.json`
+- **`pairing-utils/src/bin/save_sp1_groth16_bin.rs`**: Output path renamed from `sp1_v6_groth16_vk.bin` to `sp1_v6.1.0_groth16_vk.bin`
+- **`pairing-utils/src/gnark.rs`**: `GROTH16_VK_6_0_0_BYTES` renamed to `GROTH16_VK_6_1_0_BYTES`; `include_bytes!` path updated to `sp1_v6.1.0_groth16_vk.bin`
+- **`pairing-utils/src/bin/convert_from_sp1_groth16.rs`**: `GROTH16_VK_6_0_0_BYTES` renamed to `GROTH16_VK_6_1_0_BYTES`; `include_bytes!` path and console logging updated to v6.1.0
+- **`pairing-utils/src/arkworks.rs`**: Constant usage, import, doc comments, and error messages updated from v6.0.0 to v6.1.0
+- **`pairing-utils/src/wasm.rs`**: Doc comments updated from v6.0.0 to v6.1.0 VK references
+- **`pairing-utils/src/sp1.rs`**: `bytes()` doc URL pin updated from `sp1/blob/v6.0.1/...` to `sp1/blob/v6.1.0/...`
+- **`pairing-utils/README.NPM.md`**: v6.0.0 VK references updated to v6.1.0 throughout
+
+### Added
+
+- **`pairing-utils/sp1_v6.1.0_groth16_vk.bin`**: Regenerated SP1 v6.1.0 Groth16 verification key binary (492 bytes, differs from v6.0.1 bytes); produced by `save_sp1_groth16_bin`, consumed by `gnark.rs` at compile time
+- **`src/plonk/plonk_vk_sp1_v6.1.0.json`**: Regenerated v6.1.0 PLONK verification key; produced by the patched `save_plonk_vk_json` against the new v6.1.0 VK bytes and new binary layout
+
+---
+
+## PLONK
+
+### Changed
+
+- **`src/plonk/vk.ts`**: JSON import switched from `./plonk_vk_v6.0.0.json` to `./plonk_vk_sp1_v6.1.0.json`
+
+---
+
+## Example proofs
+
+Regenerated example proofs against SP1 v6.1.0.
+
+### Changed
+
+- **`pairing-utils/src/arkworks.rs`**: test fixture path updated from `sp1_groth16_obj_v6.json` to `sp1_groth16_obj_v6.1.0.json`
+- **`pairing-utils/src/sp1.rs`**: test fixture path updated from `sp1_groth16_obj_v6.json` to `sp1_groth16_obj_v6.1.0.json`
+- **`README.md`**: CLI examples for `sp1Plonk` and `sp1Groth16` updated to reference `sp1_plonk_obj_v6.1.0.json` and `sp1_groth16_obj_v6.1.0.json`
+
+### Added
+
+- **`example-proofs/sp1_plonk_obj_v6.1.0.json`**: regenerated SP1 v6.1.0 PLONK proof object
+- **`example-proofs/sp1_groth16_obj_v6.1.0.json`**: regenerated SP1 v6.1.0 Groth16 proof object
+
+### Removed
+
+- **`example-proofs/sp1_plonk_obj_v6.json`** and **`example-proofs/sp1_groth16_obj_v6.json`**: superseded by the v6.1.0 regenerations above
+
+---
+
 # 24-02-2026
 
 SP1 v6 PLONK and Groth16 Support
