@@ -49,12 +49,12 @@ fn main() {
     let qcp_0  = read_g1(&buf[offset..offset + 32]); offset += 32;
     let g1_gen = read_g1(&buf[offset..offset + 32]); offset += 32;
 
-    // skip g2_0 (64 bytes), g2_1 (64 bytes), SRS data (33788 bytes)
-    offset += 64 + 64 + 33788;
+    // skip g2_0 (64 bytes), g2_1 (64 bytes), SRS data (33792 bytes)
+    offset += 64 + 64 + 33792;
 
-    let num_cci = u64::from_be_bytes(buf[offset..offset + 8].try_into().unwrap());
+    let num_cci = u32::from_be_bytes(buf[offset..offset + 4].try_into().unwrap());
     assert_eq!(num_cci, 1, "expected exactly 1 commitment constraint index");
-    offset += 8;
+    offset += 4;
 
     let index_commit_api_0 = u64::from_be_bytes(buf[offset..offset + 8].try_into().unwrap());
 
@@ -97,7 +97,7 @@ fn main() {
     };
 
     let json = serde_json::to_string_pretty(&vk).expect("serialization failed");
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../src/plonk/plonk_vk_v6.0.0.json");
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../src/plonk/plonk_vk_sp1_v6.1.0.json");
     fs::write(path, &json).expect("failed to write JSON");
     println!("Written to {}", path);
 }

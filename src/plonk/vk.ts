@@ -1,6 +1,6 @@
 import { type Sp1PlonkVk as Sp1PlonkVkJson } from '@nori-zk/proof-conversion-utils';
 import { FpC, FrC } from '../towers/index.js';
-import vkData from './plonk_vk_v6.0.0.json' with { type: 'json' };
+import vkData from './plonk_vk_sp1_v6.1.0.json' with { type: 'json' };
 
 // Circuit-level VK type with o1js field element wrappers
 type Sp1PlonkVk = {
