@@ -151,7 +151,7 @@ impl SP1ProofWithPublicValues {
     /// # Panics
     ///
     /// Panics if the proof is not Groth16 or Plonk, or if hex decoding fails.
-    /// Taken from https://github.com/succinctlabs/sp1/blob/v6.0.1/crates/sdk/src/proof.rs
+    /// Taken from https://github.com/succinctlabs/sp1/blob/v6.1.0/crates/sdk/src/proof.rs
     pub fn bytes(&self) -> Vec<u8> {
         match &self.proof {
             SP1Proof::Groth16(groth16_proof) => {

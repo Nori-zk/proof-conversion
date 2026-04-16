@@ -61,7 +61,7 @@
     "relink": "npm unlink nori-proof-converter && npm run build && npm link"
   },
   "dependencies": {
-    "@nori-zk/proof-conversion-utils": "^1.0.0",
+    "@nori-zk/proof-conversion-utils": "file:./pairing-utils/pkg",
     "commander": "14.0.2",
     "esm-iso-logger": "1.0.2",
     "ethers": "^6.16.0"

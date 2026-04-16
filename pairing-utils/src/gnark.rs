@@ -44,7 +44,7 @@ pub const ARK_COMPRESSED_NEGATIVE: u8 = 0b10 << 6;
 pub const ARK_COMPRESSED_INFINITY: u8 = 0b01 << 6;
 
 // SP1 v6 Groth16 VK embedded
-pub const GROTH16_VK_6_0_0_BYTES: &[u8] = include_bytes!("../sp1_v6_groth16_vk.bin");
+pub const GROTH16_VK_6_1_0_BYTES: &[u8] = include_bytes!("../sp1_v6.1.0_groth16_vk.bin");
 
 // ============= Conversion Functions =============
 
