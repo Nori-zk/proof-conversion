@@ -204,7 +204,7 @@ mod tests {
     use crate::o1js::{O1jsGroth16, O1jsProof};
 
     fn load_example() -> SP1ProofWithPublicValues {
-        let sp1_json = std::fs::read_to_string("../example-proofs/sp1_groth16_obj_v6.json")
+        let sp1_json = std::fs::read_to_string("../example-proofs/sp1_groth16_obj_v6.1.0.json")
             .expect("Failed to read SP1 example proof");
         serde_json::from_str(&sp1_json)
             .expect("Failed to parse SP1 proof")

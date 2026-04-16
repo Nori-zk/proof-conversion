@@ -33,6 +33,27 @@ SP1 shipped an emergency release v6.1.0. The verifying keys were regenerated (ne
 
 ---
 
+## Example proofs
+
+Regenerated example proofs against SP1 v6.1.0.
+
+### Changed
+
+- **`pairing-utils/src/arkworks.rs`**: test fixture path updated from `sp1_groth16_obj_v6.json` to `sp1_groth16_obj_v6.1.0.json`
+- **`pairing-utils/src/sp1.rs`**: test fixture path updated from `sp1_groth16_obj_v6.json` to `sp1_groth16_obj_v6.1.0.json`
+- **`README.md`**: CLI examples for `sp1Plonk` and `sp1Groth16` updated to reference `sp1_plonk_obj_v6.1.0.json` and `sp1_groth16_obj_v6.1.0.json`
+
+### Added
+
+- **`example-proofs/sp1_plonk_obj_v6.1.0.json`**: regenerated SP1 v6.1.0 PLONK proof object
+- **`example-proofs/sp1_groth16_obj_v6.1.0.json`**: regenerated SP1 v6.1.0 Groth16 proof object
+
+### Removed
+
+- **`example-proofs/sp1_plonk_obj_v6.json`** and **`example-proofs/sp1_groth16_obj_v6.json`**: superseded by the v6.1.0 regenerations above
+
+---
+
 # 24-02-2026
 
 SP1 v6 PLONK and Groth16 Support
