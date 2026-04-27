@@ -67,7 +67,7 @@
     "ethers": "^6.16.0"
   },
   "peerDependencies": {
-    "o1js": "^3.0.0-mesa-native.0"
+    "o1js": "3.0.0-mesa.698ca"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.28.6",
