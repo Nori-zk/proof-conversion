@@ -1,6 +1,6 @@
 {
   "name": "@nori-zk/proof-conversion",
-  "version": "0.8.18",
+  "version": "0.8.19",
   "description": "Verifying zkVM proofs inside o1js circuits, to generate Mina compatible proof",
   "author": "",
   "license": "Apache-2.0",
@@ -67,7 +67,7 @@
     "ethers": "^6.16.0"
   },
   "peerDependencies": {
-    "o1js": "2.12.0"
+    "o1js": "3.0.0-mesa.698ca"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.28.6",
