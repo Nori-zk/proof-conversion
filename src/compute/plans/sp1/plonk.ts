@@ -6,6 +6,7 @@ import { getRandomString } from '../../../utils/random.js';
 import { PlatformFeatures } from '../platform/index.js';
 import { computeAuxWitness } from '../../../pairing-utils/index.js';
 import { readFileSync, rmSync, writeFileSync } from 'fs';
+
 import type {
   ConversionOutput,
   ProofDataOutput,
@@ -50,10 +51,16 @@ export class Sp1PlonkComputationalPlan implements ComputationPlan<
   readonly __inputType!: SP1ProofWithPublicValuesPlonkNoTee;
   name = 'Sp1PlonkConverter';
   async init(state: State, input: SP1ProofWithPublicValuesPlonkNoTee): Promise<void> {
+    // SP1 v6: encoded_proof = [exit_code(32B)][vk_root(32B)][proof_nonce(32B)][gnark_proof(864B)]
+    // Skip the 96-byte SP1 prefix (192 hex chars) to get the raw gnark PLONK proof.
+    // public_inputs[2..4] carry those same values as Fr field elements.
     const inputTransformed: Sp1PlonkInputTransformed = {
       hexPi: `0x${Buffer.from(input.public_values.buffer.data).toString('hex')}`,
       programVK: input.proof.Plonk.public_inputs[0],
-      encodedProof: `0x00000000${input.proof.Plonk.encoded_proof}`,
+      encodedProof: `0x${input.proof.Plonk.encoded_proof.slice(192)}`,
+      pi2: input.proof.Plonk.public_inputs[2],
+      pi3: input.proof.Plonk.public_inputs[3],
+      pi4: input.proof.Plonk.public_inputs[4],
     };
     state.input = inputTransformed;
     state.workingDirName = getRandomString(20);
@@ -79,7 +86,10 @@ export class Sp1PlonkComputationalPlan implements ComputationPlan<
         const mlo = getMlo(
           state.input.encodedProof,
           state.input.programVK,
-          state.input.hexPi
+          state.input.hexPi,
+          state.input.pi2,
+          state.input.pi3,
+          state.input.pi4
         ).toJSON();
 
         const witness = computeAuxWitness(JSON.parse(mlo));
@@ -130,6 +140,9 @@ export class Sp1PlonkComputationalPlan implements ComputationPlan<
               state.input.encodedProof,
               state.input.programVK,
               state.input.hexPi,
+              state.input.pi2,
+              state.input.pi3,
+              state.input.pi4,
               state.witnessPath,
               state.workingDir,
               state.cacheDir,

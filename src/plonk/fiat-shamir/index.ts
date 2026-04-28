@@ -49,7 +49,7 @@ const gammaSizeInBytes = () => {
   size += 3 * 2 * 32; // 3 permutation polys * 2 coordinates * 32 bytes for each coord
   size += 6 * 2 * 32; // 6 selector polys * 2 coordinates * 32 bytes each coord
 
-  size += 2 * 32; // 2 public inputs each of 32 bytes
+  size += 5 * 32; // SP1 v6: 5 public inputs each of 32 bytes (was 2 in SP1 v5)
 
   size += 3 * 2 * 32; // 1 custom gate triple (l, r, o) * 2 coordinates * 32 bytes each coord
 
@@ -203,7 +203,9 @@ class Sp1PlonkFiatShamir extends Struct({
     });
   }
 
-  squeezeGamma(proof: Sp1PlonkProof, pi0F: FrC, pi1F: FrC, vk: Sp1PlonkVk) {
+  // pi0F = sp1_vkey_hash, pi1F = committed_values_digest (derived from public_values)
+  // SP1 v6: pi2F = exit_code, pi3F = vk_root, pi4F = proof_nonce (from public_inputs[2..4])
+  squeezeGamma(proof: Sp1PlonkProof, pi0F: FrC, pi1F: FrC, pi2F: FrC, pi3F: FrC, pi4F: FrC, vk: Sp1PlonkVk) {
     const gamma_separator = FpC.from(0x67616d6d61n); // TODO: we can read this from file
     let separator_bytes = provableBn254BaseFieldToBytes(gamma_separator);
 
@@ -265,12 +267,12 @@ class Sp1PlonkFiatShamir extends Struct({
     const qcp_0_y = provableBn254BaseFieldToBytes(vk.qcp_0_y);
     cm_bytes = cm_bytes.concat(qcp_0_y);
 
-    // two public inputs
-    const pi0 = provableBn254ScalarFieldToBytes(pi0F);
-    cm_bytes = cm_bytes.concat(pi0);
-
-    const pi1 = provableBn254ScalarFieldToBytes(pi1F);
-    cm_bytes = cm_bytes.concat(pi1);
+    // SP1 v6: 5 public inputs (was 2 in SP1 v5)
+    cm_bytes = cm_bytes.concat(provableBn254ScalarFieldToBytes(pi0F));
+    cm_bytes = cm_bytes.concat(provableBn254ScalarFieldToBytes(pi1F));
+    cm_bytes = cm_bytes.concat(provableBn254ScalarFieldToBytes(pi2F));
+    cm_bytes = cm_bytes.concat(provableBn254ScalarFieldToBytes(pi3F));
+    cm_bytes = cm_bytes.concat(provableBn254ScalarFieldToBytes(pi4F));
 
     // there is one gate, so we have just 1 [l, r, o]
     const lx = provableBn254BaseFieldToBytes(proof.l_com_x);

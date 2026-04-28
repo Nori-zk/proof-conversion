@@ -1,7 +1,8 @@
+import { type Sp1PlonkVk as Sp1PlonkVkJson } from '@nori-zk/proof-conversion-utils';
 import { FpC, FrC } from '../towers/index.js';
+import vkData from './plonk_vk_sp1_v6.1.0.json' with { type: 'json' };
 
-// taken from: https://github.com/succinctlabs/sp1-contracts/blob/main/contracts/src/v5.0.0/PlonkVerifier.sol
-
+// Circuit-level VK type with o1js field element wrappers
 type Sp1PlonkVk = {
   pub_inputs: FrC;
   domain_size: number[];
@@ -49,113 +50,53 @@ type Sp1PlonkVk = {
   omega_pow_i_div_n: FrC;
 };
 
+const raw = vkData as Sp1PlonkVkJson;
+const log2DomainSize = Math.log2(raw.domain_size);
+
 const VK: Sp1PlonkVk = {
-  pub_inputs: FrC.from(2n),
-  domain_size: [1].concat(Array(24).fill(0)), // 16777216 = 2^24,
-  inv_domain_size:
-    FrC.from(
-      21888241567198334088790460357988866238279339518792980768180410072331574733841n
-    ),
+  pub_inputs:      FrC.from(BigInt(raw.nb_public_inputs)),
+  domain_size:     [1].concat(Array(log2DomainSize).fill(0)),
+  inv_domain_size: FrC.from(BigInt(raw.inv_domain_size)),
 
-  g1_gen_x:
-    FpC.from(
-      14312776538779914388377568895031746459131577658076416373430523308756343304251n
-    ),
-  g1_gen_y:
-    FpC.from(
-      11763105256161367503191792604679297387056316997144156930871823008787082098465n
-    ),
+  g1_gen_x: FpC.from(BigInt(raw.g1_gen_x)),
+  g1_gen_y: FpC.from(BigInt(raw.g1_gen_y)),
 
-  omega:
-    FrC.from(
-      5709868443893258075976348696661355716898495876243883251619397131511003808859n
-    ),
+  omega: FrC.from(BigInt(raw.omega)),
 
-  ql_x: FpC.from(
-    2714773032566361735398260413518107570706289019141573602093747023461681138141n
-  ),
-  ql_y: FpC.from(
-    10207220609888567477852282724812707756861966294950666667119692155077205992894n
-  ),
+  ql_x: FpC.from(BigInt(raw.ql_x)),
+  ql_y: FpC.from(BigInt(raw.ql_y)),
 
-  qr_x: FpC.from(
-    17919274808167168584263187859012763816365260341587621260815379357637476029962n
-  ),
-  qr_y: FpC.from(
-    14558165337321799812085033100515533981610351056305142204990949940017867076397n
-  ),
+  qr_x: FpC.from(BigInt(raw.qr_x)),
+  qr_y: FpC.from(BigInt(raw.qr_y)),
 
-  qm_x: FpC.from(
-    1814703450159964740292891910795980721108620081843240976053374083376051887455n
-  ),
-  qm_y: FpC.from(
-    11252528960397523304289223453506717847025678682133692300385063157160041127070n
-  ),
+  qm_x: FpC.from(BigInt(raw.qm_x)),
+  qm_y: FpC.from(BigInt(raw.qm_y)),
 
-  qo_x: FpC.from(
-    20843277058771674275997213106654908867381045039357421108797602213552545033079n
-  ),
-  qo_y: FpC.from(
-    9646775541123942436366130063934415659078920798926708026864638413383214238671n
-  ),
+  qo_x: FpC.from(BigInt(raw.qo_x)),
+  qo_y: FpC.from(BigInt(raw.qo_y)),
 
-  qk_x: FpC.from(
-    5484717465597821820411103650564499774744032473047103693751158150047197753654n
-  ),
-  qk_y: FpC.from(
-    5561799343038529497262757012400750786503050088440144551259537360162821571059n
-  ),
+  qk_x: FpC.from(BigInt(raw.qk_x)),
+  qk_y: FpC.from(BigInt(raw.qk_y)),
 
-  qs1_x:
-    FpC.from(
-      16111562061301112215931665617877464360548491176332584512747295033804502769274n
-    ),
-  qs1_y:
-    FpC.from(
-      15035232142063390140879951391784254536324051421746307325879221184372296043705n
-    ),
+  qs1_x: FpC.from(BigInt(raw.qs1_x)),
+  qs1_y: FpC.from(BigInt(raw.qs1_y)),
 
-  qs2_x:
-    FpC.from(
-      899944321381010541211546037826620464002745326050515852312919625047231523882n
-    ),
-  qs2_y:
-    FpC.from(
-      61717668739330555376092528203839789132705738484346798874082062974863965392n
-    ),
+  qs2_x: FpC.from(BigInt(raw.qs2_x)),
+  qs2_y: FpC.from(BigInt(raw.qs2_y)),
 
-  qs3_x:
-    FpC.from(
-      9316901462569250008665217603385561854185385862824092362271612343176126127375n
-    ),
-  qs3_y:
-    FpC.from(
-      13799900238612879579721466063922041459340434537392216736920805107993374657577n
-    ),
+  qs3_x: FpC.from(BigInt(raw.qs3_x)),
+  qs3_y: FpC.from(BigInt(raw.qs3_y)),
 
-  coset_shift: FrC.from(5n),
+  coset_shift: FrC.from(BigInt(raw.coset_shift)),
 
-  qcp_0_x:
-    FpC.from(
-      21578473557091588309361521643625606794648013014197133181947992670819103775934n
-    ),
-  qcp_0_y:
-    FpC.from(
-      18236588362476326695195531997097392315059481348147701548685746610417604595065n
-    ),
+  qcp_0_x: FpC.from(BigInt(raw.qcp_0_x)),
+  qcp_0_y: FpC.from(BigInt(raw.qcp_0_y)),
 
-  index_commit_api_0: FrC.from(10900304n),
-  num_custom_gates: FrC.from(1n),
+  index_commit_api_0: FrC.from(BigInt(raw.index_commit_api_0)),
+  num_custom_gates:   FrC.from(BigInt(raw.num_custom_gates)),
 
-  // LAGRANGE FOR CUSTOM GATES PUBLIC INPUTS
-  omega_pow_i:
-    FrC.from(
-      15264034983190160489087025353457580488037346987271988310592699973668284917022n
-    ),
-  omega_pow_i_div_n:
-    FrC.from(
-      16425161602643719872686085382713730563148030929298303959135645596481976986620n
-    ),
+  omega_pow_i:       FrC.from(BigInt(raw.omega_pow_i)),
+  omega_pow_i_div_n: FrC.from(BigInt(raw.omega_pow_i_div_n)),
 };
 
 export { Sp1PlonkVk, VK };

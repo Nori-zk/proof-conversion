@@ -233,8 +233,8 @@ pub fn convert_snarkjs_groth16_to_o1js(
 /// - SP1 Groth16 proofs have exactly 2 public inputs (vkey_hash and public_values_hash).
 ///
 /// ## Verification Key
-/// - All SP1 v5.0.0 Groth16 proofs use the **same verification key**. This VK is
-///   embedded in the library (`GROTH16_VK_5_0_0_BYTES`) and loaded automatically.
+/// - All SP1 v6.1.0 Groth16 proofs use the **same verification key**. This VK is
+///   embedded in the library (`GROTH16_VK_6_1_0_BYTES`) and loaded automatically.
 /// - The VK is decompressed from gnark format to arkworks format.
 /// - The `alpha_beta` pairing e(α, β) is computed and included in the output.
 /// - The hardcoded `w27` (27th root of unity) is added for pairing optimizations.
@@ -255,7 +255,7 @@ pub fn convert_snarkjs_groth16_to_o1js(
 ///   - `pi1`: First public input (vkey_hash)
 ///   - `pi2`: Second public input (public_values_hash)
 ///
-/// - `vk`: o1js-formatted SP1 v5.0.0 verification key with:
+/// - `vk`: o1js-formatted SP1 v6.1.0 verification key with:
 ///   - `alpha`, `beta`, `gamma`, `delta`: Curve points
 ///   - `alpha_beta`: Precomputed pairing as 12-element Fq12 field
 ///   - `w27`: 27th root of unity as 12-element Fq12 field

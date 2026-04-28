@@ -34,7 +34,7 @@ nori-proof-converter <command>
 
 **Convert a proof (object mode - single JSON file):**
 ```bash
-nori-proof-converter sp1Plonk ./example-proofs/sp1_plonk_obj_v5.json
+nori-proof-converter sp1Plonk ./example-proofs/sp1_plonk_obj_v6.1.0.json
 ```
 
 **Convert a proof (args mode - multiple JSON files):**
@@ -72,7 +72,7 @@ Convert SP1 PLONK proofs into verifiable o1js proofs for the **Mina Protocol**.
 
 **Object mode example:**
 ```bash
-nori-proof-converter sp1Plonk ./example-proofs/sp1_plonk_obj_v5.json
+nori-proof-converter sp1Plonk ./example-proofs/sp1_plonk_obj_v6.1.0.json
 ```
 
 #### sp1Groth16
@@ -84,7 +84,7 @@ Convert SP1 Groth16 proofs into verifiable o1js proofs for the **Mina Protocol**
 
 **Object mode example:**
 ```bash
-nori-proof-converter sp1Groth16 ./example-proofs/sp1_groth16_obj_v5.json
+nori-proof-converter sp1Groth16 ./example-proofs/sp1_groth16_obj_v6.1.0.json
 ```
 
 #### risc0Groth16

@@ -295,7 +295,7 @@ jobs:
                     addSkip('Prettier', `${config.prettierDep} not installed`);
                   }
                 } else {
-                  const result = run('npx prettier --check "**/*.{ts,js,json,md}" --ignore-path .gitignore');
+                  const result = run('npx prettier --check --ignore-unknown **/*');
                   if (result.success) {
                     addPass('Prettier', 'All files properly formatted', config.checks.prettier.required);
                   } else {
@@ -430,9 +430,9 @@ jobs:
                 } else if (section.name === 'Dependencies' && section.message.includes('node_modules is empty')) {
                   insights.push(`**Critical:** npm ci succeeded but node_modules is missing. Check filesystem permissions and npm cache integrity.`);
                 } else if (section.name === 'Prettier' && section.message.includes('not installed')) {
-                  insights.push(`Install formatter: \`npm install --save-dev ${config.prettierDep}\``);
+                  insights.push(`Install formatter: \`npm install --save-dev ${config.prettierDep}\` then add "format":"${config.prettierCmd} --check --ignore-unknown **/*","format:fix":"${config.prettierCmd} --write --ignore-unknown **/*" to package.json`);
                 } else if (section.name === 'Linter' && section.message.includes('not installed')) {
-                  insights.push(`Install linter: \`npm install --save-dev ${config.lintDep}\``);
+                  insights.push(`Install linter: \`npm install --save-dev ${config.lintDep}\` then add "lint":"${config.lintCmd} src/*","lint:fix":"${config.lintCmd} src/* --fix" to package.json`);
                 } else if (section.name === 'Prettier' && section.message.includes('need formatting')) {
                   insights.push(`Auto-fix formatting: \`npx ${config.prettierDep} --write "**/*.{ts,js,json,md}"\``);
                 } else if (section.name === 'npm audit' && section.message.includes('Vulnerabilities')) {

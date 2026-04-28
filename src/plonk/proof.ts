@@ -51,9 +51,9 @@ class Sp1PlonkProof extends Struct({
     const defaultEncoder = ethers.AbiCoder.defaultAbiCoder();
     const decodingPattern = Array(27).fill('uint256');
 
-    // skip 0x + first 2 bytes as in Sp1.Verifier
-    const shifted = '0x' + hexProof.slice(10);
-    const decoded = defaultEncoder.decode(decodingPattern, shifted);
+    // SP1 v5: encoded_proof had a 4-byte vkey-hash prefix, required slice(10) to skip it.
+    // SP1 v6: caller strips the 96-byte SP1 prefix and passes '0x' + gnark_proof directly.
+    const decoded = defaultEncoder.decode(decodingPattern, hexProof);
 
     return new Sp1PlonkProof(fromDecoded(decoded));
   }
@@ -171,9 +171,9 @@ const deserializeProof = (hexProof: string): ProofType => {
   const defaultEncoder = ethers.AbiCoder.defaultAbiCoder();
   const decodingPattern = Array(27).fill('uint256');
 
-  // skip 0x + first 2 bytes as in Sp1.Verifier
-  const shifted = '0x' + hexProof.slice(10);
-  const decoded = defaultEncoder.decode(decodingPattern, shifted);
+  // SP1 v5: encoded_proof had a 4-byte vkey-hash prefix, required slice(10) to skip it.
+  // SP1 v6: caller strips the 96-byte SP1 prefix and passes '0x' + gnark_proof directly.
+  const decoded = defaultEncoder.decode(decodingPattern, hexProof);
 
   return fromDecoded(decoded);
 };
