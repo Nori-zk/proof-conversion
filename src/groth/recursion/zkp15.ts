@@ -16,8 +16,8 @@ export function createZkp15(inputCount: number) {
     publicOutput: Field,
     methods: {
       compute: {
-        privateInputs: [G1Affine, G1Affine, Provable.Array(FrC.provable, zkp15InputCount), Provable.Array(FrC.provable, inputCount)],
-        async method(input: Field, PI: G1Affine, acc: G1Affine, zkp15_pis: Array<FrC>, full_pis: Array<FrC>) {
+        privateInputs: [G1Affine, G1Affine, Provable.Array(FrC.provable, inputCount)],
+        async method(input: Field, PI: G1Affine, acc: G1Affine, full_pis: Array<FrC>) {
           const pi_hash = Poseidon.hashPacked(G1Affine, PI);
           const pis_hash = Poseidon.hashPacked(
             Provable.Array(FrC.provable, inputCount),
@@ -34,11 +34,16 @@ export function createZkp15(inputCount: number) {
 
           let accBn = new bn254({ x: acc.x, y: acc.y });
 
-          // Handle inputs based on distribution strategy.
+          // Handle inputs based on distribution strategy
+
+          // Index directly into full_pis to ensure accumulation uses the same
+          // values that are hashed into pis_hash (prevents unconstrained witness attack)
+
           // In provable code both branches of Provable.if are always evaluated, so we
           // cannot guard scale() with a plain if. Instead we replace a zero scalar with
           // a dummy non-zero value (1) so scale() never sees zero, then use Provable.if
           // to keep accBn unchanged when the original scalar was zero.
+
           for (let i = 0; i < zkp15InputCount; i++) {
             const originalIndex = distribution.zkp15[i]; // original index in pis array
             const icIndex = originalIndex + 1; // ic1, ic2, etc.
@@ -46,8 +51,8 @@ export function createZkp15(inputCount: number) {
             if (!icPoint) {
               throw new Error(`Missing IC point ic${icIndex} for zkp15 input ${i}`);
             }
-            const isZero = zkp15_pis[i].equals(0n);
-            const safeScalar = Provable.if(isZero, FrC.provable, FrC.from(1n), zkp15_pis[i]);
+            const isZero = full_pis[originalIndex].equals(0n);
+            const safeScalar = Provable.if(isZero, FrC.provable, FrC.from(1n), full_pis[originalIndex]);
             const scaled = icPoint.scale(safeScalar);
             const accBnWithScaled = accBn.add(scaled);
             accBn = Provable.if(isZero, bn254.provable, accBn, accBnWithScaled);
