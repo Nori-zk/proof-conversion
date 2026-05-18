@@ -1,3 +1,44 @@
+# 18/5/26 - Audit B1114: Disabled layer1 subtrees unconstrained, allowing forgery of SP1 PLONK public inputs
+
+## Finding (verbatim)
+
+Finding b1114: `layer1` does not constrain disabled subtrees to act as identity, allowing forgery of the SP1 PLONK public inputs
+
+The layer1 circuit allows to skip verification of one or both of the two proofs, which is needed because the SP1 Plonk verifier has 24 steps, which is not a power of two. The subtreeVkDigest commits to which proofs where skipped and this is exposed upwards, so if this is pinned at the top, then an attacker can't change where proof verification is skipped. However, the standard SP1 Plonk path will have layer1 proofs 0 through 11 with both proofs verified (verifyLeft = verifyRight = True), while proofs 12 through 15 will have both proofs skipped (verifyLeft = verifyRight = False).
+
+If a proof is skipped, there is no constraint linking the output of that proof to the input. For the mentioned layer1 proofs 12 through 15 for SP1 Plonk, this means the rightOut public output will be choosable arbitrarily by the prover.
+
+As the dummy proofs come after the real ones, this means that going up the tree, the attacker can ultimately choose the top level rightOut arbitrarily.
+
+In the SP1 Plonk case, that rightOut is interpreted as the Poseidon hash of the pi0 and pi1 of the underlying Plonk proof, containing the hash of the vkey identifying the user program (e.g. helios) and the digest of the public values that program exposed during its run. These can thus be modified arbitrarily by the attacker.
+
+The attacker can thus use some arbitrary correct SP1 Plonk proof for any program, then change the first public value to the expected nori-bridge-header related value, and the second public value to one reflecting a fake update that allows them to mint illegitimately.
+
+To fix this, you must constrain that piLeft.publicInput is equal to piLeft.publicOutput if verifyLeft is false, and analogously for piRight.
+
+## Response
+
+The finding is acknowledged. The vulnerability is isolated to the SP1 PLONK path. The Groth16 path uses 16 base zkps (a power of two), so all layer1 nodes have both sides verified and the issue does not apply. The `layer1` circuit (`src/compressor/layer1node.ts`) uses `verifyIf` for conditional verification, but when verification is skipped the proof's `publicInput` and `publicOutput` are completely unconstrained - the prover can supply arbitrary values via dummy `DynamicProof` instances. The higher-layer `node` circuit (`src/compressor/compressor.ts`) always calls `.verify()` unconditionally and is not affected.
+
+The codebase originated from [o1js-blobstream](https://github.com/geometers/o1js-blobstream) which was built for Groth16 with a power-of-two number of circuits. When the PLONK path was added (24 steps, padded to 32), the same power-of-two padding approach was reused without adding identity constraints for the disabled subtrees.
+
+## Discussion
+
+The original author of the compressor (from o1js-blobstream) confirmed the issue and noted there is fundamentally no need for powers of two - it was done for easier implementation at the time. The Groth16 path happened to have a power-of-two count and was never exposed. When PLONK was added the padding was reused without considering that unconstrained dummy proofs at layer1 would allow the prover to choose arbitrary public outputs that propagate up the tree.
+
+The `node` circuit at layers 2-5 always verifies unconditionally, so the vulnerability window is limited to layer1 dummy pairs (indices 12-15 in the standard SP1 PLONK configuration). The `subtreeVkDigest` Poseidon chain commits to which VKs were used (or `NOTHING_UP_MY_SLEEVE` for skipped sides), but this only prevents an attacker from changing *which* proofs are skipped - it does not constrain the *values* flowing through disabled subtrees.
+
+### Commit 1 - Test exposure of the missing identity constraint
+
+- **Regression tests** (`src/compressor/b1114_regression.spec.ts`): added `both sides disabled must reject non-identity dummy proofs`, `left disabled must reject piLeft.publicInput != piLeft.publicOutput`, and `right disabled must reject piRight.publicInput != piRight.publicOutput`. Each test compiles the `layer1` ZkProgram, creates dummy `ZkpProofLeft`/`ZkpProofRight` with attacker-chosen public IO values (A=111, M=222, C=333), attempts to produce a layer1 proof with one or both sides disabled (`verifyLeft`/`verifyRight` = `Bool(false)`), and expects proof generation to be rejected. On unpatched code proof generation succeeds when it should not, causing all three tests to fail.
+- **Jest runner** (`package.json`): added `test:jest` script using `--experimental-vm-modules` for o1js ESM compatibility.
+
+Run: `npm run test:jest -- src/compressor/b1114_regression.spec.ts`
+
+Results:
+
+- Regression tests: 3 fail, 0 pass. All three tests resolve instead of rejecting, confirming that `layer1.compute` accepts non-identity dummy proofs and the vulnerability is present.
+
 # 16-04-2026
 
 SP1 v6.0.1 → v6.1.0 emergency upgrade
