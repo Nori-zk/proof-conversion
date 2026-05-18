@@ -44,6 +44,17 @@ const layer1 = ZkProgram({
         piLeft.verifyIf(vkLeft, verifyLeft);
         piRight.verifyIf(vkRight, verifyRight);
 
+        // constraints to ensure that if a side is marked as "dummy" (verify* = false)
+        // then its public input must equal its public output
+        piLeft.publicInput
+          .equals(piLeft.publicOutput)
+          .or(verifyLeft)
+          .assertTrue();
+        piRight.publicInput
+          .equals(piRight.publicOutput)
+          .or(verifyRight)
+          .assertTrue();
+
         piLeft.publicOutput.assertEquals(piRight.publicInput);
 
         const leftVkHash = Provable.if(
