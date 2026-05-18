@@ -39,6 +39,14 @@ Results:
 
 - Regression tests: 3 fail, 0 pass. All three tests resolve instead of rejecting, confirming that `layer1.compute` accepts non-identity dummy proofs and the vulnerability is present.
 
+### Commit 2 - Fix applied
+
+- **`src/compressor/layer1node.ts`**: added two identity constraints after `verifyIf` calls (lines 49-55). `piLeft.publicInput.equals(piLeft.publicOutput).or(verifyLeft).assertTrue()` and the analogous constraint for the right side. When a side is verified (`verify* = true`), the `.or` passes unconditionally. When a side is disabled (`verify* = false`), the prover must supply `publicInput == publicOutput`, forcing the disabled subtree to act as identity.
+
+Results:
+
+- Regression tests: 3 pass, 0 fail. `layer1.compute` now rejects non-identity dummy proofs at proof generation time with a constraint unsatisfied error.
+
 # 16-04-2026
 
 SP1 v6.0.1 → v6.1.0 emergency upgrade
