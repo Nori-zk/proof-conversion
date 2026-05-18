@@ -1,6 +1,6 @@
 {
   "name": "@nori-zk/proof-conversion",
-  "version": "0.8.19",
+  "version": "0.8.20",
   "description": "Verifying zkVM proofs inside o1js circuits, to generate Mina compatible proof",
   "author": "",
   "license": "Apache-2.0",
@@ -55,6 +55,7 @@
     "test": "npm run build && node --max-old-space-size=65536 --",
     "test:e2e": "npm run build && npm run test build/src/plonk/mm_loop/e2e_test.js && npm run test build/src/plonk/piop/e2e_test.js && npm run test build/src/plonk/piop/e2e_playground.js && npm run test build/src/groth/e2e_test.js && npm run test build/src/plonk/e2e_test.js",
     "test:compute": "npm run build && node ./build/src/compute/compute_test.js",
+    "test:jest": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --forceExit",
     "test:validation": "jest --testMatch '**/guards/test.spec.ts'",
     "lint": "eslint src/*",
     "lint:fix": "eslint src/* --fix",
