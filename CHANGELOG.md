@@ -158,7 +158,14 @@ The two failing tests (pi2, pi3) confirm the finding: `zkp0` and `zkp14` accept 
 
 Rogue pi4 passes because `proof_nonce` is caller-supplied by design and requires no constraint.
 
----
+### Commit 2 - Fix applied
+
+- **`src/plonk/recursion/zkp0.ts`**: two constraints added after the input digest check. `acc.state.pi2.assertEquals(FrC.from(0n))` enforces exit_code is zero. `acc.state.pi3.assertEquals(SP1_VK_ROOT)` pins vk_root to the legitimate SP1 recursion merkle root. `FrC` and `SP1_VK_ROOT` imported.
+- **`src/groth/recursion/zkp14.ts`**: same two constraints added after the pis_hash computation. `full_pis[2].assertEquals(FrC.from(0n))` and `full_pis[3].assertEquals(SP1_VK_ROOT)`. `SP1_VK_ROOT` imported.
+
+Results:
+
+- Regression tests: 8 pass, 0 fail across both suites. Rogue exit_code and vk_root are now rejected at proof generation time in both paths.
 
 # 18/5/26 - Audit B1114: Disabled layer1 subtrees unconstrained, allowing forgery of SP1 PLONK public inputs
 
