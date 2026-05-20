@@ -1,3 +1,165 @@
+# 19/5/26 - Audit 18fa3: SP1 PLONK `vk_root` public input is not pinned, allowing forgery of public values
+
+## Finding (verbatim)
+
+# Finding 18fa3: SP1 PLONK `vk_root` public input is not pinned, allowing forgery of public values
+
+## Description
+
+An SP1 v6.1.0 PLONK proof exposes exactly five BN254 scalars as PLONK public inputs (see `crates/verifier/src/proof.rs:17` and `crates/recursion/gnark-ffi/go/sp1/sp1.go:29` in the SP1 repository):
+
+- `pi0` = `vkey_hash` — hash of the user ELF's `MachineVerifyingKey`; intended to commit to the proved program.
+- `pi1` = `committed_values_digest` — digest of bytes the guest program wrote to the program's public output.
+- `pi2` = `exit_code` — the exit code of the guest program.
+- `pi3` = `vk_root` — Merkle root of the SP1 *recursion* verification keys.
+- `pi4` = `proof_nonce` — caller-supplied nonce, allows creating distinct proofs even for identical programs and inputs.
+
+The `proof-conversion` o1js translation of the SP1 PLONK verifier propagates only the first two of these to consumers of the root proof. Its leaf accumulator culminates in `zkp23`, whose `publicOutput` is the digest of just `pi0` and `pi1`:
+
+```ts
+// proof-conversion/src/plonk/recursion/zkp23.ts
+return {
+  publicOutput: Poseidon.hashPacked(Provable.Array(FrC.provable, 2), [
+    acc.proof.pi0,
+    acc.proof.pi1,
+  ]),
+};
+```
+
+The Mina-side bridge consumer constrains both: `pi0` is compared against the on-chain state variable `noriHeliosProgramPi0`, and the commitment `pi1` is verified to open to user-supplied values.
+
+```ts
+// nori-bridge-sdk/contracts/mina/src/NoriTokenBridge.ts
+const pi0 = ethPlonkVK;
+const pi1 = parsePlonkPublicInputsProvable(Bytes.from(bytes));
+
+const piDigest = Poseidon.hashPacked(Provable.Array(FrC.provable, 2), [
+    pi0,
+    pi1,
+]);
+
+piDigest.assertEquals(proof.publicOutput.rightOut);
+```
+
+The remaining three public inputs `pi2`, `pi3`, `pi4` are not exposed via the chain's `publicOutput`, and the bridge has no way to constrain them. Inside the chain, they appear in exactly two places, both of them mechanical parts of the PLONK verification equation. In `zkp0` they are absorbed into the Fiat--Shamir challenger to derive `gamma`,
+
+```ts
+// proof-conversion/src/plonk/recursion/zkp0.ts
+acc.fs.squeezeGamma(
+  acc.proof,
+  acc.state.pi0, acc.state.pi1, acc.state.pi2, acc.state.pi3, acc.state.pi4,
+  VK,
+);
+```
+
+and in `zkp3` they contribute to the public-input term of the PLONK proof verification:
+
+```ts
+// proof-conversion/src/plonk/recursion/zkp3.ts
+const pis = pi_contribution(
+  [acc.state.pi0, acc.state.pi1, acc.state.pi2, acc.state.pi3, acc.state.pi4],
+  acc.fs.zeta,
+  acc.state.zh_eval,
+  VK.inv_domain_size,
+  VK.omega,
+);
+```
+
+Neither site compares these values against expected constants. The o1js chain therefore accepts any PLONK proof that is internally consistent with prover-chosen `pi2`, `pi3`, and `pi4`.
+
+
+### Impact
+
+Three SP1 PLONK public inputs are not pinned to their intended legitimate values. The critical case is `pi3` (`vk_root`); `pi2` (`exit_code`) and `pi4` (`proof_nonce`) are discussed afterwards.
+
+#### Verification key root `pi3 = vk_root`
+
+The PLONK proof that SP1 produces is not a proof of a circuit that directly verifies correct execution of the underlying RISC-V program. Instead, the underlying shard proofs that constrain RISC-V execution get aggregated and compressed through a tree of recursive verifiers. The role of `vk_root` is to select which set of recursion verification keys is trusted by the in-circuit verifiers. Recursion programs that are intended to verify other recursion programs will pass upwards public values from any valid proof under a verification key included in `vk_root`. SP1 ships a constant `VK_ROOT_BYTES` (in `crates/verifier/src/lib.rs`) that is the Merkle root of the legitimate set. In earlier versions of SP1, `vk_root` was pinned to a constant by the wrap program, but in version 6.1.0 it is a PLONK public input and the legitimate-value check is the consumer's responsibility. The reference Solidity verifier (`crates/prover/assets/SP1VerifierPlonk.txt`) implements this responsibility against a hardcoded value:
+
+```solidity
+// sp1/crates/prover/assets/SP1VerifierPlonk.txt
+uint256 expectedVkRoot = uint256(VK_ROOT());
+// ...
+if (vkRoot != expectedVkRoot) {
+    revert InvalidVkRoot();
+}
+```
+
+With no constraints on `vk_root`, a malicious prover can utilize a root hash that includes the verification key of an attacker-authored recursion program that imposes no constraints on the program's public values. A top-level PLONK proof can then be constructed that attests to the existence of a valid proof for the attacker's recursion program, with the five public values exposed by the PLONK proof lifted from that underlying proof. This leaves the attacker with full control of the other four public values (all but `vk_root` itself).
+
+In particular, the attacker can set `pi0` to the legitimate Nori `noriHeliosProgramPi0` constant and `pi1` to a `committed_values_digest` corresponding to any sequence of bytes they wish. This allows the attacker to settle attacker-chosen Ethereum state roots and deposit roots into the Mina bridge and to subsequently mint arbitrary amounts of bridged tokens to themselves.
+
+
+#### Exit code `pi2 = exit_code`
+
+The `exit_code` public value exposes the actual exit code of the underlying RISC-V guest program. The reference Solidity verifier rejects proofs where the exit code is not zero, indicating success:
+
+```solidity
+// sp1/crates/prover/assets/SP1VerifierPlonk.txt
+if (exitCode != 0) {
+    revert InvalidExitCode();
+}
+```
+
+The bridge not checking `pi2` means that valid proofs for executions where the underlying program panicked will be accepted. In the specific case of the audited version of `nori-bridge-head/nori-program`, the issue is latent.
+
+The `nori-program` writes values to the public values via exactly one call to `commit_slice`, at the end of `main`, with an unconditional write of fixed size. A panic mid-`commit_slice` is therefore not reachable (assuming SP1 libraries are sound), so every panic-induced public output is forced to be the digest corresponding to the empty bytestring. Finding a `(input_slot, input_store_hash, …, genesis_root)` byte sequence whose `parsePlonkPublicInputsProvable` image equals this fixed value would amount to a successful preimage attack on SHA256 truncated to 253 bits, which is assumed to be infeasible. The missing `exit_code == 0` check is therefore not exploitable against the present guest, but this depends on properties of the guest program.
+
+
+#### Proof nonce `pi4 = proof_nonce`
+
+The proof nonce `pi4` was introduced by SP1 in commit `4f75605c4` to allow creation of multiple distinct proofs even for identical programs and inputs. For soundness of the protocol, checks on `proof_nonce` are thus not necessary.
+
+
+### Recommendations
+
+The `pi3 = vk_root` public value must be enforced to be equal to the legitimate SP1 `VK_ROOT_BYTES` constant. We also recommend to check that `pi2 = exit_code` is equal to zero.
+
+One way to enforce both is to add corresponding constraints in the PLONK verifier circuits. An alternative would be to expose these public values together with `pi0` and `pi1`, and then enforce the checks in the on-chain bridge contract.
+
+## Response
+
+The finding is acknowledged. The vulnerability affects both the SP1 PLONK and SP1 Groth16 verification paths. The finding describes the PLONK path but the same issue applies to Groth16 where `public_inputs[2..4]` are similarly unpinned.
+
+The unpinned `pi3` (vk_root) is the critical issue and must be fixed in both paths.
+
+For `pi2` (exit_code): the verification math in both paths already constrains the witness values to match the SP1 proof. In PLONK, all five public inputs are hashed into the Fiat-Shamir transcript via `squeezeGamma`, so any change to `pi2` would produce a different `gamma` and the proof would reject. In Groth16, zero-valued inputs are skipped in IC accumulation but claiming a non-zero value would add a term to the PI point and break the pairing check. An explicit `pi2 == 0` constraint will be added as defense-in-depth per the auditor's recommendation.
+
+For `pi4` (proof_nonce): this is a caller-supplied value that can be any value by design. Per the finding, checks on `proof_nonce` are not necessary for soundness.
+
+### Commit 1 - Regression tests exposing missing pi2/pi3 constraints
+
+- **`pairing-utils/src/bin/save_sp1_vk_root.rs`**: new binary extracting `VK_ROOT_BYTES` from `sp1-verifier` 6.1.0 as a decimal string, writing `src/sp1_vk_root_v6.1.0.json`. This is the recursion-layer merkle root shared by both the PLONK and Groth16 wrapper paths.
+- **`pairing-utils/Cargo.toml`**: added `[[bin]]` entry for `save_sp1_vk_root`.
+- **`src/sp1_vk_root_v6.1.0.json`**: generated artifact containing `sp1_vk_root` as a decimal string. Located above `src/plonk/` and `src/groth/` because the constant is shared.
+- **`src/sp1_vk_root.ts`**: imports the JSON and exports `SP1_VK_ROOT` as an `FrC` for use in both paths.
+- **`src/plonk/recursion/18fa3_regression.spec.ts`**: three tests targeting `zkp0`. Loads the real SP1 PLONK proof from `example-proofs/sp1_plonk_obj_v6.1.0.json` and constructs the accumulator following the same pattern as `src/plonk/recursion/prove_zkps.ts:52-67`. One sanity check test uses correct values and then the subsequent tests target: pi2, pi3 and pi4 modifying a single pi value while keeping the rest real, then calls `zkp0.compute()`.
+- **`src/groth/recursion/18fa3_regression.spec.ts`**: three tests targeting `zkp14` with 5 inputs. Loads the real SP1 Groth16 proof from `example-proofs/sp1_groth16_obj_v6.1.0.json` and extracts `public_inputs[0..4]` as FrC values. Same setup as plonk, but calls `zkp14.compute()` instead.
+
+Run:
+
+```
+npm run test:jest -- src/plonk/recursion/18fa3_regression.spec.ts
+npm run test:jest -- src/groth/recursion/18fa3_regression.spec.ts
+```
+
+Results (both suites show the same pattern):
+
+| Test | PLONK zkp0 | Groth16 zkp14 |
+|---|---|---|
+| correct values | pass | pass |
+| rogue pi2 (exit_code) | **FAIL** | **FAIL** |
+| rogue pi3 (vk_root) | **FAIL** | **FAIL** |
+| rogue pi4 (proof_nonce) | pass | pass |
+
+4 pass, 4 fail across both suites.
+
+The two failing tests (pi2, pi3) confirm the finding: `zkp0` and `zkp14` accept any value for `exit_code` and `vk_root` because no assertEquals constraint exists. These will pass after commit 2 adds the constraints.
+
+Rogue pi4 passes because `proof_nonce` is caller-supplied by design and requires no constraint.
+
+---
+
 # 18/5/26 - Audit B1114: Disabled layer1 subtrees unconstrained, allowing forgery of SP1 PLONK public inputs
 
 ## Finding (verbatim)

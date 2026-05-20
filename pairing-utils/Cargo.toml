@@ -33,6 +33,10 @@ path = "src/bin/save_sp1_groth16_bin.rs"
 name = "save_plonk_vk_json"
 path = "src/bin/save_plonk_vk_json.rs"
 
+[[bin]]
+name = "save_sp1_vk_root"
+path = "src/bin/save_sp1_vk_root.rs"
+
 [dependencies]
 ark-ff = "0.4.2"
 ark-ff-macros = "0.4.2"
