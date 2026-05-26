@@ -512,6 +512,12 @@ class WitnessTracker {
     const w27 = make_w27();
     const w27_sq = w27.square();
 
+    // Assert kzg.proof.shift_power is constrained to {0, 1, 2}
+    this.kzg.proof.shift_power
+      .mul(this.kzg.proof.shift_power.sub(1))
+      .mul(this.kzg.proof.shift_power.sub(2))
+      .assertEquals(0, 'kzg.proof.shift_power is not in the set {0, 1, 2}');
+
     const shift = Provable.switch(
       [
         this.kzg.proof.shift_power.equals(Field(0)),
