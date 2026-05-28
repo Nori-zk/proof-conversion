@@ -233,6 +233,22 @@ Results:
 - Groth16 regression tests: 5 fail, 0 pass. All five tests resolve instead of rejecting, confirming that zkp0 and zkp6 accept off-curve and off-subgroup proof points.
 - PLONK regression tests: 10 fail, 0 pass. All ten tests resolve instead of rejecting, confirming that PLONK zkp0 accepts off-curve proof points.
 
+### Commit 2 - Fix applied
+
+- **`src/ec/index.ts`**: added `assertOnCurve()` method to `G1Affine`, delegates to `bn254.assertOnCurve()`.
+- **`src/towers/precomputed.ts`**: added `B_TWIST` constant (3/(9+u) in Fp2) for G2 twist curve equation.
+- **`src/groth/recursion/zkp0.ts`**: added G1 on-curve checks for negA, C, PI.
+- **`src/groth/recursion/zkp6.ts`**: added G2 on-curve check (y^2 = x^3 + b_twist) and G2 subgroup check. After the existing pi(B) and -pi^2(B) Frobenius corrections, T is advanced past pi_2_B and checked against -pi_3_B (same x, negated y), enforcing the full 4-term endomorphism relation [6u+2]B + pi(B) - pi^2(B) + pi^3(B) = O.
+- **`src/groth/witness_tracker.ts`**: added off-circuit G2 subgroup check as dev sanity mirror of the in-circuit check in zkp6.
+- **`src/plonk/recursion/zkp0.ts`**: added G1 on-curve checks for all 10 prover-supplied points.
+
+Results:
+
+- Groth16 regression tests: 5 pass, 0 fail.
+- PLONK regression tests: 10 pass, 0 fail.
+
+---
+
 # 18/5/26 - Audit B1114: Disabled layer1 subtrees unconstrained, allowing forgery of SP1 PLONK public inputs
 
 ## Finding (verbatim)
