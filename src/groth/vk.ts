@@ -5,6 +5,21 @@ import fs from 'fs';
 import { bn254 } from '../ec/g1.js';
 import { ForeignCurve } from 'o1js';
 import { O1jsVK } from '@nori-zk/proof-conversion-utils';
+import { assertExactStructure, isAffinePoint2d, isComplexAffinePoint2d, isField12, isOptionalAffinePoint2d } from '../api/validation/index.js';
+
+const isGrothVk = {
+  alpha_beta: isField12,
+  delta: isComplexAffinePoint2d,
+  gamma: isComplexAffinePoint2d,
+  w27: isField12,
+  ic0: isAffinePoint2d,
+  ic1: isOptionalAffinePoint2d,
+  ic2: isOptionalAffinePoint2d,
+  ic3: isOptionalAffinePoint2d,
+  ic4: isOptionalAffinePoint2d,
+  ic5: isOptionalAffinePoint2d,
+  ic6: isOptionalAffinePoint2d,
+};
 
 // Flexible SerializedVk type supporting all possible IC points
 type SerializedVk = Omit<O1jsVK, 'alpha' | 'beta'>;
@@ -58,18 +73,21 @@ class GrothVk {
     const data = fs.readFileSync(path, 'utf-8');
     const obj: SerializedVk = JSON.parse(data);
 
-    // Detect available IC points from VK structure
-    const availableIcFields = Object.keys(obj)
-      .filter(key => key.startsWith('ic') && /^ic\d+$/.test(key))
-      .sort((a, b) => {
-        const numA = parseInt(a.substring(2));
-        const numB = parseInt(b.substring(2));
-        return numA - numB;
-      });
+    // Runtime validation of GrothVk schema and icN contiguity.
+    assertExactStructure(obj, isGrothVk, 'grothVk');
 
-    if (availableIcFields.length === 0 || !availableIcFields.includes('ic0')) {
-      throw new Error('VK must contain at least ic0 point');
+    const icIndices = Object.keys(obj)
+      .filter(key => /^ic\d+$/.test(key))
+      .map(key => Number(key.slice(2)));
+
+    const icCount = Math.max(...icIndices);
+
+    for (let i = 0; i <= icCount; i++) {
+      if (!obj[`ic${i}` as IcKey])
+        throw new Error(`'ic${i}' is missing when we expected up to 'ic${icCount}'. icN must be contiguous from ic0 to ic${icCount}`);
     }
+
+    const availableIcFields = Array.from({ length: icCount + 1 }, (_, i) => `ic${i}`);
 
     const dx = new Fp2({
       c0: FpC.from(obj.delta.x_c0),
@@ -94,7 +112,7 @@ class GrothVk {
     const alpha_beta = Fp12.loadFromJSON(obj.alpha_beta);
     const w27 = Fp12.loadFromJSON(obj.w27);
 
-    // Parse all available IC points FIXME CHECKME what if we have skipped some??
+    // Parse all available IC points
     const icPoints = availableIcFields.map(field => {
       const icData = obj[field as IcKey];
       if (!icData || !icData.x || !icData.y) {

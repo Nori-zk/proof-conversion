@@ -65,6 +65,21 @@ Results:
 - Proof regression tests: 19 fail, 5 pass. Contiguity, schema, optional-field, and exact-shape checks all absent.
 - VK regression tests: 10 fail, 14 pass. Contiguity, optional-field, and exact-shape checks absent; basic missing-field checks already present in current code.
 
+### Commit 2 - Fix applied
+
+- **`src/groth/proof.ts`**: `detectInputCountFromProof` updated with `assertExactStructure` schema validation and explicit `piN` contiguity check. `isO1jsProof` schema defined using `isAffinePoint2d`, `isComplexAffinePoint2d`, and `isOptionalString`.
+- **`src/groth/vk.ts`**: `GrothVk.parse` updated with `assertExactStructure` schema validation and explicit `icN` contiguity check. `isGrothVk` schema defined using `isAffinePoint2d`, `isComplexAffinePoint2d`, `isField12`, and `isOptionalAffinePoint2d`. FIXME comment removed.
+- **`src/api/validation/validation.ts`**: `assertExactStructure` patched to treat missing keys as valid when the schema validator accepts `undefined`, enabling optional field support.
+- **`src/api/validation/guards/crypto.ts`**: `isAffinePoint2d` and `isComplexAffinePoint2d` updated to check exact key count in addition to key presence. `isField12` updated to check `Object.keys(obj).length === 12`. `isOptionalAffinePoint2d` added.
+- **`src/api/validation/guards/strings.ts`**: New file. `isOptionalString` defined here with docstring.
+- **`src/api/validation/guards/index.ts`**: `strings.ts` added to exports.
+
+Results:
+
+- Proof regression tests: 24 pass, 0 fail.
+- VK regression tests: 24 pass, 0 fail.
+- Existing validation tests (`src/api/validation/guards/test.spec.ts`): 14 pass, 0 fail.
+
 # 18/5/26 - Audit B1114: Disabled layer1 subtrees unconstrained, allowing forgery of SP1 PLONK public inputs
 
 ## Finding (verbatim)
