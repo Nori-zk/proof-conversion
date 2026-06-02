@@ -1,3 +1,70 @@
+# 02/06/26 - Audit adcd3: Groth16 proof and VK parsers do not validate that piN and icN keys are contiguous
+
+## Finding (verbatim)
+
+Finding adcd3: Groth16 proof parser does not validate that `piN` keys are sequential
+
+src/groth/proof.ts assumes that public inputs in the proof JSON are stored under contiguous keys pi1 through pi{n}. The input count is detected as follows:
+
+```typescript
+export function detectInputCountFromProof(path: string): number {
+  const json: O1jsProof = JSON.parse(fs.readFileSync(path, 'utf-8'));
+  let count = 0;
+  for (let i = 1; i <= 6; i++) {
+    if (json[`pi${i}` as PiKey]) count++;
+  }
+  return count;
+}
+```
+
+The proof is then parsed using the detected inputCount:
+
+```typescript
+      const publicInputs: FrC[] = [];
+      for (let i = 1; i <= inputCount; i++) {
+        const key = `pi${i}` as PiKey;
+        const val = json[key];
+        if (val) {
+          publicInputs.push(FrC.from(val));
+        }
+      }
+      // ...
+      return new ProofClass({
+        // ...
+        pis: publicInputs,
+      });
+```
+
+Although pis is defined as Provable.Array(FrC.provable, inputCount) and expects exactly inputCount elements, a shorter array can be passed if some piN keys are absent. When this struct is later consumed by Provable.witness, it throws: Error: Expected array of length 3, got 0. This shouldn't have happened and indicates an internal bug.
+
+This is not exploitable, and in practice the piN values produced by the computing plan are always sequential, so the impact is limited. We are flagging this as a code maturity concern: we recommend adding a simple validation step to verify that the detected keys are strictly sequential before proceeding with parsing.
+
+## Response
+
+The finding is acknowledged. In the course of addressing it, scope was expanded to cover `GrothVk.parse` (`src/groth/vk.ts`) which has the same class of issue for `icN` keys - the VK parser collects whatever `ic0` to `ic6` keys are present without checking contiguity, and a FIXME comment in the code (`// FIXME CHECKME what if we have skipped some??`) confirms this was already known. Both parsers will be fixed together: `assertExactStructure` added for schema validation and an explicit contiguity check for sequential key ordering.
+
+In the course of writing tests, three further bugs were identified in the validation layer:
+
+- `isAffinePoint2d` (`src/api/validation/guards/crypto.ts`): used `'x' in obj && 'y' in obj` without checking key count, so `{ x: '1', y: '2', extra: 'bad' }` passed validation.
+- `isComplexAffinePoint2d` (`src/api/validation/guards/crypto.ts`): same issue - checked for presence of the four expected keys but not exclusivity.
+- `isField12` (`src/api/validation/guards/crypto.ts`): same issue - checked all 12 keys were present but did not reject objects with additional keys.
+- `assertExactStructure` (`src/api/validation/validation.ts`): treated all schema keys as required, so optional fields (wrapped with `isOptionalField`) could not be absent from the validated object - this was required to support optional `piN` and `icN` fields in the proof and VK schemas.
+
+All four will be fixed in commit 2 alongside the parser fixes.
+
+### Commit 1 - Regression tests exposing missing contiguity and exact-shape validation
+
+- **Regression tests** (`src/groth/adcd3_regression.spec.ts`): 24 tests covering `detectInputCountFromProof` - valid contiguous sequences (0 through 6 inputs), non-contiguous sequences (gaps at various positions), schema violations (missing/wrong-type fields), and unknown fields (pi0, pi7, extra keys on top-level and nested objects including negA, C, B). On unpatched code 19 fail, 5 pass.
+- **Regression tests** (`src/groth/adcd3_vk_regression.spec.ts`): 24 tests covering `GrothVk.parse` - valid contiguous ic sequences (ic0 through ic3), non-contiguous sequences, missing required fields, wrong field types, and unknown fields (top-level and nested: ic0, delta, gamma, alpha_beta, w27). On unpatched code 10 fail, 14 pass.
+
+Run: `npm run test:jest -- src/groth/adcd3_regression.spec.ts`
+Run: `npm run test:jest -- src/groth/adcd3_vk_regression.spec.ts`
+
+Results:
+
+- Proof regression tests: 19 fail, 5 pass. Contiguity, schema, optional-field, and exact-shape checks all absent.
+- VK regression tests: 10 fail, 14 pass. Contiguity, optional-field, and exact-shape checks absent; basic missing-field checks already present in current code.
+
 # 18/5/26 - Audit B1114: Disabled layer1 subtrees unconstrained, allowing forgery of SP1 PLONK public inputs
 
 ## Finding (verbatim)
