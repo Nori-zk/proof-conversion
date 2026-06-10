@@ -6,6 +6,7 @@ import { G2Line, computeLineCoeffs } from '../lines/index.js';
 import { computePI } from './compute_pi.js';
 import { GrothVk } from './vk.js';
 import type { O1jsProof } from '@nori-zk/proof-conversion-utils';
+import { assertExactStructure, isAffinePoint2d, isComplexAffinePoint2d, isOptionalString } from '../api/validation/index.js';
 
 export interface ProofData {
   negA: G1Affine;
@@ -119,12 +120,36 @@ function createProofClass(inputCount: number) {
   return ProofClass;
 }
 
+const isO1jsProof = {
+  negA: isAffinePoint2d,
+  B: isComplexAffinePoint2d,
+  C: isAffinePoint2d,
+  pi1: isOptionalString,
+  pi2: isOptionalString,
+  pi3: isOptionalString,
+  pi4: isOptionalString,
+  pi5: isOptionalString,
+  pi6: isOptionalString,
+}
+
 export function detectInputCountFromProof(path: string): number {
   const json: O1jsProof = JSON.parse(fs.readFileSync(path, 'utf-8'));
-  let count = 0;
-  for (let i = 1; i <= 6; i++) {
-    if (json[`pi${i}` as PiKey]) count++;
+  
+  // Runtime validation of O1jsProof schema, piN contiguous - if present.
+
+  assertExactStructure(json, isO1jsProof, 'o1jsProof');
+
+  const piIndices = Object.keys(json)
+    .filter((key) => /^pi\d+$/.test(key))
+    .map((key) => Number(key.slice(2)));
+  
+  const count = Math.max(...[0,...piIndices]);
+
+  for (let i = 1; i <= count; i++) {
+    if (!json[`pi${i}` as PiKey]) 
+      throw new Error(`'pi${i}' is missing when we expected up to 'pi${count}'. piN must be contiguous from pi1 to pi${count}`);
   }
+
   return count;
 }
 
