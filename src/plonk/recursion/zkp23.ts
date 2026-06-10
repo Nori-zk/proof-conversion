@@ -38,6 +38,12 @@ const zkp23 = ZkProgram({
           .mul(acc.proof.c.frobenius_pow_p_squared())
           .mul(acc.proof.c_inv.frobenius_pow_p_cubed());
 
+        // Assert acc.proof.shift_power is constrained to {0, 1, 2}
+        acc.proof.shift_power
+          .mul(acc.proof.shift_power.sub(1))
+          .mul(acc.proof.shift_power.sub(2))
+          .assertEquals(0, 'acc.proof.shift_power is not in the set {0, 1, 2}');
+
         const shift = Provable.switch(
           [
             acc.proof.shift_power.equals(Field(0)),

@@ -310,6 +310,12 @@ class WitnessTracker {
     const w27 = VK.w27;
     const w27_sq = VK.w27_square;
 
+    // Assert acc.proof.shift_power is constrained to {0, 1, 2}
+    this.acc.proof.shift_power
+      .mul(this.acc.proof.shift_power.sub(1))
+      .mul(this.acc.proof.shift_power.sub(2))
+      .assertEquals(0, 'acc.proof.shift_power is not in the set {0, 1, 2}');
+
     const shift = Provable.switch(
       [
         this.acc.proof.shift_power.equals(Field(0)),
