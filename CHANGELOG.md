@@ -135,6 +135,17 @@ Results:
 
 - Regression tests: 2 fail, 1 pass. The wrong-length arrays do not throw on unpatched code, confirming that `hash()` silently hashes whatever it receives regardless of the declared `n`.
 
+### Commit 2 - Fix applied
+
+- **`src/array_list_hasher.ts`**: added `arr.length !== this.n` assertion at the top of `hash()`, throwing with expected and actual lengths if the array size does not match. Since `empty()` and `open()` both route through `hash()`, one assertion covers all three methods.
+- **`src/kzg/structs.ts`**: removed duplicate `ArrayListHasher` class (10b08), replaced with import and re-export from `src/array_list_hasher.ts`. All Plonk imports (`from '../../kzg/structs.js'`) continue working without changes. Unused imports (`Poseidon`, `Provable`, `ATE_LOOP_COUNT`) removed.
+
+Run: `npm run test:jest -- src/0dd9c_regression.spec.ts`
+
+Results:
+
+- Regression tests: 3 pass, 0 fail. `ArrayListHasher.hash()` now rejects wrong-length arrays with a descriptive error.
+
 # 02/06/26 - Audit adcd3: Groth16 proof and VK parsers do not validate that piN and icN keys are contiguous
 
 ## Finding (verbatim)
