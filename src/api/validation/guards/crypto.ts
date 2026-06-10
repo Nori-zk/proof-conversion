@@ -7,6 +7,7 @@ import type {
 } from '@nori-zk/proof-conversion-utils';
 import { guard } from './core.js';
 import { isString } from './primitives.js';
+import { isOptionalField } from './modifiers.js';
 
 // ============================================================================
 // OBJECT/STRUCTURE GUARDS - For cryptographic types
@@ -32,7 +33,8 @@ export const isAffinePoint2d = guard(function isAffinePoint2d(
 ): val is AffinePoint2d {
   if (!val || typeof val !== 'object') return false;
   const obj = val as Record<string, unknown>;
-  return 'x' in obj && 'y' in obj && isString(obj.x) && isString(obj.y);
+  const keys = Object.keys(obj);
+  return keys.length === 2 && 'x' in obj && 'y' in obj && isString(obj.x) && isString(obj.y);
 });
 
 /**
@@ -55,7 +57,9 @@ export const isComplexAffinePoint2d = guard(function isComplexAffinePoint2d(
 ): val is ComplexAffinePoint2d {
   if (!val || typeof val !== 'object') return false;
   const obj = val as Record<string, unknown>;
+  const keys = Object.keys(obj);
   return (
+    keys.length === 4 &&
     'x_c0' in obj &&
     'x_c1' in obj &&
     'y_c0' in obj &&
@@ -101,7 +105,7 @@ export const isField12 = guard(function isField12(
     'h20',
     'h21',
   ];
-  return keys.every((key) => key in obj && isString(obj[key]));
+  return Object.keys(obj).length === keys.length && keys.every((key) => key in obj && isString(obj[key]));
 });
 
 /**
@@ -161,3 +165,17 @@ export const isComplexProjectivePoint = guard(function isComplexProjectivePoint(
     )
   );
 });
+
+/**
+ * Type guard validator for optional G1 affine points.
+ * Returns a ValidatorFn that narrows the type to `AffinePoint2d | undefined` on success.
+ *
+ * @returns ValidatorFn<AffinePoint2d | undefined> - Validator function for AffinePoint2d or undefined values
+ *
+ * @example
+ * const validator = isOptionalAffinePoint2d;
+ * if (validator(value)) {
+ *   // value is narrowed to type: AffinePoint2d | undefined
+ * }
+ */
+export const isOptionalAffinePoint2d = isOptionalField(isAffinePoint2d);

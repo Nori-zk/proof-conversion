@@ -86,6 +86,21 @@ class WitnessTracker {
       frob_b_lines[0].lambda,
       piB
     );
+
+    // Dev sanity check, not a security boundary. Enforced in-circuit by zkp6.
+    // G2 subgroup check: the BN254 endomorphism relation is
+    // [6u+2]B + pi(B) - pi^2(B) + pi^3(B) = O
+    // (Vercauteren, "Optimal Pairings", Section IV, W(x) = [6x+2, 1, -1, 1])
+    // https://www.esat.kuleuven.be/cosic/publications/article-1039.pdf
+    // After adding pi(B) and -pi^2(B), T = -pi^3(B) for B in G2[r].
+    const pi_2_B = piB.negative_frobenius();
+    this.acc.state.T = this.acc.state.T.add_from_line(
+      frob_b_lines[1].lambda,
+      pi_2_B
+    );
+    const pi_3_B = pi_2_B.neg().frobenius();
+    this.acc.state.T.x.assert_equals(pi_3_B.x);
+    this.acc.state.T.y.assert_equals(pi_3_B.y.neg());
   }
 
   in0(): [Accumulator, Array<Field>, Array<G2Line>] {
@@ -309,6 +324,12 @@ class WitnessTracker {
 
     const w27 = VK.w27;
     const w27_sq = VK.w27_square;
+
+    // Assert acc.proof.shift_power is constrained to {0, 1, 2}
+    this.acc.proof.shift_power
+      .mul(this.acc.proof.shift_power.sub(1))
+      .mul(this.acc.proof.shift_power.sub(2))
+      .assertEquals(0, 'acc.proof.shift_power is not in the set {0, 1, 2}');
 
     const shift = Provable.switch(
       [
