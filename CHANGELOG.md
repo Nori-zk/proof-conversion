@@ -80,6 +80,259 @@ Results:
 - VK regression tests: 24 pass, 0 fail.
 - Existing validation tests (`src/api/validation/guards/test.spec.ts`): 14 pass, 0 fail.
 
+---
+
+# 26/5/26 - Audit EC50D: Missing on-curve and subgroup checks in Groth16 and PLONK recursion verifiers
+
+## Finding (verbatim)
+
+Finding ec50d: Groth recursion verifier is missing on-curve and subgroup checks
+
+The 16-segments zkp that verifies the groth16 proof does not validate that the proof points are on curve, and, for the G2 points, in the relevant subgroup.
+
+I have attached a more detailed description including an explanation how I verified that there are no (explicit or implicit) on-curve checks for the negA -point (others are analogous) and how this can be exploited
+
+### Missing on-curve and subgroup checks in the Groth16 recursion verifier
+
+The Groth16 verifier circuit (the sequence of recursion proofs `zkp0`, ..., `zkp15` under `src/groth/recursion/`) operates over two groups on the BN254 curve:
+
+- G1 is the full group E(Fp), which for BN254 has prime order r. On-curve membership is therefore equivalent to subgroup membership: a single on-curve check is sufficient.
+- G2 is the order-r subgroup of E'(Fp2) (the sextic twist of the original curve used by the BN254 pairing). The full group E'(Fp2) has cofactor much larger than 1, so on-curve membership does not imply order-r membership. Both an on-curve check and a subgroup-membership check are therefore required.
+
+The verifier consumes three prover-controlled proof points: `negA` and `C` on G1, and `B` on G2. These enter the verifier via `parseProof` in `src/groth/proof.ts`:
+
+```ts
+// proof-conversion/src/groth/proof.ts
+const negA = new G1Affine({
+  x: FpC.from(json.negA.x),
+  y: FpC.from(json.negA.y),
+});
+
+const C = new G1Affine({
+  x: FpC.from(json.C.x),
+  y: FpC.from(json.C.y),
+});
+
+const B = new G2Affine({
+  x: new Fp2({ c0: FpC.from(json.B.x_c0), c1: FpC.from(json.B.x_c1) }),
+  y: new Fp2({ c0: FpC.from(json.B.y_c0), c1: FpC.from(json.B.y_c1) }),
+});
+```
+
+The `G1Affine` and `G2Affine` types are plain `Struct`s over the field coordinates, with no curve relation enforced:
+
+```ts
+// proof-conversion/src/ec/index.ts
+class G1Affine extends Struct({ x: FpA.provable, y: FpA.provable }) {}
+
+// proof-conversion/src/ec/g2.ts
+class G2Affine extends Struct({ x: Fp2, y: Fp2 }) {}
+```
+
+The only constraint applied to the parsed coordinates is canonicality (`< p`). The curve equation `y^2 = x^3 + 3` (for `negA`, `C`) and its Fp2 twist analogue (for `B`) are never asserted, and no order-r subgroup-membership test is performed on `B`. The missing checks are therefore: on-curve for `negA` and `C`, and both on-curve and subgroup-membership for `B`.
+
+These checks are also not enforced indirectly anywhere else in the verifier. The pre-pairing constraints `b_line.assert_is_tangent` / `b_line.assert_is_line` (`src/lines/index.ts:106,119`) enforce only line identities (y - lambda*x + neg_mu = 0 and 2*lambda*y = 3x^2), which hold for any pair (x, y) whose coordinates were used to derive lambda and neg_mu off-circuit via the same formulas, regardless of whether (x, y) lies on the curve. Inside the per-stage circuits, the proof points flow through `AffineCache` (`src/lines/precompute.ts`), which requires only that the point's y coordinate be non-zero (via `yp_prime * y = 1`). Across `zkp0`, ..., `zkp12`, every constraint on the proof points can be satisfied for any off-curve pair of canonical field elements. The only remaining assertion is the final pairing equality `f.assert_equals(Fp12.one())` at `src/groth/recursion/zkp13.ts:50` (mirrored off-circuit at `src/groth/witness_tracker.ts:323`) -- a check on the pairing relation, not on curve or subgroup membership of the inputs.
+
+To confirm the absence of these checks end-to-end, we constructed a PoC that (a) tampers `negA.y` to `(negA.y + 1) mod p` before the proof is parsed and (b) gates out the final pairing equality `f.assert_equals(Fp12.one())` (both the in-circuit assertion at `zkp13.ts:50` and the off-circuit sanity check at `witness_tracker.ts:323`), then runs the full recursion pipeline `zkp0`, ..., `zkp15` against the example fixtures at `src/groth/example_jsons/`. The full patch is:
+
+```diff
+--- a/src/groth/recursion/prove_zkps.ts
++++ b/src/groth/recursion/prove_zkps.ts
+@@ -28,7 +28,43 @@ import { VK } from '../vk_from_env.js';
+
+ const args = process.argv;
+
+-const proof = parseProof(VK, args[3]);
++// POC_OFFCURVE_NEGA: when set, rewrite the proof JSON to use an off-curve negA
++// (y' = y + 1 mod p). This demonstrates that no on-curve check rejects the
++// point through any of the pre-final checks. The 'final' pairing assertion
++// (zkp13 + witness_tracker.zkp13) must be disabled separately for the demo.
++const BN254_P =
++  21888242871839275222246405745257275088696311157297823662689037894645226208583n;
++let proofPathForParse = args[3];
++if (process.env.POC_OFFCURVE_NEGA === '1') {
++  const origJson = JSON.parse(fs.readFileSync(args[3], 'utf-8'));
++  const xBig = BigInt(origJson.negA.x);
++  const yBig = BigInt(origJson.negA.y);
++  let yNewBig = (yBig + 1n) % BN254_P;
++  if (yNewBig === 0n) yNewBig = (yBig + 2n) % BN254_P;
++  const lhs = (yNewBig * yNewBig) % BN254_P;
++  const rhs = (((xBig * xBig) % BN254_P) * xBig + 3n) % BN254_P;
++  const onCurve = lhs === rhs;
++  console.log('[POC_OFFCURVE_NEGA] original negA.y =', yBig.toString());
++  console.log('[POC_OFFCURVE_NEGA] tampered negA.y =', yNewBig.toString());
++  console.log(
++    '[POC_OFFCURVE_NEGA] does tampered (x,y) satisfy y^2 = x^3 + 3 (mod p)?',
++    onCurve
++  );
++  if (onCurve) {
++    throw new Error(
++      'POC sanity check: tampered point is still on the curve; pick a different offset'
++    );
++  }
++  origJson.negA.y = yNewBig.toString();
++  proofPathForParse = `${args[3]}.poc_offcurve.json`;
++  fs.writeFileSync(proofPathForParse, JSON.stringify(origJson), 'utf-8');
++  console.log(
++    '[POC_OFFCURVE_NEGA] wrote tampered proof JSON to',
++    proofPathForParse
++  );
++}
++
++const proof = parseProof(VK, proofPathForParse);
+ const auxWitness = AuXWitness.parse(args[4]);
+ const workDir = args[5];
+ const cacheDir = args[6];
+--- a/src/groth/recursion/zkp13.ts
++++ b/src/groth/recursion/zkp13.ts
+@@ -47,7 +47,11 @@ const zkp13 = ZkProgram({
+         );
+         f = f.mul(shift);
+
+-        f.assert_equals(Fp12.one());
++        // POC_OFFCURVE_NEGA: skip the final pairing assertion when the PoC
++        // env flag is set, since a generic off-curve negA makes f != 1
++        if (process.env.POC_OFFCURVE_NEGA !== '1') {
++          f.assert_equals(Fp12.one());
++        }
+
+         acc.state.f = f;
+
+--- a/src/groth/witness_tracker.ts
++++ b/src/groth/witness_tracker.ts
+@@ -320,7 +320,11 @@ class WitnessTracker {
+       [Fp12.one(), w27, w27_sq]
+     );
+     f = f.mul(shift);
+-    f.assert_equals(Fp12.one());
++    // POC_OFFCURVE_NEGA: skip the off-circuit pairing sanity check when the
++    // PoC env flag is set, since a generic off-curve negA makes f != 1
++    if (process.env.POC_OFFCURVE_NEGA !== '1') {
++      f.assert_equals(Fp12.one());
++    }
+
+     this.acc.state.f = f;
+     return this.acc.deepClone();
+```
+
+Running the pipeline with `POC_OFFCURVE_NEGA=1`, every stage produces a valid proof:
+
+```
+[POC_OFFCURVE_NEGA] does tampered (x,y) satisfy y^2 = x^3 + 3 (mod p)? false
+valid zkp0?:  true
+valid zkp1?:  true
+valid zkp2?:  true
+valid zkp3?:  true
+valid zkp4?:  true
+valid zkp5?:  true
+valid zkp6?:  true
+valid zkp7?:  true
+valid zkp8?:  true
+valid zkp9?:  true
+valid zkp10?:  true
+valid zkp11?:  true
+valid zkp12?:  true
+valid zkp13?:  true
+valid zkp14?:  true
+valid zkp15?:  true
+```
+
+The same PoC structure straightforwardly extends to tampering `C` and `B`. For `B`, the `b_lines` (line coefficients) are computed off-circuit in `parseProof` via `computeLineCoeffs(B)` (`src/lines/coeffs.ts`); recomputing them from the tampered `B` keeps the line constraints `assert_is_tangent` / `assert_is_line` satisfied throughout the Miller loop, by construction.
+
+#### Impact
+
+The Groth16 verifier is the trust anchor for one of the two SNARK families consumed by the Nori bridge (the other being PLONK; see `src/plonk/`). For example, the SP1 Groth16 path produces a final Mina proof whose `rightOut` field is consumed by `NoriTokenBridge.ethVerify` on the Mina side to authorize state-root and deposit-root updates. A break of the Groth16 verifier therefore allows an attacker to forge arbitrary public values into the bridge's accepted state, with the same end-state consequences as documented in finding b1114.
+
+The missing on-curve / subgroup checks weaken the verifier's soundness in the following ways:
+
+- Pairing-equation soundness depends on `B` being in G2, not just on `B` being on the twisted curve. The Groth16 pairing identity is a statement about the order-r bilinear pairing; off-subgroup inputs do not produce a meaningful equality, and the soundness argument fails. The Miller loop the circuit computes is designed so that its output equals 1 exactly when the pairing identity holds on inputs from G2; for a `B` on the twisted curve but outside G2, the same Miller loop evaluates to a different multi-curve relation, and the final `f.assert_equals(Fp12.one())` no longer carries the intended meaning. This is practically exploitable: the cofactor of G2 in the twisted curve has small prime factors, so points of small order outside G2 are easy to construct and combine with a valid `B` to drive the Miller-loop output into a regime where the final equality can be satisfied without honoring the pairing identity.
+- Off-curve inputs produce values in the larger group E'(Fp2) (or even outside it). All of the verifier's per-stage constraints -- tangent/secant line identities, Frobenius identities, the residue-witness consistency relations -- are formal polynomial relations that hold over the full coordinate field, not over the curve. The single remaining soundness barrier is therefore the final pairing equality `f.assert_equals(Fp12.one())`. Whether a malicious prover can satisfy that final equality with a forged residue witness on off-curve or off-subgroup inputs is a question entirely about the residue-witness construction; nothing in the circuit forces them to play on the intended group.
+
+#### Recommendations
+
+Add explicit on-curve and (for `B`) subgroup-membership constraints to the proof inputs of the Groth16 verifier circuit, applied inside the ZkProgram of `zkp0` (or wherever each point is first used in-circuit) so that the constraint becomes part of the verifier's constraint system rather than an off-circuit sanity check.
+
+Concretely:
+
+- `negA` and `C` (in G1): add an in-circuit assertion that the point satisfies the BN254 curve equation. Since G1 has prime order, an on-curve check alone is sufficient. The o1js `ForeignCurve` class already provides an `assertOnCurve()` method, so the simplest implementation is to either reroute `G1Affine` through the existing `bn254` curve type in `src/ec/g1.ts`, or to add an equivalent assertion directly on the `G1Affine` coordinates.
+- `B` (in G2): add both an on-curve check (the curve equation of the twisted curve, using the twist parameters already in `src/towers/precomputed.ts`) and a subgroup-membership check. The standard efficient construction is the Frobenius-based subgroup test of Dai et al., which decides membership using only the Frobenius endomorphism and a small number of point operations; the Frobenius primitive itself is already implemented as `G2Affine.frobenius()` and `G2Affine.negative_frobenius()` in `src/ec/g2.ts`. Implementing this check requires non-trivial circuit logic but does not require any new primitives.
+
+## Response
+
+We agree with the auditor's findings that all three Groth16 prover-supplied proof points (negA, C on G1; B on G2) enter the recursion circuit as raw field coordinates with no curve equation or subgroup membership enforced in-circuit. After discussion with the o1js-blobstream author, we extended the scope to include the PLONK path, which has the same class of vulnerability on its 10 prover-supplied G1 points.
+
+## Discussion
+
+The o1js-blobstream author provided a four-step framework for G2 subgroup checking that leverages the existing Miller loop:
+
+> During the BN254 optimal-ate Miller loop, we are not only accumulating the F_{p^{12}} Miller value; we also have a curve-point accumulator (T). The main loop computes the short scalar part, roughly [6u+2]Q, and then the final correction steps add/subtract Frobenius images of Q. So at the end, T is checking an endomorphism relation of the form
+>
+> [6u+2]Q + pi(Q) - pi^2(Q) + pi^3(Q) = O
+>
+> up to the exact sign/convention used by the implementation.
+>
+> On G_2[r], Frobenius acts like scalar multiplication by the corresponding Frobenius eigenvalue, so this endomorphism relation is zero modulo r. Therefore, for a valid r-torsion point, the final point accumulator should end at infinity.
+>
+> So for an untrusted G_2 proof element, the subgroup-check logic can be:
+>
+> 1. check the point is on the correct twist curve,
+> 2. check it is not infinity,
+> 3. run the Miller loop including the Frobenius correction steps,
+> 4. check that the final curve-point accumulator (T) is infinity.
+>
+> This serves the same purpose as checking [r]Q = O, but it is cheaper because the large scalar contribution is represented using Frobenius maps and it's already implicit inside the miller loop that we anyway do.
+
+Our read on these four points:
+
+1. Check the point is on the correct twist curve.
+   - Not done. B is prover-supplied, need y^2 = x^3 + b_twist asserted in-circuit. 209 rows, zkp6 is at 47,322 (fits).
+
+2. Check it is not infinity.
+   - Not needed. Affine coordinates cannot encode infinity, therefore neither can a malicious actor.
+
+3. Run the Miller loop including the Frobenius correction steps.
+   - Already done. zkp0-zkp6, T tracked alongside f, Frobenius corrections applied at end of zkp6.
+
+4. Check that the final curve-point accumulator (T) is infinity.
+   - Not done but not hard. T and the Frobenius corrections already exist in zkp6, the code just discards T without checking it. The last operation is assert_is_line(T, pi_2_B) with no subsequent addition. Fix is to advance T past pi_2_B, compute pi_3_B = frobenius(pi^2(B)), and assert T = -pi_3_B (same x, negated y).
+
+None of this is needed for PLONK as the G2 points (g2, tau) are hardcoded VK constants precomputed into JSON at build time.
+
+For G1, BN254 G1 has prime order r, so on-curve implies subgroup membership. One assertOnCurve() call per point (125 rows each via bn254 createForeignCurve) is sufficient. This applies to both the Groth16 path (negA, C, PI) and the PLONK path (l_com, r_com, o_com, qcp_0_wire, grand_product, h0, h1, h2, batch_opening_at_zeta, batch_opening_at_zeta_omega).
+
+### Commit 1 - Regression tests exposing missing on-curve and subgroup checks
+
+- **Groth16 regression tests** (`src/groth/ec50d_regression.spec.ts`): 5 tests covering all Groth16 prover-supplied proof points. Three G1 on-curve tests parse a real proof from `src/groth/example_jsons/`, tamper the y coordinate of a single point (+1 mod p, verified off-curve), construct a WitnessTracker, and expect proof generation via the real ZkProgram to be rejected. One G2 on-curve test tampers B.y.c0 and expects zkp6 to reject. One combined G2 subgroup test exercises the endomorphism identity from steps 3-4 above: the Miller loop's T accumulator evaluates [6u+2]B + pi(B) - pi^2(B) + pi^3(B); for B in G2[r] this equals O (T reaches infinity), for B outside G2[r] it does not. The test constructs a point on E'(Fp2) outside G2[r] via Fp2 Tonelli-Shanks and expects zkp6 to reject it, then runs valid proof B through zkp6 and expects acceptance. Both assertions are in one test so it fails on every broken state: missing check (bad B accepted), wrong endomorphism relation (valid B rejected), or correct check (both pass). Tests: `zkp0 must reject off-curve negA`, `zkp0 must reject off-curve C`, `zkp0 must reject off-curve PI`, `zkp6 must reject off-curve B` (G2 on-curve check), `zkp6 subgroup check must reject bad B and accept valid B`.
+- **PLONK regression tests** (`src/plonk/ec50d_regression.spec.ts`): 10 tests covering all PLONK prover-supplied G1 points. Each test constructs a real Accumulator from a hardcoded hex proof, tampers the y coordinate of a single point (+1 mod p, verified off-curve), and expects proof generation via PLONK zkp0 to be rejected. Tests: `zkp0 must reject off-curve l_com`, `zkp0 must reject off-curve r_com`, `zkp0 must reject off-curve o_com`, `zkp0 must reject off-curve qcp_0_wire`, `zkp0 must reject off-curve grand_product`, `zkp0 must reject off-curve h0`, `zkp0 must reject off-curve h1`, `zkp0 must reject off-curve h2`, `zkp0 must reject off-curve batch_opening_at_zeta`, `zkp0 must reject off-curve batch_opening_at_zeta_omega`.
+
+Run:
+
+```
+GROTH16_VK_PATH=./src/groth/example_jsons/vk.json npm run test:jest -- src/groth/ec50d_regression.spec.ts
+npm run test:jest -- src/plonk/ec50d_regression.spec.ts
+```
+
+Results:
+
+- Groth16 regression tests: 5 fail, 0 pass. All five tests resolve instead of rejecting, confirming that zkp0 and zkp6 accept off-curve and off-subgroup proof points.
+- PLONK regression tests: 10 fail, 0 pass. All ten tests resolve instead of rejecting, confirming that PLONK zkp0 accepts off-curve proof points.
+
+### Commit 2 - Fix applied
+
+- **`src/ec/index.ts`**: added `assertOnCurve()` method to `G1Affine`, delegates to `bn254.assertOnCurve()`.
+- **`src/towers/precomputed.ts`**: added `B_TWIST` constant (3/(9+u) in Fp2) for G2 twist curve equation.
+- **`src/groth/recursion/zkp0.ts`**: added G1 on-curve checks for negA, C, PI.
+- **`src/groth/recursion/zkp6.ts`**: added G2 on-curve check (y^2 = x^3 + b_twist) and G2 subgroup check. After the existing pi(B) and -pi^2(B) Frobenius corrections, T is advanced past pi_2_B and checked against -pi_3_B (same x, negated y), enforcing the full 4-term endomorphism relation [6u+2]B + pi(B) - pi^2(B) + pi^3(B) = O.
+- **`src/groth/witness_tracker.ts`**: added off-circuit G2 subgroup check as dev sanity mirror of the in-circuit check in zkp6.
+- **`src/plonk/recursion/zkp0.ts`**: added G1 on-curve checks for all 10 prover-supplied points.
+
+Results:
+
+- Groth16 regression tests: 5 pass, 0 fail.
+- PLONK regression tests: 10 pass, 0 fail.
+
+---
+
 # 18/5/26 - Audit B1114: Disabled layer1 subtrees unconstrained, allowing forgery of SP1 PLONK public inputs
 
 ## Finding (verbatim)

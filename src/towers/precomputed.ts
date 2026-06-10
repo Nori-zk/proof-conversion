@@ -69,4 +69,7 @@ const GAMMA_3S = [
   GAMMA_1S[4].mul(GAMMA_2S[4]),
 ];
 
-export { fp2_non_residue, GAMMA_1S, GAMMA_2S, GAMMA_3S, NEG_GAMMA_13 };
+// BN254 G2 twist curve constant: b_twist = 3 / (9 + u)
+const B_TWIST = new Fp2({ c0: FpC.from(3n), c1: FpC.from(0n) }).mul(fp2_non_residue.inverse());
+
+export { fp2_non_residue, GAMMA_1S, GAMMA_2S, GAMMA_3S, NEG_GAMMA_13, B_TWIST };

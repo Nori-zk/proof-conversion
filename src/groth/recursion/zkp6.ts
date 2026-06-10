@@ -3,6 +3,7 @@ import { ZkProgram, Field, Poseidon, Provable } from 'o1js';
 import { Accumulator } from './data.js';
 import { Fp12 } from '../../towers/fp12.js';
 import { ATE_LOOP_COUNT } from '../../towers/consts.js';
+import { B_TWIST } from '../../towers/precomputed.js';
 import { ArrayListHasher } from '../../array_list_hasher.js';
 import { AffineCache } from '../../lines/precompute.js';
 import { VK } from '../vk_from_env.js';
@@ -34,6 +35,11 @@ const zkp6 = ZkProgram({
       ) {
         input.assertEquals(Poseidon.hashPacked(Accumulator, acc));
         acc.state.g_digest.assertEquals(ArrayListHasher.hash(lines_hashes));
+
+        // G2 on-curve check: y^2 = x^3 + b_twist
+        const B_y_sq = acc.proof.B.y.square();
+        const B_x_cu = acc.proof.B.x.square().mul(acc.proof.B.x);
+        B_y_sq.assert_equals(B_x_cu.add(B_TWIST));
 
         const a_cache = new AffineCache(acc.proof.negA);
         const c_cache = new AffineCache(acc.proof.C);
@@ -112,6 +118,16 @@ const zkp6 = ZkProgram({
 
         let pi_2_B = piB.negative_frobenius();
         b_line.assert_is_line(T, pi_2_B);
+        // Add -pi^2(B) to T
+        T = T.add_from_line(b_line.lambda, pi_2_B);
+        // G2 subgroup check: the BN254 endomorphism relation is
+        // [6u+2]B + pi(B) - pi^2(B) + pi^3(B) = O
+        // (Vercauteren, "Optimal Pairings", Section IV, W(x) = [6x+2, 1, -1, 1])
+        // https://www.esat.kuleuven.be/cosic/publications/article-1039.pdf
+        // After adding pi(B) and -pi^2(B), T = -pi^3(B) for B in G2[r].
+        const pi_3_B = pi_2_B.neg().frobenius();
+        T.x.assert_equals(pi_3_B.x);
+        T.y.assert_equals(pi_3_B.y.neg());
 
         g = g.sparse_mul(b_line.psi(a_cache));
         g = g.sparse_mul(delta_line.psi(c_cache));

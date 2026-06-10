@@ -76,6 +76,12 @@ class KZGPairing {
       .mul(c.frobenius_pow_p_squared())
       .mul(c_inv.frobenius_pow_p_cubed());
 
+    // Assert shift_power is constrained to {0, 1, 2}
+    shift_power
+      .mul(shift_power.sub(1))
+      .mul(shift_power.sub(2))
+      .assertEquals(0, 'shift_power is not in the set {0, 1, 2}');
+
     const shift = Provable.switch(
       [
         shift_power.equals(Field(0)),
