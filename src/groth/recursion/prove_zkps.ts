@@ -29,7 +29,7 @@ import { VK } from '../vk_from_env.js';
 const args = process.argv;
 
 const proof = parseProof(VK, args[3]);
-const auxWitness = AuXWitness.parse(args[4]);
+const auxWitness = AuXWitness.loadFromPath(args[4]);
 const workDir = args[5];
 const cacheDir = args[6];
 

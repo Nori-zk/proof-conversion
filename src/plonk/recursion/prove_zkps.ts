@@ -30,7 +30,7 @@ import { zkp20 } from './zkp20.js';
 import { zkp21 } from './zkp21.js';
 import { zkp22 } from './zkp22.js';
 import { zkp23 } from './zkp23.js';
-import { AuXWitness } from '../aux_witness.js';
+import { AuXWitness } from '../../aux_witness.js';
 import { parsePublicInputs } from '../parse_pi.js';
 import { FrC } from '../../towers/index.js';
 

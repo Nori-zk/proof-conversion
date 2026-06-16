@@ -1,3 +1,45 @@
+# 16/06/26 - Audit 10b08 extended: Parallel implementations of shared utilities across Groth16 and Plonk components
+
+## Finding 10b08 extended (verbatim)
+
+Parallel implementations of shared utilities across Groth16 and Plonk components
+
+In addition to ArrayListHasher, we identified two more instances of this pattern:
+- AuXWitness and AuXWitnessType in src/aux_witness.ts (used by Groth) and src/plonk/aux_witness.ts (used by Plonk)
+- LineParser in src/line_parser.ts (used by Groth) and src/plonk/recursion/line_parser.ts (used by Plonk)
+
+We will not include the full implementation code in this message. Reading the files makes it clear that these can be consolidated into single implementations.
+
+- For AuXWitness, the Plonk version is straightforwardly reusable; parse has simply been renamed to loadFromPath.
+- For LineParser, the Groth16 recursive circuit (src/groth/recursion/zkp*.ts) already demonstrates a pattern that works equally well for Plonk:
+
+```
+const delta_lines = LineParser.parse(BEGIN, END, VK.delta_lines);
+const gamma_lines = LineParser.parse(BEGIN, END, VK.gamma_lines);
+```
+
+We recommend consolidating these two implementations along with ArrayListHasher into single shared implementations.
+
+## Response (10b08 extended)
+
+Acknowledged. Both duplications follow the same pattern as ArrayListHasher, which was already consolidated under finding 10b08.
+
+- AuXWitness: the Plonk version (src/plonk/aux_witness.ts) is a strict superset of the Groth version (src/aux_witness.ts). The only API difference is the method name: `parse` (Groth) vs `loadFromPath` (Plonk). The Plonk version additionally provides `loadFromJSON`. The struct definition and all field types are identical.
+- LineParser: the Groth version (src/line_parser.ts) is a stateless utility with `static parse(from, to, lines)` and `static frobenius_lines(lines)`. The Plonk version (src/plonk/recursion/line_parser.ts) is a stateful class that bundles JSON loading with the same slicing logic. The core function `ateCntSlice` is identical. The Plonk version also duplicates its JSON loading with src/plonk/recursion/witness_tracker.ts, which independently loads the same g2_lines.json and tau_lines.json at module scope.
+
+### Commit - Fix applied
+
+- **`src/aux_witness.ts`**: replaced with the Plonk superset version (moved from src/plonk/aux_witness.ts). Exports `loadFromPath` (renamed from Groth's `parse`) and `loadFromJSON`. Import path for towers/fp12 updated to reflect new location.
+- **`src/plonk/aux_witness.ts`**: removed, moved up to src/aux_witness.ts.
+- **`src/groth/e2e_test.ts`**, **`src/groth/recursion/prove_zkps.ts`**, **`src/groth/ec50d_regression.spec.ts`**: Groth call sites renamed from `.parse()` to `.loadFromPath()`.
+- **`src/plonk/verifier.ts`**, **`src/plonk/e2e_test.ts`**, **`src/plonk/e2e_verify.ts`**, **`src/plonk/recursion/prove_zkps.ts`**: Plonk import paths repointed from `./aux_witness.js` or `../aux_witness.js` to `../aux_witness.js` or `../../aux_witness.js`.
+- **`src/plonk/mm_loop/load_lines.ts`**: new file, single location for loading and parsing g2_lines.json and tau_lines.json into G2Line arrays.
+- **`src/plonk/recursion/line_parser.ts`**: removed, replaced by shared src/line_parser.ts and src/plonk/mm_loop/load_lines.ts.
+- **`src/plonk/recursion/witness_tracker.ts`**: removed duplicate JSON loading, imports g2_lines and tau_lines from ../mm_loop/load_lines.js.
+- **`src/plonk/recursion/zkp13.ts`**, **`zkp14.ts`**, **`zkp15.ts`**, **`zkp16.ts`**: switched from Plonk's stateful LineParser to shared stateless LineParser from src/line_parser.ts, line data imported from ../mm_loop/load_lines.js. Frobenius calls in zkp16 updated to use `LineParser.frobenius_lines()`.
+
+---
+
 # 09/06/26 - Audit 10b08 and 0dd9c: ArrayListHasher duplicated and hash length not validated
 
 ## Finding 10b08 (verbatim)

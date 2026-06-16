@@ -3,16 +3,18 @@ import { ArrayListHasher, KzgAccumulator } from '../../kzg/structs.js';
 import { Fp12 } from '../../towers/fp12.js';
 import { ATE_LOOP_COUNT } from '../../towers/consts.js';
 import { AffineCache } from '../../lines/precompute.js';
-import { LineParser } from './line_parser.js';
+import { LineParser } from '../../line_parser.js';
+import { g2_lines as all_g2_lines, tau_lines as all_tau_lines } from '../mm_loop/load_lines.js';
 
-const lineParser = LineParser.init();
-const g2_lines = lineParser.parse_g2(
+const g2_lines = LineParser.parse(
   ATE_LOOP_COUNT.length - 46,
-  ATE_LOOP_COUNT.length - 26
+  ATE_LOOP_COUNT.length - 26,
+  all_g2_lines
 );
-const tau_lines = lineParser.parse_tau(
+const tau_lines = LineParser.parse(
   ATE_LOOP_COUNT.length - 46,
-  ATE_LOOP_COUNT.length - 26
+  ATE_LOOP_COUNT.length - 26,
+  all_tau_lines
 );
 
 const zkp14 = ZkProgram({

@@ -3,16 +3,18 @@ import { ArrayListHasher, KzgAccumulator } from '../../kzg/structs.js';
 import { Fp12 } from '../../towers/fp12.js';
 import { ATE_LOOP_COUNT } from '../../towers/consts.js';
 import { AffineCache } from '../../lines/precompute.js';
-import { LineParser } from './line_parser.js';
+import { LineParser } from '../../line_parser.js';
+import { g2_lines as all_g2_lines, tau_lines as all_tau_lines } from '../mm_loop/load_lines.js';
 
-const lineParser = LineParser.init();
-const g2_lines = lineParser.parse_g2(
+const g2_lines = LineParser.parse(
   ATE_LOOP_COUNT.length - 6,
-  ATE_LOOP_COUNT.length
+  ATE_LOOP_COUNT.length,
+  all_g2_lines
 );
-const tau_lines = lineParser.parse_tau(
+const tau_lines = LineParser.parse(
   ATE_LOOP_COUNT.length - 6,
-  ATE_LOOP_COUNT.length
+  ATE_LOOP_COUNT.length,
+  all_tau_lines
 );
 
 const zkp16 = ZkProgram({
@@ -69,8 +71,8 @@ const zkp16 = ZkProgram({
           lines_hashes[idx] = Poseidon.hashPacked(Fp12, g);
         }
 
-        let [g2_frob_0, g2_frob_1] = lineParser.frobenius_g2_lines();
-        let [tau_frob_0, tau_frob_1] = lineParser.frobenius_tau_lines();
+        let [g2_frob_0, g2_frob_1] = LineParser.frobenius_lines(all_g2_lines);
+        let [tau_frob_0, tau_frob_1] = LineParser.frobenius_lines(all_tau_lines);
 
         g = g2_frob_0.psi(a_cache);
         g = g.sparse_mul(tau_frob_0.psi(b_cache));
