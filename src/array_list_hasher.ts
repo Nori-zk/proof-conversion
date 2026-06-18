@@ -10,6 +10,11 @@ class ArrayListHasher {
   }
 
   static hash(arr: Array<Field>): Field {
+    if (arr.length !== this.n) {
+      throw new Error(
+        `ArrayListHasher.hash: expected ${this.n} elements, got ${arr.length}`
+      );
+    }
     return Poseidon.hashPacked(Provable.Array(Field, this.n), arr);
   }
 

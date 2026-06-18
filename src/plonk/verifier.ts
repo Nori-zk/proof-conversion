@@ -1,6 +1,6 @@
 import { G1Affine } from '../ec/index.js';
 import { Fp12, FrC } from '../towers/index.js';
-import { AuXWitness } from './aux_witness.js';
+import { AuXWitness } from '../aux_witness.js';
 import { make_w27 } from './helpers.js';
 import { KZGPairing } from './mm_loop/multi_miller.js';
 import { PlonkVerifierPIOP } from './piop/piop.js';
