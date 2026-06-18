@@ -8,7 +8,7 @@ function main() {
     parseProof(grothVerifier.vk, './src/groth/example_jsons/proof.json')
   );
   const aux_witness = Provable.witness(AuXWitness, () =>
-    AuXWitness.parse('./src/groth/example_jsons/aux_witness.json')
+    AuXWitness.loadFromPath('./src/groth/example_jsons/aux_witness.json')
   );
   grothVerifier.verify(proof, aux_witness);
 }

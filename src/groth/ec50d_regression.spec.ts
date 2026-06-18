@@ -124,7 +124,7 @@ describe('regression_ec50d_groth16_oncurve', () => {
 
   test('zkp0 must reject off-curve negA (G1 on-curve check)', async () => {
     const proof = parseProof(vk, PROOF_PATH);
-    const auxWitness = AuXWitness.parse(AUX_PATH);
+    const auxWitness = AuXWitness.loadFromPath(AUX_PATH);
 
     const origY = proof.negA.y.toBigInt();
     const tamperedY = (origY + 1n) % BN254_P;
@@ -149,7 +149,7 @@ describe('regression_ec50d_groth16_oncurve', () => {
 
   test('zkp0 must reject off-curve C (G1 on-curve check)', async () => {
     const proof = parseProof(vk, PROOF_PATH);
-    const auxWitness = AuXWitness.parse(AUX_PATH);
+    const auxWitness = AuXWitness.loadFromPath(AUX_PATH);
 
     const origY = proof.C.y.toBigInt();
     const tamperedY = (origY + 1n) % BN254_P;
@@ -174,7 +174,7 @@ describe('regression_ec50d_groth16_oncurve', () => {
 
   test('zkp0 must reject off-curve PI (G1 on-curve check)', async () => {
     const proof = parseProof(vk, PROOF_PATH);
-    const auxWitness = AuXWitness.parse(AUX_PATH);
+    const auxWitness = AuXWitness.loadFromPath(AUX_PATH);
 
     const origY = proof.PI.y.toBigInt();
     const tamperedY = (origY + 1n) % BN254_P;
@@ -211,7 +211,7 @@ describe('regression_ec50d_groth16_g2_oncurve', () => {
   // Does NOT exercise the subgroup check: the on-curve check rejects before it.
   test('zkp6 must reject off-curve B (G2 on-curve check)', async () => {
     const proof = parseProof(vk, PROOF_PATH);
-    const auxWitness = AuXWitness.parse(AUX_PATH);
+    const auxWitness = AuXWitness.loadFromPath(AUX_PATH);
 
     const origC0 = proof.B.y.c0.toBigInt();
     const tamperedC0 = (origC0 + 1n) % BN254_P;
@@ -243,7 +243,7 @@ describe('regression_ec50d_groth16_g2_oncurve', () => {
   // Fails on missing subgroup check (bad B accepted) and on broken check (valid B rejected).
   test('zkp6 subgroup check must reject bad B and accept valid B', async () => {
     const proof = parseProof(vk, PROOF_PATH);
-    const auxWitness = AuXWitness.parse(AUX_PATH);
+    const auxWitness = AuXWitness.loadFromPath(AUX_PATH);
 
     // Part 1: bad B (on twist curve, not in G2[r]) must be rejected
     const badB = findTwistPointNotInSubgroup();
