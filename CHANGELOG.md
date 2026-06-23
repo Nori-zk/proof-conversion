@@ -1,3 +1,38 @@
+# 23/06/26 - Audit e68c5: G2Line.evaluate_g1 is dead code and does not implement the correct evaluation of the line function on G1
+
+## Finding e68c5 (verbatim)
+
+The G2Line struct encodes a line on the twisted BN254 curve. To evaluate the corresponding line function on a point on G1, the twist-isomorphism must be taken into account, which is done correctly in the function psi. The same struct also exposes a method evaluate_g1 that takes a G1Affine and returns an Fp2:
+
+```
+evaluate_g1(p: G1Affine): Fp2 {
+  let t = this.lambda.mul_by_fp(p.x);
+  t = t.neg();
+  t = t.add(this.neg_mu);
+  return t.add_fp(p.y);
+}
+```
+
+This method does not implement a meaningful evaluation of the line function on G1.
+
+### Impact
+
+The function is not used in the audited code. Future code edits could mistakenly use this function to compute the evaluation of the G2-line function on G1, which would be incorrect.
+
+### Recommendations
+
+Delete G2Line.evaluate_g1.
+
+## Response
+
+Acknowledged. `evaluate_g1` has zero call sites in the codebase. The method naively substitutes G1 coordinates into the G2 line equation without applying the twist isomorphism, which `psi` handles correctly via `AffineCache`'s `xp_prime` and `yp_prime`. Leaving it in place risks incorrect use in future edits.
+
+### Commit - Fix applied
+
+- **`src/lines/index.ts`**: removed `evaluate_g1` method from `G2Line` class.
+
+---
+
 # 23/06/26 - Audit b8891: AffineCache constructor assigns yp_prime twice
 
 ## Finding b8891 (verbatim)
