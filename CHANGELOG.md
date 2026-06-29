@@ -1,3 +1,78 @@
+# 23/06/26 - Audit e68c5: G2Line.evaluate_g1 is dead code and does not implement the correct evaluation of the line function on G1
+
+## Finding e68c5 (verbatim)
+
+The G2Line struct encodes a line on the twisted BN254 curve. To evaluate the corresponding line function on a point on G1, the twist-isomorphism must be taken into account, which is done correctly in the function psi. The same struct also exposes a method evaluate_g1 that takes a G1Affine and returns an Fp2:
+
+```
+evaluate_g1(p: G1Affine): Fp2 {
+  let t = this.lambda.mul_by_fp(p.x);
+  t = t.neg();
+  t = t.add(this.neg_mu);
+  return t.add_fp(p.y);
+}
+```
+
+This method does not implement a meaningful evaluation of the line function on G1.
+
+### Impact
+
+The function is not used in the audited code. Future code edits could mistakenly use this function to compute the evaluation of the G2-line function on G1, which would be incorrect.
+
+### Recommendations
+
+Delete G2Line.evaluate_g1.
+
+## Response
+
+Acknowledged. `evaluate_g1` has zero call sites in the codebase. The method naively substitutes G1 coordinates into the G2 line equation without applying the twist isomorphism, which `psi` handles correctly via `AffineCache`'s `xp_prime` and `yp_prime`. Leaving it in place risks incorrect use in future edits.
+
+### Commit - Fix applied
+
+- **`src/lines/index.ts`**: removed `evaluate_g1` method from `G2Line` class.
+
+---
+
+# 23/06/26 - Audit b8891: AffineCache constructor assigns yp_prime twice
+
+## Finding b8891 (verbatim)
+
+The constructor of AffineCache (src/lines/precompute.ts:13) assigns this.yp_prime twice:
+
+```
+constructor(p: G1Affine) {
+  this.xp_neg = p.x.neg().assertCanonical();
+  this.yp_prime = p.y.inv().assertCanonical();
+  this.yp_prime = Provable.witness(FpC.provable, () =>
+    p.y.inv().assertCanonical()
+  );
+  this.yp_prime.mul(p.y).assertEquals(FpC.from(1n));
+  this.xp_prime = this.xp_neg.mul(this.yp_prime).assertCanonical();
+}
+```
+
+The first assignment, this.yp_prime = p.y.inv().assertCanonical(), is immediately overwritten by the second assignment from Provable.witness(...). The intended initializer is the second one: it witnesses the inverse outside the constraint system and then constrains it back via this.yp_prime.mul(p.y).assertEquals(FpC.from(1n)), which is the cheaper way to assert an inverse than building it through FpC.inv() directly.
+
+### Impact
+
+The constructed AffineCache value is the same with or without the redundant first assignment, so soundness and completeness are unaffected. The cost is an unnecessary FpC.inv() + assertCanonical() per AffineCache construction.
+
+### Recommendations
+
+Delete the first assignment.
+
+## Response
+
+Acknowledged. The first assignment on line 15 computes `p.y.inv().assertCanonical()` and is immediately overwritten by the `Provable.witness` path on lines 16-18. The witnessed inverse is then properly constrained by the `mul(p.y).assertEquals(1n)` check on line 19. The first assignment is dead code that produces unnecessary `FpC.inv()` + `assertCanonical()` gates whose output is discarded.
+
+AffineCache is constructed at 30 call sites across Groth16 (zkp0-zkp6, accumulate_lines: 3 per site for negA, C, PI) and PLONK (zkp13-zkp16, accumulate_lines: 2 per site for A, negB), so the wasted gates are multiplied across the full recursion pipeline.
+
+### Commit - Fix applied
+
+- **`src/lines/precompute.ts`**: removed redundant first assignment `this.yp_prime = p.y.inv().assertCanonical()` on line 15.
+
+---
+
 # 16/06/26 - Audit 10b08 extended: Parallel implementations of shared utilities across Groth16 and Plonk components
 
 ## Finding 10b08 extended (verbatim)
