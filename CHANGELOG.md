@@ -1,3 +1,70 @@
+# 23/06/26 - Audit af97e: Deprecated API Gadgets.SHA256 is used in the Plonk verifier
+
+## Finding af97e (verbatim)
+
+gammaKzgDigest_part0 and gammaKzgDigest_part1 from src/plonk/fiat-shamir/index.ts use the deprecated API Gadgets.SHA256.
+
+In gammaKzgDigest_part0:
+
+```
+    let H = Gadgets.SHA256.initialState;
+    for (let i = 0; i < 11; i++) {
+      const messageBlock = chunks.slice(16 * i, 16 * (i + 1));
+      let W = Gadgets.SHA256.createMessageSchedule(messageBlock);
+      H = Gadgets.SHA256.compression(H, W);
+    }
+```
+
+And in gammaKzgDigest_part1:
+
+```
+    const messageBlock = chunks;
+    let W = Gadgets.SHA256.createMessageSchedule(messageBlock);
+    H = Gadgets.SHA256.compression(H, W);
+```
+
+We see that Gadgets.SHA256 is used to transfer a SHA256 state from zkp7 to zkp8. Therefore, we recommend to use Gadgets.SHA2 instead of SHA256:
+
+```
+Gadgets.SHA256.initialState -> Gadgets.SHA2.initialState<UInt32>(256)
+Gadgets.SHA256.createMessageSchedule(block) -> Gadgets.SHA2.messageSchedule(256, block)
+Gadgets.SHA256.compression(H, W)   -> Gadgets.SHA2.compression(256, H, W)
+```
+
+## Discussion
+
+### Zellic and Nori
+
+We were aware of this deprecation since February (noted in the CHANGELOG under Outstanding) and discussed it with o1 Labs. Their recommendation was Hash.SHA2_256, but we need the internal functions (initialState, createMessageSchedule, compression) to transfer SHA256 state between zkp7 and zkp8. When we previously attempted the swap to Gadgets.SHA2, we observed unexpected differences in the output and deferred the migration.
+
+### Nori and o1 Labs (2/26)
+
+One task Nori didn't succeed at this release was removing all the Gadget.SHA256 references. The reason being is there is quite a lot of use of internal methods from these primitives: https://github.com/search?q=repo%3ANori-zk%2Fproof-conversion%20Gadgets.SHA256&type=code Could we bother you for some advice about this?
+
+Hash.SHA2_256 only exposes .hash(data) the black box that handles padding, scheduling, and all compression internally. There's no way to hand it a mid-stream H, run one block at a time, or get the initialState out. We still need some method which definitely wont be deprecated in upcoming releases which gives us access to those internals. Gadgets.SHA2 does seem to fit the bill (and we don't see any deprecation warnings) but this contradicts previous advice.
+
+o1 Labs - affirmed they dont plan to do any more deprecations right now, nor for the function in question (Gadgets.SHA2).
+
+### Nori and o1 Labs (1/26)
+
+Nori asked o1 Labs which of the newer SHA2 methods to use for longevity, presuming Gadgets.SHA2.hash(256, piBytes).
+
+o1 Labs (30/01/26): Hash.SHA.. should be used - it's all mostly the same, just the API and clarification around it are a little different
+
+## Response
+
+We agree that the deprecated method should be replaced and were planning on its removal. Based on prior discussions with o1 Labs, Hash.SHA2_256 was a recommended replacement. However it did not expose suitable functionality and while Hash.SHA2_256 is not marked as deprecated, its docstring indicates it is an alias for Gadgets.SHA256.hash which is deprecated. The initial recommendation of Hash.SHA2_256 would not have resolved the deprecation.
+
+## Commit - Fix applied
+
+- **`src/plonk/fiat-shamir/index.ts`**: `Gadgets.SHA256.initialState`, `Gadgets.SHA256.createMessageSchedule`, `Gadgets.SHA256.compression` replaced with `Gadgets.SHA2.initialState<UInt32>(256)`, `Gadgets.SHA2.messageSchedule(256, ...)`, `Gadgets.SHA2.compression(256, ...)`. `Hash.SHA2_256.hash` calls replaced with `Gadgets.SHA2.hash(256, ...)` as `Hash.SHA2_256` aliases the deprecated `Gadgets.SHA256.hash` in its implementation. Unused `Hash` import removed.
+- **`src/plonk/piop/hash_fr.ts`**: `Hash.SHA2_256.hash` calls replaced with `Gadgets.SHA2.hash(256, ...)` for the same reason. Unused `Hash` import removed.
+- **`src/plonk/parse_pi.ts`**: deprecated comment and commented-out `Gadgets.SHA256.hash` call removed.
+- **`src/blobstream/batcher.ts`**: `Gadgets.SHA256.initialState`, `Gadgets.SHA256.createMessageSchedule`, `Gadgets.SHA256.compression` replaced with `Gadgets.SHA2` equivalents.
+- **`src/sha/sha_hash.ts`**: `Gadgets.SHA256.hash`, `Gadgets.SHA256.initialState`, `Gadgets.SHA256.createMessageSchedule`, `Gadgets.SHA256.compression` replaced with `Gadgets.SHA2` equivalents.
+
+---
+
 # 23/06/26 - Audit e68c5: G2Line.evaluate_g1 is dead code and does not implement the correct evaluation of the line function on G1
 
 ## Finding e68c5 (verbatim)

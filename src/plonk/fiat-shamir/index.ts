@@ -1,6 +1,6 @@
 import { Bytes, Gadgets, UInt8, UInt32 } from 'o1js';
 import { FrC } from '../../towers/index.js';
-import { Hash, Struct } from 'o1js';
+import { Struct } from 'o1js';
 import { FpC } from '../../towers/index.js';
 import { Sp1PlonkProof } from '../proof.js';
 import {
@@ -294,7 +294,7 @@ class Sp1PlonkFiatShamir extends Struct({
     cm_bytes = cm_bytes.concat(oy);
 
     // assert(cm_bytes.length === gammaSizeInBytes());
-    this.gamma_digest = Hash.SHA2_256.hash(new BytesGamma(cm_bytes));
+    this.gamma_digest = Gadgets.SHA2.hash(256, new BytesGamma(cm_bytes));
     this.gamma = shaToFr(this.gamma_digest);
   }
 
@@ -307,7 +307,7 @@ class Sp1PlonkFiatShamir extends Struct({
 
     cm_bytes = cm_bytes.concat(this.gamma_digest.bytes);
     // assert(cm_bytes.length === sizeBetaBytes())
-    this.beta_digest = Hash.SHA2_256.hash(new BytesBeta(cm_bytes));
+    this.beta_digest = Gadgets.SHA2.hash(256, new BytesBeta(cm_bytes));
     this.beta = shaToFr(this.beta_digest);
   }
 
@@ -337,7 +337,7 @@ class Sp1PlonkFiatShamir extends Struct({
     );
     cm_bytes = cm_bytes.concat(grand_product_y);
 
-    this.alpha_digest = Hash.SHA2_256.hash(new BytesAlpha(cm_bytes));
+    this.alpha_digest = Gadgets.SHA2.hash(256, new BytesAlpha(cm_bytes));
     this.alpha = shaToFr(this.alpha_digest);
   }
 
@@ -369,7 +369,7 @@ class Sp1PlonkFiatShamir extends Struct({
     const h2_y = provableBn254BaseFieldToBytes(proof.h2_y);
     cm_bytes = cm_bytes.concat(h2_y);
 
-    this.zeta_digest = Hash.SHA2_256.hash(new BytesZeta(cm_bytes));
+    this.zeta_digest = Gadgets.SHA2.hash(256, new BytesZeta(cm_bytes));
     this.zeta = shaToFr(this.zeta_digest);
   }
 
@@ -433,7 +433,7 @@ class Sp1PlonkFiatShamir extends Struct({
       provableBn254ScalarFieldToBytes(proof.grand_product_at_omega_zeta)
     );
 
-    this.gamma_kzg_digest = Hash.SHA2_256.hash(new BytesGammaKzg(cm_bytes));
+    this.gamma_kzg_digest = Gadgets.SHA2.hash(256, new BytesGammaKzg(cm_bytes));
     this.gamma_kzg = shaToFr(this.gamma_kzg_digest);
   }
 
@@ -463,7 +463,7 @@ class Sp1PlonkFiatShamir extends Struct({
     cm_bytes = cm_bytes.concat(provableBn254ScalarFieldToBytes(this.zeta));
     cm_bytes = cm_bytes.concat(provableBn254ScalarFieldToBytes(this.gamma_kzg));
 
-    const random_digest = Hash.SHA2_256.hash(new BytesRandomKzg(cm_bytes));
+    const random_digest = Gadgets.SHA2.hash(256, new BytesRandomKzg(cm_bytes));
     return shaToFr(random_digest);
   }
 
@@ -534,16 +534,16 @@ class Sp1PlonkFiatShamir extends Struct({
       chunks.push(chunk);
     }
 
-    let H = Gadgets.SHA256.initialState;
+    let H = Gadgets.SHA2.initialState<UInt32>(256);
     for (let i = 0; i < 11; i++) {
       const messageBlock = chunks.slice(16 * i, 16 * (i + 1));
-      let W = Gadgets.SHA256.createMessageSchedule(messageBlock);
-      H = Gadgets.SHA256.compression(H, W);
+      let W = Gadgets.SHA2.messageSchedule(256, messageBlock);
+      H = Gadgets.SHA2.compression(256, H, W);
     }
 
     return H;
 
-    // this.gamma_kzg_digest = Hash.SHA2_256.hash(new BytesGammaKzg(cm_bytes));
+    // this.gamma_kzg_digest = Gadgets.SHA2.hash(256, new BytesGammaKzg(cm_bytes));
   }
 
   gammaKzgDigest_part1(proof: Sp1PlonkProof, H: UInt32[]) {
@@ -566,8 +566,8 @@ class Sp1PlonkFiatShamir extends Struct({
     }
 
     const messageBlock = chunks;
-    let W = Gadgets.SHA256.createMessageSchedule(messageBlock);
-    H = Gadgets.SHA256.compression(H, W);
+    let W = Gadgets.SHA2.messageSchedule(256, messageBlock);
+    H = Gadgets.SHA2.compression(256, H, W);
 
     this.gamma_kzg_digest = Bytes.from(
       H.map((x) => wordToBytes(x.value, 4).reverse()).flat()
