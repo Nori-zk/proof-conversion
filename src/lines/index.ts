@@ -21,6 +21,10 @@ class G2Line extends Struct({ lambda: Fp2, neg_mu: Fp2 }) {
     return new G2Line(value.lambda, value.neg_mu);
   }
 
+  // [a9dea] Off-circuit only. The eq.toBigInt() branch selects between computeLambdaSame
+  // and computeLambdaDiff at JS level, specializing to one code path. Calling this inside
+  // a ZkProgram method would fix the circuit to whichever branch runs during compilation.
+  // toBigInt() on a variable Field throws at compile time, preventing accidental misuse.
   static fromPoints(lhs: G2Affine, rhs: G2Affine): G2Line {
     const eq = lhs.equals(rhs);
 

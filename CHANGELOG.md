@@ -1,3 +1,128 @@
+# 02/07/26 - Audit 1a697 and a9dea: Field.toBigInt debug-only usage and undocumented value-dependence
+
+## Finding 1a697 (verbatim)
+
+`Field.toBigInt` is a debug-only o1js operation but is used outside debug contexts
+
+The o1js Field.toBigInt method is documented in the library as a debug-only operation. Its docstring (o1js/src/lib/provable/field.ts:155) states:
+
+> Warning: This operation does _not_ affect the circuit and can't be used to prove anything about the bigint representation of the {@link Field}. Use the operation only during debugging.
+
+The audited code ultimately does not call this function for circuit creation.
+But the calling functions do create circuits (which are then not used) and do not document that they rely on toBigInt usage internally.
+
+The calling functions are used for proof creation, which is a non-debug usage, in the following places:
+
+Inside the `Provable.witness` callback, with the result constrained back in-circuit
+
+- src/sha/sha_hash.ts:68 (wordToBytes, with bytesToWord(bytes).assertEquals(word))
+- src/sha/utils.ts:43 (wordToBytes, with bytesToWord(bytes).assertEquals(word))
+- src/towers/fp2.ts:104,105 (Fp2.mul, with assertMul(...) over the witnessed cross term)
+- src/towers/fp2.ts:124 (Fp2.square, with two assertMul(...) constraints over the witnessed coefficients)
+
+Off-circuit witness generation, proof parsing, accumulator cloning
+
+- src/groth/compute_pi.ts:25 -- pis[i].toBigInt() !== 0n gates an icPoint.scale(pis[i]) call to avoid o1js' "scale by zero" assertion. Called from src/groth/proof.ts:101 (in createProofClass, reached via parseProof), outside any circuit.
+- src/groth/witness_tracker.ts:343 -- the same zero guard, in the off-circuit witness tracker (WitnessTracker).
+- src/ec/g2.ts:43 -- G2Affine.add, branches on eq.toBigInt() === 1n to choose between computeLambdaSame and computeLambdaDiff. G2Affine.add is dead code in the audited code (no callers).
+- src/lines/index.ts:28 -- G2Line.fromPoints, same branch on eq.toBigInt(). Called from src/lines/coeffs.ts:13,18,23,33,38 (computeLineCoeffs), which is in turn called only from src/groth/proof.ts:112, src/groth/vk.ts:44,45, src/groth/witness_tracker.ts:42, and src/plonk/mm_loop/precompute_lines.ts:25,45 -- all off-circuit.
+- src/plonk/state.ts:47-78 -- 22 calls inside Sp1PlonkState.deepClone(), reached only via src/plonk/accumulator.ts:17 (Sp1PlonkAccumulator.deepClone()), which is itself called only from the off-circuit src/plonk/recursion/witness_tracker.ts.
+- src/plonk/fiat-shamir/index.ts:194,196,198,200,202 -- 5 calls inside Sp1PlonkFiatShamir.deepClone(), reached via the same off-circuit path.
+- src/kzg/structs.ts:23 -- KzgState.deepClone(), reached via KzgAccumulator.deepClone() from src/plonk/recursion/witness_tracker.ts:337,338,....
+
+### Impact
+
+No current soundness or completeness impact has been identified in the audited code.
+With the current implementation of toBigInt, using it during circuit creation on a non-constant value would throw an error and therefore be noticed.
+
+However, using a library function that is marked as debug-only for production code bears risks.
+Its implementation could change in the future: the library could alter the behaviour in a way that goes unnoticed but breaks proof generation.
+The correctness of a debug-only function is likely a low priority for library maintainers and changes could be made with no security risk assessment.
+
+### Recommendations
+
+Avoid converting bigint values to Field values and then converting them back via toBigInt.
+Use the original bigint values instead.
+
+## Finding a9dea (verbatim)
+
+Undocumented value-dependence for circuit-generating functions
+
+The audited code has helper functions that take a parameter whose type is a circuit value, but whose value selects between alternative subroutines via a JS-level if, and whose body invokes o1js operations in each branch.
+The function signature strongly suggests that the function is usable for circuit generation for a variable value of that parameter, which is not the case.
+
+If such a helper is called from inside a ZkProgram method (or from any other tracing context), the constraints it contributes depend on the value of the parameter at that exact call: the helper specializes the circuit to one specific value of the parameter, and the resulting circuit only verifies the computation for that one value. None of these helpers carry documentation reflecting this restriction.
+
+We found the following instances of this undocumented pattern.
+
+`G2Affine.add(rhs)` (`src/ec/g2.ts:39`).
+
+The body computes
+
+```
+const eq = this.equals(rhs);
+let lambda;
+if (eq.toBigInt() === 1n) {
+  lambda = this.computeLambdaSame();
+} else {
+  lambda = this.computeLambdaDiff(rhs);
+}
+```
+
+The branch is taken based on the bigint value of an o1js Field (via toBigInt, which throws outside a constant/prover context anyway -- see [#FindingToBigIntDebugOnly]), so this helper cannot be called from a circuit method without also breaking that contract. It has no callers in the audited code.
+
+`G2Line.fromPoints(lhs, rhs)` (`src/lines/index.ts:24`).
+Same if (eq.toBigInt() === 1n) shape, selecting between computeLambdaSame and computeLambdaDiff.
+Called transitively only from computeLineCoeffs, which itself is only invoked off-circuit (parseProof, GrothVk setup, WitnessTracker, precompute_lines).
+
+### Impact
+
+There is no impact in the audited code as all callees do not expect the functions to implement in-circuit branching.
+Additionally, all cases are combined with a call to toBigInt, which, in its implementation in the used library version, would throw on a non-constant value.
+
+### Recommendations
+
+For each of the functions, add a one-line code comment at the function definition stating that the function's branch structure is resolved at circuit-construction time.
+
+Add an explicit throw if a non-constant value is supplied to the argument that the branching depends on to not rely on the behaviour of the debug-only toBigInt function.
+
+## Discussion
+
+### Nori and Zellic
+
+Just with regards to 1a697 and a9dea. We discussed with o1 labs about the use of .toBigInt() and have been assured there is no problem with using it. That being said happy to remove the dead code / adding the comment.
+
+### Nori and o1 Labs (6/24/26)
+
+Nori: We have an audit finding 1a697: "Field.toBigInt is a debug-only o1js operation but is used outside debug contexts", which is largely driven by the warning in the Field.toBigInt() docstring: "Warning: This operation does not affect the circuit and can't be used to prove anything about the bigint representation of the Field. Use the operation only during debugging." This function is used extensively in proof conversion both inside witnesses (e.g. https://github.com/Nori-zk/proof-conversion/blob/develop/src/sha/utils.ts#L43) where the result is constrained back in circuit via assertEquals, and off circuit in places like deepClone methods and witness trackers for extracting values from Field types. The witness pattern itself follows the standard approach (https://docs.o1labs.org/o1js/writing-constraint-systems/witnesses) of computing off circuit and constraining the output, but the question is whether Field.toBigInt() is safe to use for production code or if it is genuinely debug only. We also note that ForeignField.toBigInt() does not carry the same warning, so it seems a little inconsistent in the api and wanted to get your impression of it.
+
+o1 Labs: .toBigint() is fine to use within a witness blocks and anywhere that's not in provable code for production systems. If you use it in witness blocks, make sure that, as you said, you constraint the witnessed value properly but there's no concern of doing is that way.
+
+## Response
+
+Every use of `Field.toBigInt()` in proof-conversion is idiomatic and correctly constrained. Inside `Provable.witness` callbacks the extracted value is constrained back in-circuit via `assertEquals`, `assertMul`, etc. All remaining call sites are off-circuit (deepClone, witness trackers, proof parsing). This follows the standard witness pattern documented by o1 Labs at https://docs.o1labs.org/o1js/writing-constraint-systems/witnesses.
+
+As confirmed by o1 Labs in the discussion above, `Field.toBigInt()` is fine to use in witness blocks and off-circuit code for production systems.
+
+The "debug-only" warning in the `Field.toBigInt()` docstring is heavy-handed. o1js itself enforces the safety boundary at compile time, calling `Field.toBigInt()` on a variable inside a ZkProgram method throws:
+
+```
+Error: x.toBigInt() was called on a variable field element `x` in provable code.
+This is not supported, because variables represent an abstract computation,
+which only carries actual values during proving, but not during compiling.
+```
+
+It is not possible to misuse `Field.toBigInt()` inside provable code; the library prevents it. We also note that `ForeignField.toBigInt()` does not carry any such warning, its docstring is simply "Convert this field element to a bigint" - which further suggests the warning is an inconsistency in the o1js API documentation rather than a genuine safety boundary.
+
+We accept the recommendation to remove dead code and add comments where appropriate.
+
+### Commit - Fix applied
+
+- **`src/ec/g2.ts`**: removed dead code `G2Affine.add` method (1a697/a9dea).
+- **`src/lines/index.ts`**: added comment to `G2Line.fromPoints` documenting that the `eq.toBigInt()` branch is resolved at JS level and is off-circuit only (a9dea).
+
+---
+
 # 23/06/26 - Audit af97e: Deprecated API Gadgets.SHA256 is used in the Plonk verifier
 
 ## Finding af97e (verbatim)
