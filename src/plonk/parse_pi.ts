@@ -42,11 +42,6 @@ export function parseDigestProvable(digest: Bytes): FrC {
 }
 
 export function parsePublicInputsProvable(piBytes: Bytes): FrC {
-  // CHECKME!
-  // Old method had deprecation warning: @deprecated {@link SHA256} is deprecated in favor of {@link SHA2}
-  //const digest = Gadgets.SHA256.hash(piBytes);
-
-  const digest = Gadgets.SHA2.hash(256, piBytes); // This is mentioned in the deprecation warning
-  
+  const digest = Gadgets.SHA2.hash(256, piBytes);
   return parseDigestProvable(digest);
 }

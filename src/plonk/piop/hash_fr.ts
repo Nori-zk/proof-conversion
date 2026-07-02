@@ -1,4 +1,4 @@
-import { Bool, Bytes, Gadgets, Hash, Provable, Struct, UInt8 } from 'o1js';
+import { Bool, Bytes, Gadgets, Provable, Struct, UInt8 } from 'o1js';
 import { FpC, FrC, FrU } from '../../towers/index.js';
 import { provableBn254BaseFieldToBytes } from '../../sha/utils.js';
 
@@ -142,7 +142,7 @@ class HashFr extends Struct({
 
     bytes = bytes.concat(this.HASH_FR_SIZE_DOMAIN.bytes);
 
-    const b0 = Hash.SHA2_256.hash(new BytesB0(bytes));
+    const b0 = Gadgets.SHA2.hash(256, new BytesB0(bytes));
 
     // reset
     bytes = [];
@@ -153,7 +153,7 @@ class HashFr extends Struct({
 
     bytes = bytes.concat(this.HASH_FR_SIZE_DOMAIN.bytes);
 
-    const b1 = Hash.SHA2_256.hash(new BytesB1(bytes));
+    const b1 = Gadgets.SHA2.hash(256, new BytesB1(bytes));
 
     // reset again
     bytes = xorShaOutputs(b0, b1);
@@ -163,7 +163,7 @@ class HashFr extends Struct({
 
     bytes = bytes.concat(this.HASH_FR_SIZE_DOMAIN.bytes);
 
-    const b2 = Hash.SHA2_256.hash(new BytesB2(bytes));
+    const b2 = Gadgets.SHA2.hash(256, new BytesB2(bytes));
 
     let res = shl_123_modR(b1);
     const low = shr128(b2);
