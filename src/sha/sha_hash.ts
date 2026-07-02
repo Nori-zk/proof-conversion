@@ -50,7 +50,7 @@ let s = 'a'.repeat(741);
 
 class Bytes741 extends Bytes(741) {}
 let preimageBytes = Bytes741.fromString(s);
-let hash = Gadgets.SHA256.hash(preimageBytes);
+let hash = Gadgets.SHA2.hash(256, preimageBytes);
 console.log(hash.toHex());
 //96505839157e4f0984258b89bda90c3661bfce8505d34120f2989236f4c576a2
 
@@ -79,7 +79,7 @@ function wordToBytes(word: Field, bytesPerWord = 8): UInt8[] {
 
 const chunks: UInt32[] = [];
 
-let H = Gadgets.SHA256.initialState;
+let H = Gadgets.SHA2.initialState<UInt32>(256);
 
 for (let i = 0; i < preimage.length; i += 4) {
   const chunk = UInt32.Unsafe.fromField(
@@ -92,8 +92,8 @@ const n = 12;
 
 for (let i = 0; i < n; i++) {
   const messageBlock = chunks.slice(16 * i, 16 * (i + 1));
-  let W = Gadgets.SHA256.createMessageSchedule(messageBlock);
-  H = Gadgets.SHA256.compression(H, W);
+  let W = Gadgets.SHA2.messageSchedule(256, messageBlock);
+  H = Gadgets.SHA2.compression(256, H, W);
 }
 
 const digest_bytes = Bytes.from(
