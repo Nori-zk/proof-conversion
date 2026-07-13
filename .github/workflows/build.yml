@@ -56,6 +56,13 @@ jobs:
             echo "No cache found to clean"
           fi
 
+      - name: Debug npmrc mount
+        run: |
+          echo "HOME=$HOME"
+          ls -la /github/home/.npmrc || echo "MISSING /github/home/.npmrc"
+          wc -l /github/home/.npmrc 2>/dev/null || true
+          sed -E 's/(_authToken=).*/\1<redacted>/' /github/home/.npmrc 2>/dev/null || true
+
       - name: Run the proof-conversion workflow, build and publish to npm.
         shell: bash
         env:
