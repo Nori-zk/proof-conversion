@@ -1,3 +1,7 @@
+## 4/8/26 - Updating o1js
+
+- Bumping o1js to 3.0.0-mesa.rc2
+
 # 02/07/26 - Audit 1a697 and a9dea: Field.toBigInt debug-only usage and undocumented value-dependence
 
 ## Finding 1a697 (verbatim)
