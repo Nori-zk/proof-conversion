@@ -1,3 +1,78 @@
+# 5/08/26 - Audit 1f602: Function `wordToBytes` does not guarantee canonicity for large `bytesPerWord`
+
+## Finding 1f602 (verbatim)
+
+The codebase contains two copies of wordToBytes, one in src/sha/sha_hash.ts:66 and one in src/sha/utils.ts:47. Both build the same circuit for Field -> UInt8[], decomposing a value into a little-endian byte array of length bytesPerWord:
+
+```typescript
+// proof-conversion/src/sha/utils.ts
+function wordToBytes(word: Field, bytesPerWord = 8): UInt8[] {
+  let bytes = Provable.witness(Provable.Array(UInt8, bytesPerWord), () => {
+    let w = word.toBigInt();
+    return Array.from({ length: bytesPerWord }, (_, k) =>
+      UInt8.from((w >> BigInt(8 * k)) & 0xffn)
+    );
+  });
+
+  // check decomposition
+  bytesToWord(bytes).assertEquals(word);
+
+  return bytes;
+}
+```
+
+Each witnessed byte is a UInt8, so Provable.witness range-checks it to [0, 255] in-circuit (UInt8.check calls RangeCheck.rangeCheck8). The only other constraint is the reconstruction equality bytesToWord(bytes).assertEquals(word), where:
+
+    bytesToWord(bytes) = sum for k = 0 .. bytesPerWord-1 of ( bytes[k] * 2^(8*k) )
+
+This equality is enforced over the field, i.e. modulo p, the characteristic of Field (the Pallas base field, p ~= 2^254.86, a 255-bit prime). The decomposition is therefore only guaranteed to be canonical if the full range of representable byte arrays cannot wrap around the modulus, that is when
+2^(8 * bytesPerWord) <= p,
+which for the Pallas base field means bytesPerWord <= 31. The function does not assert any bound on bytesPerWord, so it silently relies on every caller passing a small enough value.
+
+If bytesPerWord is large enough that 2^(8 * bytesPerWord) > p (i.e. bytesPerWord >= 32), the reconstruction constraint no longer pins down a unique byte array: multiple distinct UInt8[] values reconstruct to the same word modulo p, and a byte array may reconstruct to a word whose integer value differs from the array's integer value by a multiple of p. In that regime the returned bytes are not a sound big-integer decomposition of word.
+
+Put differently, in this regime the circuit does not implement a function of its input: for a single word there are several distinct byte arrays that all satisfy the constraints, so the decomposition it computes is non-deterministic. Which of the valid outputs is returned is fixed only by the witness generator (the Provable.witness callback), and a malicious prover is free to satisfy the constraint system with any of the other valid byte arrays. Downstream logic that consumes the bytes and assumes they are the unique canonical little-endian representation of word therefore cannot rely on that being the case.
+
+Impact
+
+No soundness or completeness impact has been identified in the audited code. All current call sites pass a bytesPerWord well within the safe range:
+
+- src/sha/sha_hash.ts:100, src/plonk/fiat-shamir/index.ts:573, and src/blobstream/batcher.ts:264 call wordToBytes(x.value, 4) (4 bytes, 32 bits).
+- src/blobstream/verify_blobstream.ts:33 calls wordToBytes(num.toFields()[0]) with the default bytesPerWord = 8 on a UInt64 field, which is bounded to 64 bits.
+
+In each case 2^(8 * bytesPerWord) <= 2^64 << p, so the decomposition is canonical and the missing bound has no effect today.
+
+However, the correctness of the decomposition rests on an invariant that the function neither documents nor enforces.
+Future development could add callers that do not abide by the restriction, or switch to a prime that makes the current calls unsound.
+
+Recommendations
+
+Add an explicit assertion in both copies of wordToBytes that the requested width fits inside the field, so that an out-of-range bytesPerWord throws at circuit-construction time rather than silently producing a non-canonical decomposition.
+
+```typescript
++if (1n << BigInt(8 * bytesPerWord) > Field.ORDER) {
++  throw new Error(
++    `wordToBytes: bytesPerWord=${bytesPerWord} exceeds the field capacity`
++  );
++}
+```
+
+## Response
+
+We agree with the finding, both the wordToBytes function could lead accept multiple distinct UInt8[] values reconstructing a degenerate word modulo p when 2^(8 * bytesPerWord) > p. Moreover we recognise the code duplication as non optimal.
+
+### Commit 1 - Regression test for 1f602
+
+- **Regression test** (`src/sha/1f602_regression.spec.ts`): added `bytesPerWord at the safe bound (2^(8n) <= Field.ORDER) must not throw`, `bytesPerWord one past the safe bound (2^(8n) > Field.ORDER) must throw`, `at the safe bound, wordToBytes round-trips to the original word`, and `default bytesPerWord=8 must not throw`. The safe bound is computed from `Field.ORDER` itself (largest bytesPerWord with `2^(8*bytesPerWord) <= Field.ORDER`) rather than hardcoded, so the test tracks the actual field in use rather than today's specific byte count.
+
+Run: `npm run test:jest -- src/sha/1f602_regression.spec.ts`
+
+Results:
+
+- Regression tests: 1 fail, 3 pass. `wordToBytes` does not throw one byte past the safe bound, confirming the missing guard described in the finding.
+
+---
+
 # 02/07/26 - Audit 1a697 and a9dea: Field.toBigInt debug-only usage and undocumented value-dependence
 
 ## Finding 1a697 (verbatim)
