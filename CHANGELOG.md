@@ -71,6 +71,17 @@ Results:
 
 - Regression tests: 1 fail, 3 pass. `wordToBytes` does not throw one byte past the safe bound, confirming the missing guard described in the finding.
 
+### Commit 2 - Fix applied
+
+- **`src/sha/utils.ts`**: added the compile-time guard `if (1n << BigInt(8 * bytesPerWord) > Field.ORDER) throw ...` at the top of `wordToBytes`, rejecting any `bytesPerWord` for which the byte range could wrap around the field modulus.
+- **`src/sha/sha_hash.ts`**: removed the redundant local copies of `wordToBytes` and `bytesToWord`, now imported from `src/sha/utils.ts` so the guard applies uniformly to every caller.
+
+Run: `npm run test:jest -- src/sha/1f602_regression.spec.ts`
+
+Results:
+
+- Regression tests: 4 pass, 0 fail. `wordToBytes` now throws for any bytesPerWord that would let the byte range wrap around `Field.ORDER`.
+
 ---
 
 # 02/07/26 - Audit 1a697 and a9dea: Field.toBigInt debug-only usage and undocumented value-dependence

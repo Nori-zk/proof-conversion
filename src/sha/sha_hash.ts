@@ -1,4 +1,5 @@
 import { Bytes, Gadgets, UInt8, Field, UInt32, Provable } from 'o1js';
+import { bytesToWord, wordToBytes } from './utils.js';
 
 /*
 we have 741 bytes to hash: 
@@ -55,27 +56,6 @@ console.log(hash.toHex());
 //96505839157e4f0984258b89bda90c3661bfce8505d34120f2989236f4c576a2
 
 let preimage: UInt8[] = preimageBytes.bytes.concat(padding);
-
-function bytesToWord(wordBytes: UInt8[]): Field {
-  return wordBytes.reduce((acc, byte, idx) => {
-    const shift = 1n << BigInt(8 * idx);
-    return acc.add(byte.value.mul(shift));
-  }, Field.from(0));
-}
-
-function wordToBytes(word: Field, bytesPerWord = 8): UInt8[] {
-  let bytes = Provable.witness(Provable.Array(UInt8, bytesPerWord), () => {
-    let w = word.toBigInt();
-    return Array.from({ length: bytesPerWord }, (_, k) =>
-      UInt8.from((w >> BigInt(8 * k)) & 0xffn)
-    );
-  });
-
-  // check decomposition
-  bytesToWord(bytes).assertEquals(word);
-
-  return bytes;
-}
 
 const chunks: UInt32[] = [];
 
