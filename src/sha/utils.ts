@@ -39,6 +39,16 @@ function bytesToWord(wordBytes: UInt8[]): Field {
 }
 
 function wordToBytes(word: Field, bytesPerWord = 8): UInt8[] {
+  // Finding 1f602 - if bytesPerWord is large enough that 
+  // 2^(8 * bytesPerWord) > p multiple distinct UInt8[]
+  // values reconstruct to the same word modulo p
+  // Block at circuit compile time
+  if (1n << BigInt(8 * bytesPerWord) > Field.ORDER) {
+    throw new Error(
+      `wordToBytes: bytesPerWord=${bytesPerWord} exceeds the field capacity`
+    );
+  }
+
   let bytes = Provable.witness(Provable.Array(UInt8, bytesPerWord), () => {
     let w = word.toBigInt();
     return Array.from({ length: bytesPerWord }, (_, k) =>
