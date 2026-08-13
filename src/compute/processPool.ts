@@ -57,7 +57,14 @@ export class ProcessPool {
       let stdErr = '';
 
       // Spawn process
-      const child = spawn(cmd, args, { stdio });
+      // env is passed explicitly (rather than relying on spawn's default
+      // parent-env inheritance) because under jest's --experimental-vm-modules,
+      // the implicit default does not see process.env mutations made at
+      // runtime (e.g. GROTH16_VK_PATH set by a computational plan just before
+      // spawning) - reproduced in isolation, unrelated to this pool's own
+      // logic. Explicit env: process.env is equivalent to the default outside
+      // jest, so this is a no-op change for normal (CLI) usage.
+      const child = spawn(cmd, args, { stdio, env: process.env });
 
       if (capture) {
         child.stdout?.on('data', (data) => {

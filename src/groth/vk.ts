@@ -34,6 +34,11 @@ class GrothVk {
     return this.icPoints[index];
   }
 
+  // Groth16 has exactly one IC point per public input plus ic0.
+  get inputCount(): number {
+    return this.icPoints.length - 1;
+  }
+
   constructor(
     alpha_beta: Fp12,
     w27: Fp12,

@@ -26,6 +26,6 @@
       "*": ["*", "src/*", "./node_modules/*"]
     }
   },
-  "include": ["./src", "./src/**/*.json"],
+  "include": ["./src", "./src/**/*.json", "./jest.setup.ts"],
   "exclude": ["**/*.spec.ts"]
 }

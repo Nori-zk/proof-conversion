@@ -1,6 +1,7 @@
 import { rmSync, readFileSync } from 'fs';
 import { Cache, Field } from 'o1js';
 import { FrC } from '../../towers/index.js';
+import { Groth16VendorBrand } from '../vendor.js';
 
 const CACHE_DIR = './cache_18fa3_groth16';
 const ROGUE = FrC.from(999n);
@@ -28,7 +29,7 @@ describe('regression_18fa3_groth16_zkp14', () => {
   beforeAll(async () => {
     process.env.GROTH16_VK_PATH = 'src/groth/example_jsons/vk.json';
     const mod = await import('./zkp14.js');
-    const created = mod.createZkp14(5);
+    const created = mod.createZkp14(5, Groth16VendorBrand.SP1);
     zkp14 = created.zkp14;
     await zkp14.compile({ cache: Cache.FileSystem(CACHE_DIR) });
   });

@@ -10,26 +10,29 @@ import { FrC } from '../towers/index.js';
 import { NodeProofLeft } from '../structs.js';
 
 // vk and nodeVkDigest identify the specific compiled circuit tree a proof
-// must chain from. proof.publicOutput.rightOut is checked against a digest
-// of the 5 public inputs, confirming they match what appears at the top of
-// the compression tree.
-export function createRiscZeroExampleVerifier(
+// must chain from. snarkjs circuits have between 0 and 6 public inputs (see
+// src/groth/config.ts's getDistribution), hence the inputCount parameter.
+// proof.publicOutput.rightOut is checked against a digest of the public
+// inputs, confirming they match what appears at the top of the compression
+// tree.
+export function createSnarkjsGroth16ExampleVerifier(
   vk: VerificationKey,
-  nodeVkDigest: Field
+  nodeVkDigest: Field,
+  inputCount: number
 ) {
-  const riscZeroExampleVerifier = ZkProgram({
-    name: 'RiscZeroExampleVerifier',
+  const snarkjsGroth16ExampleVerifier = ZkProgram({
+    name: `SnarkjsGroth16ExampleVerifier_${inputCount}`,
     publicInput: Field,
     publicOutput: Undefined,
     methods: {
       compute: {
-        privateInputs: [NodeProofLeft, Provable.Array(FrC.provable, 5)],
+        privateInputs: [NodeProofLeft, Provable.Array(FrC.provable, inputCount)],
         async method(input: Field, proof: NodeProofLeft, pis: Array<FrC>) {
           proof.verify(vk);
           proof.publicOutput.subtreeVkDigest.assertEquals(nodeVkDigest);
 
           const piDigest = Poseidon.hashPacked(
-            Provable.Array(FrC.provable, 5),
+            Provable.Array(FrC.provable, inputCount),
             pis
           );
           piDigest.assertEquals(input);
@@ -42,7 +45,7 @@ export function createRiscZeroExampleVerifier(
   });
 
   return {
-    riscZeroExampleVerifier,
-    RiscZeroExampleProof: ZkProgram.Proof(riscZeroExampleVerifier),
+    snarkjsGroth16ExampleVerifier,
+    SnarkjsGroth16ExampleProof: ZkProgram.Proof(snarkjsGroth16ExampleVerifier),
   };
 }

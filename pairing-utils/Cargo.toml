@@ -37,6 +37,10 @@ path = "src/bin/save_plonk_vk_json.rs"
 name = "save_sp1_vk_root"
 path = "src/bin/save_sp1_vk_root.rs"
 
+[[bin]]
+name = "save_risc0_vk_root"
+path = "src/bin/save_risc0_vk_root.rs"
+
 [dependencies]
 ark-ff = "0.4.2"
 ark-ff-macros = "0.4.2"
@@ -68,6 +72,12 @@ sp1-bin = ["sp1-sdk"]
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 sp1-verifier = "6.1.0"
+# Targets canonical risc0 v3.0.6 (see src/risc0_control_id.rs module doc for
+# what "canonical version" means here). This crate's own version (4.0.5) is
+# numbered independently of that toolchain release - see the same doc for
+# why - and was confirmed to be the version actually in play by generating
+# and self-verifying a real proof against risc0 v3.0.6 (example-generators/risc0/).
+risc0-circuit-recursion = "4.0.5"
 
 # Conditional dependencies for Wasm
 [target.'cfg(target_arch = "wasm32")'.dependencies]

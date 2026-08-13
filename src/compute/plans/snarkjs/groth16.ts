@@ -27,6 +27,7 @@ import {
   computeAuxWitness,
   convertSnarkjsGroth16ToO1js,
 } from '../../../pairing-utils/index.js';
+import { Groth16VendorBrand } from '../../../groth/vendor.js';
 
 interface State extends PlatformFeatures, ConversionOutput {
   workingDirName: string;
@@ -173,6 +174,7 @@ export class SnarkjsGroth16ComputationalPlan implements ComputationPlan<
               state.witnessPath,
               state.workingDir,
               state.cacheDir,
+              Groth16VendorBrand.Snarkjs,
             ],
             capture: true,
             printableArgs: [0, 1, 2],

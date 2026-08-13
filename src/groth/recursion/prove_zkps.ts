@@ -23,8 +23,9 @@ import { createZkp15 } from './zkp15.js';
 import { G1Affine } from '../../ec/index.js';
 import { FrC } from '../../towers/fr.js';
 import { VK } from '../vk_from_env.js';
+import { parseGroth16VendorBrand } from '../vendor.js';
 
-// npm run build && node build/src/groth/recursion/prove_zkps.js zkp0 ./src/groth/jsons/proof.json ./src/groth/jsons/aux_witness.json ../scripts/risc_zero_example/work_dir ../scripts/risc_zero_example/cache_dir
+// npm run build && node build/src/groth/recursion/prove_zkps.js zkp0 ./src/groth/jsons/proof.json ./src/groth/jsons/aux_witness.json ../scripts/risc_zero_example/work_dir ../scripts/risc_zero_example/cache_dir sp1
 
 const args = process.argv;
 
@@ -32,9 +33,15 @@ const proof = parseProof(VK, args[3]);
 const auxWitness = AuXWitness.parse(args[4]);
 const workDir = args[5];
 const cacheDir = args[6];
+// Which vendor (sp1|risc0|snarkjs) produced this proof - determines which,
+// if any, public inputs zkp14 pins to vendor-fixed values. Set by the
+// calling computational plan (src/compute/plans/{sp1,risc0,snarkjs}/groth16.ts).
+// Can't be detected from the proof itself: a 5-input SP1 proof and a
+// 5-input Risc0 proof are shaped identically. See src/groth/vendor.ts.
+const vendor = parseGroth16VendorBrand(args[7]);
 
 const inputCount = detectInputCountFromProof(args[3]);
-const { zkp14 } = createZkp14(inputCount);
+const { zkp14 } = createZkp14(inputCount, vendor);
 const { zkp15 } = createZkp15(inputCount);
 
 const wt = new WitnessTracker(proof, auxWitness);

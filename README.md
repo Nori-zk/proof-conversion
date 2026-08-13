@@ -567,6 +567,44 @@ sudo cpupower frequency-set -g performance
 
 --------------------------------------------------------------------------------------------
 
+## Computing a recursion tree root (`vk-tree`)
+
+Every converted proof carries a `subtreeVkDigest` in its top-level public
+output (`publicOutput[2]`) - a Poseidon commitment to every verification key
+used at every position of the recursion tree that produced it. The `vk-tree`
+script recomputes that same digest directly from the compiled circuits,
+without needing a proof or witness:
+
+```sh
+npm run vk-tree -- plonk
+npm run vk-tree -- groth16 sp1
+npm run vk-tree -- groth16 risc0
+npm run vk-tree -- groth16 snarkjs <path/to/snarkjs_groth16_obj.json>
+```
+
+It compiles the leaf circuits (`zkp0`-`zkp15` for Groth16, `zkp0`-`zkp23` for
+PLONK) plus the shared `layer1`/`node` compression circuits, then folds their
+verification-key hashes through the same tree hash the circuits use
+internally, and prints the resulting digest.
+
+The digest depends on the exact circuits, so it varies by path:
+
+- `plonk` is fixed - one digest, no arguments.
+- `groth16 sp1` and `groth16 risc0` are fixed per vendor and SP1/risc0
+  version - the underlying Groth16 verification key is a vendor constant, so
+  these take no arguments (the fixtures in `example-proofs/` supply it).
+- `groth16 snarkjs` differs per circuit - the circuit's own verification key
+  is baked into the leaf circuits - so it takes the path to a snarkjs
+  `{ proof, publicInputs, vk }` object (e.g. one produced by the snarkjs
+  example generator).
+
+Because the fixed paths never change for a given version, their digests only
+need to be computed once; the script is most useful for snarkjs, where the
+value is circuit-specific, and for regenerating the fixed constants on a
+version bump.
+
+--------------------------------------------------------------------------------------------
+
 ## Overview of o1js-blobstream by Geometry Research
 
 Refer to the **[Gitbook documentation](https://o1js-blobstream.gitbook.io/o1js-blobstream)** for details on **o1js-blobstream**.
