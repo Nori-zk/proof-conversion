@@ -82,6 +82,33 @@ Results:
 
 - Regression tests: 4 pass, 0 fail. `wordToBytes` now throws for any bytesPerWord that would let the byte range wrap around `Field.ORDER`.
 
+### Commit 3, `wordToBytesCanonical`, a sound decomposition for `bytesPerWord` greater than 31
+
+Commit 2 makes `wordToBytes` safe by rejecting `bytesPerWord` greater than 31 outright, which is sufficient for the finding as scoped, but it leaves no way to decompose a `Field` into more than 31 bytes at all. A sibling function is added here to give downstream users a known safe option to reach for when they need more than 31 bytes, usable whether inside or outside circuitry, instead of each one rolling its own unconstrained, unsafe decomposition.
+
+- **`src/sha/utils.ts`**:
+  - Added `isCanonicalFieldBytesLE(bytes: UInt8[]): Bool`, asserting a little-endian byte array is strictly less than the field prime `p` (Pallas base field), against a new `FIELD_PRIME_LE` constant.
+  - Added `wordToBytesCanonical(word: Field, bytesPerWord = 8): UInt8[]`. At `bytesPerWord <= 31` it delegates to `wordToBytes`. Above 31, it performs the same `bytesToWord(bytes).assertEquals(word)` reconstruction check, then additionally asserts `isCanonicalFieldBytesLE(bytes)`. That second check is the fix: the reconstruction equality alone only holds mod `p`, so a prover solving the constraint system directly, not bound to our witness-generation code, could satisfy it with `bytes = word + k*p` for `k >= 1` instead of `word` itself. For example `bytes = p` satisfies the equality for `word = 0` just as validly as `bytes = 0`. The range check rules out every such alternate.
+  - `wordToBytesCanonical`, `isCanonicalFieldBytesLE`, `FIELD_PRIME_LE` added to the module's export list.
+- **`src/index.ts`** / **`src/index.min.ts`**: `wordToBytesCanonical` and `isCanonicalFieldBytesLE` exported as public API siblings of `wordToBytes`.
+- **`src/sha/1f602_regression.spec.ts`**: added a `regression_1f602_wordToBytesCanonical` block:
+  - Genuine-witness round-trip at 31 bytes (delegation boundary) and 32 bytes.
+  - `isCanonicalFieldBytesLE` accepts the boundary-legal values `0` and `p - 1`.
+  - `isCanonicalFieldBytesLE` rejects `p` and `p + 1` even though `bytesToWord` reduces them to `0` and `1`.
+  - `FIELD_PRIME_LE` checked against `Field.ORDER`.
+
+Gate cost (`check_wordtobytes_cost.mjs`, `ZkProgram.analyzeMethods`):
+
+- `wordToBytes` at `bytesPerWord` 31: 94 rows.
+- `wordToBytesCanonical` at `bytesPerWord` 32: 342 rows.
+- The canonicity check adds 248 rows over `wordToBytes`.
+
+Run: `npm run test:jest -- src/sha/1f602_regression.spec.ts`
+
+Results:
+
+- Regression tests: 11 pass, 0 fail.
+
 ---
 
 ## 4/8/26 - Updating o1js
