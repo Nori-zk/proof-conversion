@@ -1,75 +1,91 @@
-import { VerificationKey } from 'o1js';
-import fs from 'fs';
-import { buildTreeOfVks } from './tree_of_vks.js';
+import { resolve } from 'path';
+import { readFileSync, rmSync, writeFileSync } from 'fs';
+import { createDirectory } from './utils/cache.js';
+import { getRandomString } from './utils/random.js';
+import { Groth16VendorBrand, parseGroth16VendorBrand } from './groth/vendor.js';
+import rootDir from './utils/root_dir.js';
+import {
+  computeRisc0Groth16Pairing,
+  convertSp1Groth16ToO1js,
+  convertSnarkjsGroth16ToO1js,
+} from './pairing-utils/index.js';
 
-const workDir = process.argv[2];
+function usage(): never {
+  console.error('usage: npm run vk-tree -- plonk');
+  console.error('       npm run vk-tree -- groth16 <sp1|risc0>');
+  console.error('       npm run vk-tree -- groth16 snarkjs <snarkjsObjPath>');
+  process.exit(1);
+}
 
-const vk0 = await VerificationKey.fromJSON(
-  JSON.parse(fs.readFileSync(`${workDir}/vks/vk0.json`, 'utf8'))
-).hash;
-const vk1 = await VerificationKey.fromJSON(
-  JSON.parse(fs.readFileSync(`${workDir}/vks/vk1.json`, 'utf8'))
-).hash;
-const vk2 = await VerificationKey.fromJSON(
-  JSON.parse(fs.readFileSync(`${workDir}/vks/vk2.json`, 'utf8'))
-).hash;
-const vk3 = await VerificationKey.fromJSON(
-  JSON.parse(fs.readFileSync(`${workDir}/vks/vk3.json`, 'utf8'))
-).hash;
-const vk4 = await VerificationKey.fromJSON(
-  JSON.parse(fs.readFileSync(`${workDir}/vks/vk4.json`, 'utf8'))
-).hash;
-const vk5 = await VerificationKey.fromJSON(
-  JSON.parse(fs.readFileSync(`${workDir}/vks/vk5.json`, 'utf8'))
-).hash;
-const vk6 = await VerificationKey.fromJSON(
-  JSON.parse(fs.readFileSync(`${workDir}/vks/vk6.json`, 'utf8'))
-).hash;
-const vk7 = await VerificationKey.fromJSON(
-  JSON.parse(fs.readFileSync(`${workDir}/vks/vk7.json`, 'utf8'))
-).hash;
-const vk8 = await VerificationKey.fromJSON(
-  JSON.parse(fs.readFileSync(`${workDir}/vks/vk8.json`, 'utf8'))
-).hash;
-const vk9 = await VerificationKey.fromJSON(
-  JSON.parse(fs.readFileSync(`${workDir}/vks/vk9.json`, 'utf8'))
-).hash;
-const vk10 = await VerificationKey.fromJSON(
-  JSON.parse(fs.readFileSync(`${workDir}/vks/vk10.json`, 'utf8'))
-).hash;
-const vk11 = await VerificationKey.fromJSON(
-  JSON.parse(fs.readFileSync(`${workDir}/vks/vk11.json`, 'utf8'))
-).hash;
-const vk12 = await VerificationKey.fromJSON(
-  JSON.parse(fs.readFileSync(`${workDir}/vks/vk12.json`, 'utf8'))
-).hash;
-const vk13 = await VerificationKey.fromJSON(
-  JSON.parse(fs.readFileSync(`${workDir}/vks/vk13.json`, 'utf8'))
-).hash;
+const [, , family, vendorArg, vkPathArg] = process.argv;
 
-const layer1Vk = await VerificationKey.fromJSON(
-  JSON.parse(fs.readFileSync(`${workDir}/vks/layer1Vk.json`, 'utf8'))
-).hash;
-const nodeVk = await VerificationKey.fromJSON(
-  JSON.parse(fs.readFileSync(`${workDir}/vks/nodeVk.json`, 'utf8'))
-).hash;
+// sp1 and risc0 each verify against one fixed, vendor-owned Groth16 VK.
+// snarkjs has no such fixed VK - every circuit has its own - so it's the
+// only vendor that takes one as an argument.
+const FIXED_VENDOR_VK_PATHS: Partial<Record<Groth16VendorBrand, string>> = {
+  [Groth16VendorBrand.SP1]: resolve(rootDir, 'example-proofs', 'sp1_groth16_obj_v6.1.0.json'),
+  [Groth16VendorBrand.Risc0]: resolve(rootDir, 'example-proofs', 'risc_zero_groth16_args_vk.json'),
+};
 
-const baseVksHashes = [
-  vk0,
-  vk1,
-  vk2,
-  vk3,
-  vk4,
-  vk5,
-  vk6,
-  vk7,
-  vk8,
-  vk9,
-  vk10,
-  vk11,
-  vk12,
-  vk13,
-];
-const root = await buildTreeOfVks(baseVksHashes, layer1Vk, nodeVk);
+const cacheDir = resolve(
+  process.cwd(),
+  '.conversion-cache',
+  getRandomString(20)
+);
+createDirectory(cacheDir);
 
-console.log(root.toBigInt());
+try {
+  let digest;
+  if (family === 'plonk') {
+    if (vendorArg !== undefined) usage();
+    const { buildPlonkVkTree } = await import('./plonk/zkp_tree.js');
+    digest = await buildPlonkVkTree(cacheDir);
+  } else if (family === 'groth16') {
+    if (vendorArg === undefined) usage();
+    const vendor = parseGroth16VendorBrand(vendorArg);
+
+    const fixedVkPath = FIXED_VENDOR_VK_PATHS[vendor];
+    if (fixedVkPath !== undefined) {
+      if (vkPathArg !== undefined) usage();
+
+      // GrothVk.parse (src/groth/vk.ts) needs an o1js VK carrying alpha_beta.
+      // Derive it from the fixture the same way the vendor's computation plan
+      // does (src/compute/plans/{risc0,sp1}/groth16.ts): risc0's fixture is a
+      // raw VK enriched via computeRisc0Groth16Pairing; sp1's is a proof
+      // object converted via convertSp1Groth16ToO1js.
+      const fixture = JSON.parse(readFileSync(fixedVkPath, 'utf-8'));
+      const vk =
+        vendor === Groth16VendorBrand.Risc0
+          ? computeRisc0Groth16Pairing(fixture)
+          : convertSp1Groth16ToO1js(fixture).vk;
+
+      const enrichedVkPath = resolve(cacheDir, 'groth16_vk.json');
+      writeFileSync(enrichedVkPath, JSON.stringify(vk));
+      process.env.GROTH16_VK_PATH = enrichedVkPath;
+    } else {
+      // snarkjs: the caller supplies a snarkjs { proof, publicInputs, vk }
+      // bundle. convertSnarkjsGroth16ToO1js computes alpha_beta and sizes the
+      // IC points from that bundle's own public inputs, matching
+      // src/compute/plans/snarkjs/groth16.ts.
+      if (vkPathArg === undefined) usage();
+      const { proof, publicInputs, vk } = JSON.parse(readFileSync(vkPathArg, 'utf-8'));
+      const enrichedVk = convertSnarkjsGroth16ToO1js(proof, publicInputs, vk).vk;
+
+      const enrichedVkPath = resolve(cacheDir, 'groth16_vk.json');
+      writeFileSync(enrichedVkPath, JSON.stringify(enrichedVk));
+      process.env.GROTH16_VK_PATH = enrichedVkPath;
+    }
+
+    // zkp0-zkp15 (src/groth/recursion/) read GROTH16_VK_PATH at module load
+    // time, so it must be set before ./groth/zkp_tree.js - which
+    // transitively imports all of them - is ever imported.
+    const { buildGroth16VkTree } = await import('./groth/zkp_tree.js');
+    digest = await buildGroth16VkTree(vendor, cacheDir);
+  } else {
+    usage();
+  }
+
+  console.log(digest.toBigInt().toString());
+} finally {
+  rmSync(cacheDir, { recursive: true, force: true });
+}
