@@ -65,12 +65,13 @@ export function assertExactStructure<S extends SchemaObject>(
     // Build path using bracket notation for consistency: root["key"]
     const currentPath = pathPrefix ? `${pathPrefix}["${key}"]` : key;
 
+    const rule = castSchema[key];
+
     if (!(key in castObj)) {
+      if (typeof rule === 'function' && rule(undefined)) continue;
       errors.push(`${currentPath}: missing required key`);
       continue;
     }
-
-    const rule = castSchema[key];
     const value = castObj[key];
 
     if (typeof rule === 'function') {

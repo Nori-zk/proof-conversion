@@ -1,3 +1,908 @@
+# 5/08/26 - Audit 1f602: Function `wordToBytes` does not guarantee canonicity for large `bytesPerWord`
+
+## Finding 1f602 (verbatim)
+
+The codebase contains two copies of wordToBytes, one in src/sha/sha_hash.ts:66 and one in src/sha/utils.ts:47. Both build the same circuit for Field -> UInt8[], decomposing a value into a little-endian byte array of length bytesPerWord:
+
+```typescript
+// proof-conversion/src/sha/utils.ts
+function wordToBytes(word: Field, bytesPerWord = 8): UInt8[] {
+  let bytes = Provable.witness(Provable.Array(UInt8, bytesPerWord), () => {
+    let w = word.toBigInt();
+    return Array.from({ length: bytesPerWord }, (_, k) =>
+      UInt8.from((w >> BigInt(8 * k)) & 0xffn)
+    );
+  });
+
+  // check decomposition
+  bytesToWord(bytes).assertEquals(word);
+
+  return bytes;
+}
+```
+
+Each witnessed byte is a UInt8, so Provable.witness range-checks it to [0, 255] in-circuit (UInt8.check calls RangeCheck.rangeCheck8). The only other constraint is the reconstruction equality bytesToWord(bytes).assertEquals(word), where:
+
+    bytesToWord(bytes) = sum for k = 0 .. bytesPerWord-1 of ( bytes[k] * 2^(8*k) )
+
+This equality is enforced over the field, i.e. modulo p, the characteristic of Field (the Pallas base field, p ~= 2^254.86, a 255-bit prime). The decomposition is therefore only guaranteed to be canonical if the full range of representable byte arrays cannot wrap around the modulus, that is when
+2^(8 * bytesPerWord) <= p,
+which for the Pallas base field means bytesPerWord <= 31. The function does not assert any bound on bytesPerWord, so it silently relies on every caller passing a small enough value.
+
+If bytesPerWord is large enough that 2^(8 * bytesPerWord) > p (i.e. bytesPerWord >= 32), the reconstruction constraint no longer pins down a unique byte array: multiple distinct UInt8[] values reconstruct to the same word modulo p, and a byte array may reconstruct to a word whose integer value differs from the array's integer value by a multiple of p. In that regime the returned bytes are not a sound big-integer decomposition of word.
+
+Put differently, in this regime the circuit does not implement a function of its input: for a single word there are several distinct byte arrays that all satisfy the constraints, so the decomposition it computes is non-deterministic. Which of the valid outputs is returned is fixed only by the witness generator (the Provable.witness callback), and a malicious prover is free to satisfy the constraint system with any of the other valid byte arrays. Downstream logic that consumes the bytes and assumes they are the unique canonical little-endian representation of word therefore cannot rely on that being the case.
+
+Impact
+
+No soundness or completeness impact has been identified in the audited code. All current call sites pass a bytesPerWord well within the safe range:
+
+- src/sha/sha_hash.ts:100, src/plonk/fiat-shamir/index.ts:573, and src/blobstream/batcher.ts:264 call wordToBytes(x.value, 4) (4 bytes, 32 bits).
+- src/blobstream/verify_blobstream.ts:33 calls wordToBytes(num.toFields()[0]) with the default bytesPerWord = 8 on a UInt64 field, which is bounded to 64 bits.
+
+In each case 2^(8 * bytesPerWord) <= 2^64 << p, so the decomposition is canonical and the missing bound has no effect today.
+
+However, the correctness of the decomposition rests on an invariant that the function neither documents nor enforces.
+Future development could add callers that do not abide by the restriction, or switch to a prime that makes the current calls unsound.
+
+Recommendations
+
+Add an explicit assertion in both copies of wordToBytes that the requested width fits inside the field, so that an out-of-range bytesPerWord throws at circuit-construction time rather than silently producing a non-canonical decomposition.
+
+```typescript
++if (1n << BigInt(8 * bytesPerWord) > Field.ORDER) {
++  throw new Error(
++    `wordToBytes: bytesPerWord=${bytesPerWord} exceeds the field capacity`
++  );
++}
+```
+
+## Response
+
+We agree with the finding, both the wordToBytes function could lead accept multiple distinct UInt8[] values reconstructing a degenerate word modulo p when 2^(8 * bytesPerWord) > p. Moreover we recognise the code duplication as non optimal.
+
+### Commit 1 - Regression test for 1f602
+
+- **Regression test** (`src/sha/1f602_regression.spec.ts`): added `bytesPerWord at the safe bound (2^(8n) <= Field.ORDER) must not throw`, `bytesPerWord one past the safe bound (2^(8n) > Field.ORDER) must throw`, `at the safe bound, wordToBytes round-trips to the original word`, and `default bytesPerWord=8 must not throw`. The safe bound is computed from `Field.ORDER` itself (largest bytesPerWord with `2^(8*bytesPerWord) <= Field.ORDER`) rather than hardcoded, so the test tracks the actual field in use rather than today's specific byte count.
+
+Run: `npm run test:jest -- src/sha/1f602_regression.spec.ts`
+
+Results:
+
+- Regression tests: 1 fail, 3 pass. `wordToBytes` does not throw one byte past the safe bound, confirming the missing guard described in the finding.
+
+### Commit 2 - Fix applied
+
+- **`src/sha/utils.ts`**: added the compile-time guard `if (1n << BigInt(8 * bytesPerWord) > Field.ORDER) throw ...` at the top of `wordToBytes`, rejecting any `bytesPerWord` for which the byte range could wrap around the field modulus.
+- **`src/sha/sha_hash.ts`**: removed the redundant local copies of `wordToBytes` and `bytesToWord`, now imported from `src/sha/utils.ts` so the guard applies uniformly to every caller.
+
+Run: `npm run test:jest -- src/sha/1f602_regression.spec.ts`
+
+Results:
+
+- Regression tests: 4 pass, 0 fail. `wordToBytes` now throws for any bytesPerWord that would let the byte range wrap around `Field.ORDER`.
+
+### Commit 3, `wordToBytesCanonical`, a sound decomposition for `bytesPerWord` greater than 31
+
+Commit 2 makes `wordToBytes` safe by rejecting `bytesPerWord` greater than 31 outright, which is sufficient for the finding as scoped, but it leaves no way to decompose a `Field` into more than 31 bytes at all. A sibling function is added here to give downstream users a known safe option to reach for when they need more than 31 bytes, usable whether inside or outside circuitry, instead of each one rolling its own unconstrained, unsafe decomposition.
+
+- **`src/sha/utils.ts`**:
+  - Added `isCanonicalFieldBytesLE(bytes: UInt8[]): Bool`, asserting a little-endian byte array is strictly less than the field prime `p` (Pallas base field), against a new `FIELD_PRIME_LE` constant.
+  - Added `wordToBytesCanonical(word: Field, bytesPerWord = 8): UInt8[]`. At `bytesPerWord <= 31` it delegates to `wordToBytes`. Above 31, it performs the same `bytesToWord(bytes).assertEquals(word)` reconstruction check, then additionally asserts `isCanonicalFieldBytesLE(bytes)`. That second check is the fix: the reconstruction equality alone only holds mod `p`, so a prover solving the constraint system directly, not bound to our witness-generation code, could satisfy it with `bytes = word + k*p` for `k >= 1` instead of `word` itself. For example `bytes = p` satisfies the equality for `word = 0` just as validly as `bytes = 0`. The range check rules out every such alternate.
+  - `wordToBytesCanonical`, `isCanonicalFieldBytesLE`, `FIELD_PRIME_LE` added to the module's export list.
+- **`src/index.ts`** / **`src/index.min.ts`**: `wordToBytesCanonical` and `isCanonicalFieldBytesLE` exported as public API siblings of `wordToBytes`.
+- **`src/sha/1f602_regression.spec.ts`**: added a `regression_1f602_wordToBytesCanonical` block:
+  - Genuine-witness round-trip at 31 bytes (delegation boundary) and 32 bytes.
+  - `isCanonicalFieldBytesLE` accepts the boundary-legal values `0` and `p - 1`.
+  - `isCanonicalFieldBytesLE` rejects `p` and `p + 1` even though `bytesToWord` reduces them to `0` and `1`.
+  - `FIELD_PRIME_LE` checked against `Field.ORDER`.
+
+Gate cost (`check_wordtobytes_cost.mjs`, `ZkProgram.analyzeMethods`):
+
+- `wordToBytes` at `bytesPerWord` 31: 94 rows.
+- `wordToBytesCanonical` at `bytesPerWord` 32: 342 rows.
+- The canonicity check adds 248 rows over `wordToBytes`.
+
+Run: `npm run test:jest -- src/sha/1f602_regression.spec.ts`
+
+Results:
+
+- Regression tests: 11 pass, 0 fail.
+
+---
+
+# 02/07/26 - Audit 1a697 and a9dea: Field.toBigInt debug-only usage and undocumented value-dependence
+
+## Finding 1a697 (verbatim)
+
+`Field.toBigInt` is a debug-only o1js operation but is used outside debug contexts
+
+The o1js Field.toBigInt method is documented in the library as a debug-only operation. Its docstring (o1js/src/lib/provable/field.ts:155) states:
+
+> Warning: This operation does _not_ affect the circuit and can't be used to prove anything about the bigint representation of the {@link Field}. Use the operation only during debugging.
+
+The audited code ultimately does not call this function for circuit creation.
+But the calling functions do create circuits (which are then not used) and do not document that they rely on toBigInt usage internally.
+
+The calling functions are used for proof creation, which is a non-debug usage, in the following places:
+
+Inside the `Provable.witness` callback, with the result constrained back in-circuit
+
+- src/sha/sha_hash.ts:68 (wordToBytes, with bytesToWord(bytes).assertEquals(word))
+- src/sha/utils.ts:43 (wordToBytes, with bytesToWord(bytes).assertEquals(word))
+- src/towers/fp2.ts:104,105 (Fp2.mul, with assertMul(...) over the witnessed cross term)
+- src/towers/fp2.ts:124 (Fp2.square, with two assertMul(...) constraints over the witnessed coefficients)
+
+Off-circuit witness generation, proof parsing, accumulator cloning
+
+- src/groth/compute_pi.ts:25 -- pis[i].toBigInt() !== 0n gates an icPoint.scale(pis[i]) call to avoid o1js' "scale by zero" assertion. Called from src/groth/proof.ts:101 (in createProofClass, reached via parseProof), outside any circuit.
+- src/groth/witness_tracker.ts:343 -- the same zero guard, in the off-circuit witness tracker (WitnessTracker).
+- src/ec/g2.ts:43 -- G2Affine.add, branches on eq.toBigInt() === 1n to choose between computeLambdaSame and computeLambdaDiff. G2Affine.add is dead code in the audited code (no callers).
+- src/lines/index.ts:28 -- G2Line.fromPoints, same branch on eq.toBigInt(). Called from src/lines/coeffs.ts:13,18,23,33,38 (computeLineCoeffs), which is in turn called only from src/groth/proof.ts:112, src/groth/vk.ts:44,45, src/groth/witness_tracker.ts:42, and src/plonk/mm_loop/precompute_lines.ts:25,45 -- all off-circuit.
+- src/plonk/state.ts:47-78 -- 22 calls inside Sp1PlonkState.deepClone(), reached only via src/plonk/accumulator.ts:17 (Sp1PlonkAccumulator.deepClone()), which is itself called only from the off-circuit src/plonk/recursion/witness_tracker.ts.
+- src/plonk/fiat-shamir/index.ts:194,196,198,200,202 -- 5 calls inside Sp1PlonkFiatShamir.deepClone(), reached via the same off-circuit path.
+- src/kzg/structs.ts:23 -- KzgState.deepClone(), reached via KzgAccumulator.deepClone() from src/plonk/recursion/witness_tracker.ts:337,338,....
+
+### Impact
+
+No current soundness or completeness impact has been identified in the audited code.
+With the current implementation of toBigInt, using it during circuit creation on a non-constant value would throw an error and therefore be noticed.
+
+However, using a library function that is marked as debug-only for production code bears risks.
+Its implementation could change in the future: the library could alter the behaviour in a way that goes unnoticed but breaks proof generation.
+The correctness of a debug-only function is likely a low priority for library maintainers and changes could be made with no security risk assessment.
+
+### Recommendations
+
+Avoid converting bigint values to Field values and then converting them back via toBigInt.
+Use the original bigint values instead.
+
+## Finding a9dea (verbatim)
+
+Undocumented value-dependence for circuit-generating functions
+
+The audited code has helper functions that take a parameter whose type is a circuit value, but whose value selects between alternative subroutines via a JS-level if, and whose body invokes o1js operations in each branch.
+The function signature strongly suggests that the function is usable for circuit generation for a variable value of that parameter, which is not the case.
+
+If such a helper is called from inside a ZkProgram method (or from any other tracing context), the constraints it contributes depend on the value of the parameter at that exact call: the helper specializes the circuit to one specific value of the parameter, and the resulting circuit only verifies the computation for that one value. None of these helpers carry documentation reflecting this restriction.
+
+We found the following instances of this undocumented pattern.
+
+`G2Affine.add(rhs)` (`src/ec/g2.ts:39`).
+
+The body computes
+
+```
+const eq = this.equals(rhs);
+let lambda;
+if (eq.toBigInt() === 1n) {
+  lambda = this.computeLambdaSame();
+} else {
+  lambda = this.computeLambdaDiff(rhs);
+}
+```
+
+The branch is taken based on the bigint value of an o1js Field (via toBigInt, which throws outside a constant/prover context anyway -- see [#FindingToBigIntDebugOnly]), so this helper cannot be called from a circuit method without also breaking that contract. It has no callers in the audited code.
+
+`G2Line.fromPoints(lhs, rhs)` (`src/lines/index.ts:24`).
+Same if (eq.toBigInt() === 1n) shape, selecting between computeLambdaSame and computeLambdaDiff.
+Called transitively only from computeLineCoeffs, which itself is only invoked off-circuit (parseProof, GrothVk setup, WitnessTracker, precompute_lines).
+
+### Impact
+
+There is no impact in the audited code as all callees do not expect the functions to implement in-circuit branching.
+Additionally, all cases are combined with a call to toBigInt, which, in its implementation in the used library version, would throw on a non-constant value.
+
+### Recommendations
+
+For each of the functions, add a one-line code comment at the function definition stating that the function's branch structure is resolved at circuit-construction time.
+
+Add an explicit throw if a non-constant value is supplied to the argument that the branching depends on to not rely on the behaviour of the debug-only toBigInt function.
+
+## Discussion
+
+### Nori and Zellic
+
+Just with regards to 1a697 and a9dea. We discussed with o1 labs about the use of .toBigInt() and have been assured there is no problem with using it. That being said happy to remove the dead code / adding the comment.
+
+### Nori and o1 Labs (6/24/26)
+
+Nori: We have an audit finding 1a697: "Field.toBigInt is a debug-only o1js operation but is used outside debug contexts", which is largely driven by the warning in the Field.toBigInt() docstring: "Warning: This operation does not affect the circuit and can't be used to prove anything about the bigint representation of the Field. Use the operation only during debugging." This function is used extensively in proof conversion both inside witnesses (e.g. https://github.com/Nori-zk/proof-conversion/blob/develop/src/sha/utils.ts#L43) where the result is constrained back in circuit via assertEquals, and off circuit in places like deepClone methods and witness trackers for extracting values from Field types. The witness pattern itself follows the standard approach (https://docs.o1labs.org/o1js/writing-constraint-systems/witnesses) of computing off circuit and constraining the output, but the question is whether Field.toBigInt() is safe to use for production code or if it is genuinely debug only. We also note that ForeignField.toBigInt() does not carry the same warning, so it seems a little inconsistent in the api and wanted to get your impression of it.
+
+o1 Labs: .toBigint() is fine to use within a witness blocks and anywhere that's not in provable code for production systems. If you use it in witness blocks, make sure that, as you said, you constraint the witnessed value properly but there's no concern of doing is that way.
+
+## Response
+
+Every use of `Field.toBigInt()` in proof-conversion is idiomatic and correctly constrained. Inside `Provable.witness` callbacks the extracted value is constrained back in-circuit via `assertEquals`, `assertMul`, etc. All remaining call sites are off-circuit (deepClone, witness trackers, proof parsing). This follows the standard witness pattern documented by o1 Labs at https://docs.o1labs.org/o1js/writing-constraint-systems/witnesses.
+
+As confirmed by o1 Labs in the discussion above, `Field.toBigInt()` is fine to use in witness blocks and off-circuit code for production systems.
+
+The "debug-only" warning in the `Field.toBigInt()` docstring is heavy-handed. o1js itself enforces the safety boundary at compile time, calling `Field.toBigInt()` on a variable inside a ZkProgram method throws:
+
+```
+Error: x.toBigInt() was called on a variable field element `x` in provable code.
+This is not supported, because variables represent an abstract computation,
+which only carries actual values during proving, but not during compiling.
+```
+
+It is not possible to misuse `Field.toBigInt()` inside provable code; the library prevents it. We also note that `ForeignField.toBigInt()` does not carry any such warning, its docstring is simply "Convert this field element to a bigint" - which further suggests the warning is an inconsistency in the o1js API documentation rather than a genuine safety boundary.
+
+We accept the recommendation to remove dead code and add comments where appropriate.
+
+### Commit - Fix applied
+
+- **`src/ec/g2.ts`**: removed dead code `G2Affine.add` method (1a697/a9dea).
+- **`src/lines/index.ts`**: added comment to `G2Line.fromPoints` documenting that the `eq.toBigInt()` branch is resolved at JS level and is off-circuit only (a9dea).
+
+---
+
+# 23/06/26 - Audit af97e: Deprecated API Gadgets.SHA256 is used in the Plonk verifier
+
+## Finding af97e (verbatim)
+
+gammaKzgDigest_part0 and gammaKzgDigest_part1 from src/plonk/fiat-shamir/index.ts use the deprecated API Gadgets.SHA256.
+
+In gammaKzgDigest_part0:
+
+```
+    let H = Gadgets.SHA256.initialState;
+    for (let i = 0; i < 11; i++) {
+      const messageBlock = chunks.slice(16 * i, 16 * (i + 1));
+      let W = Gadgets.SHA256.createMessageSchedule(messageBlock);
+      H = Gadgets.SHA256.compression(H, W);
+    }
+```
+
+And in gammaKzgDigest_part1:
+
+```
+    const messageBlock = chunks;
+    let W = Gadgets.SHA256.createMessageSchedule(messageBlock);
+    H = Gadgets.SHA256.compression(H, W);
+```
+
+We see that Gadgets.SHA256 is used to transfer a SHA256 state from zkp7 to zkp8. Therefore, we recommend to use Gadgets.SHA2 instead of SHA256:
+
+```
+Gadgets.SHA256.initialState -> Gadgets.SHA2.initialState<UInt32>(256)
+Gadgets.SHA256.createMessageSchedule(block) -> Gadgets.SHA2.messageSchedule(256, block)
+Gadgets.SHA256.compression(H, W)   -> Gadgets.SHA2.compression(256, H, W)
+```
+
+## Discussion
+
+### Zellic and Nori
+
+We were aware of this deprecation since February (noted in the CHANGELOG under Outstanding) and discussed it with o1 Labs. Their recommendation was Hash.SHA2_256, but we need the internal functions (initialState, createMessageSchedule, compression) to transfer SHA256 state between zkp7 and zkp8. When we previously attempted the swap to Gadgets.SHA2, we observed unexpected differences in the output and deferred the migration.
+
+### Nori and o1 Labs (2/26)
+
+One task Nori didn't succeed at this release was removing all the Gadget.SHA256 references. The reason being is there is quite a lot of use of internal methods from these primitives: https://github.com/search?q=repo%3ANori-zk%2Fproof-conversion%20Gadgets.SHA256&type=code Could we bother you for some advice about this?
+
+Hash.SHA2_256 only exposes .hash(data) the black box that handles padding, scheduling, and all compression internally. There's no way to hand it a mid-stream H, run one block at a time, or get the initialState out. We still need some method which definitely wont be deprecated in upcoming releases which gives us access to those internals. Gadgets.SHA2 does seem to fit the bill (and we don't see any deprecation warnings) but this contradicts previous advice.
+
+o1 Labs - affirmed they dont plan to do any more deprecations right now, nor for the function in question (Gadgets.SHA2).
+
+### Nori and o1 Labs (1/26)
+
+Nori asked o1 Labs which of the newer SHA2 methods to use for longevity, presuming Gadgets.SHA2.hash(256, piBytes).
+
+o1 Labs (30/01/26): Hash.SHA.. should be used - it's all mostly the same, just the API and clarification around it are a little different
+
+## Response
+
+We agree that the deprecated method should be replaced and were planning on its removal. Based on prior discussions with o1 Labs, Hash.SHA2_256 was a recommended replacement. However it did not expose suitable functionality and while Hash.SHA2_256 is not marked as deprecated, its docstring indicates it is an alias for Gadgets.SHA256.hash which is deprecated. The initial recommendation of Hash.SHA2_256 would not have resolved the deprecation.
+
+## Commit - Fix applied
+
+- **`src/plonk/fiat-shamir/index.ts`**: `Gadgets.SHA256.initialState`, `Gadgets.SHA256.createMessageSchedule`, `Gadgets.SHA256.compression` replaced with `Gadgets.SHA2.initialState<UInt32>(256)`, `Gadgets.SHA2.messageSchedule(256, ...)`, `Gadgets.SHA2.compression(256, ...)`. `Hash.SHA2_256.hash` calls replaced with `Gadgets.SHA2.hash(256, ...)` as `Hash.SHA2_256` aliases the deprecated `Gadgets.SHA256.hash` in its implementation. Unused `Hash` import removed.
+- **`src/plonk/piop/hash_fr.ts`**: `Hash.SHA2_256.hash` calls replaced with `Gadgets.SHA2.hash(256, ...)` for the same reason. Unused `Hash` import removed.
+- **`src/plonk/parse_pi.ts`**: deprecated comment and commented-out `Gadgets.SHA256.hash` call removed.
+- **`src/blobstream/batcher.ts`**: `Gadgets.SHA256.initialState`, `Gadgets.SHA256.createMessageSchedule`, `Gadgets.SHA256.compression` replaced with `Gadgets.SHA2` equivalents.
+- **`src/sha/sha_hash.ts`**: `Gadgets.SHA256.hash`, `Gadgets.SHA256.initialState`, `Gadgets.SHA256.createMessageSchedule`, `Gadgets.SHA256.compression` replaced with `Gadgets.SHA2` equivalents.
+
+---
+
+# 23/06/26 - Audit e68c5: G2Line.evaluate_g1 is dead code and does not implement the correct evaluation of the line function on G1
+
+## Finding e68c5 (verbatim)
+
+The G2Line struct encodes a line on the twisted BN254 curve. To evaluate the corresponding line function on a point on G1, the twist-isomorphism must be taken into account, which is done correctly in the function psi. The same struct also exposes a method evaluate_g1 that takes a G1Affine and returns an Fp2:
+
+```
+evaluate_g1(p: G1Affine): Fp2 {
+  let t = this.lambda.mul_by_fp(p.x);
+  t = t.neg();
+  t = t.add(this.neg_mu);
+  return t.add_fp(p.y);
+}
+```
+
+This method does not implement a meaningful evaluation of the line function on G1.
+
+### Impact
+
+The function is not used in the audited code. Future code edits could mistakenly use this function to compute the evaluation of the G2-line function on G1, which would be incorrect.
+
+### Recommendations
+
+Delete G2Line.evaluate_g1.
+
+## Response
+
+Acknowledged. `evaluate_g1` has zero call sites in the codebase. The method naively substitutes G1 coordinates into the G2 line equation without applying the twist isomorphism, which `psi` handles correctly via `AffineCache`'s `xp_prime` and `yp_prime`. Leaving it in place risks incorrect use in future edits.
+
+### Commit - Fix applied
+
+- **`src/lines/index.ts`**: removed `evaluate_g1` method from `G2Line` class.
+
+---
+
+# 23/06/26 - Audit b8891: AffineCache constructor assigns yp_prime twice
+
+## Finding b8891 (verbatim)
+
+The constructor of AffineCache (src/lines/precompute.ts:13) assigns this.yp_prime twice:
+
+```
+constructor(p: G1Affine) {
+  this.xp_neg = p.x.neg().assertCanonical();
+  this.yp_prime = p.y.inv().assertCanonical();
+  this.yp_prime = Provable.witness(FpC.provable, () =>
+    p.y.inv().assertCanonical()
+  );
+  this.yp_prime.mul(p.y).assertEquals(FpC.from(1n));
+  this.xp_prime = this.xp_neg.mul(this.yp_prime).assertCanonical();
+}
+```
+
+The first assignment, this.yp_prime = p.y.inv().assertCanonical(), is immediately overwritten by the second assignment from Provable.witness(...). The intended initializer is the second one: it witnesses the inverse outside the constraint system and then constrains it back via this.yp_prime.mul(p.y).assertEquals(FpC.from(1n)), which is the cheaper way to assert an inverse than building it through FpC.inv() directly.
+
+### Impact
+
+The constructed AffineCache value is the same with or without the redundant first assignment, so soundness and completeness are unaffected. The cost is an unnecessary FpC.inv() + assertCanonical() per AffineCache construction.
+
+### Recommendations
+
+Delete the first assignment.
+
+## Response
+
+Acknowledged. The first assignment on line 15 computes `p.y.inv().assertCanonical()` and is immediately overwritten by the `Provable.witness` path on lines 16-18. The witnessed inverse is then properly constrained by the `mul(p.y).assertEquals(1n)` check on line 19. The first assignment is dead code that produces unnecessary `FpC.inv()` + `assertCanonical()` gates whose output is discarded.
+
+AffineCache is constructed at 30 call sites across Groth16 (zkp0-zkp6, accumulate_lines: 3 per site for negA, C, PI) and PLONK (zkp13-zkp16, accumulate_lines: 2 per site for A, negB), so the wasted gates are multiplied across the full recursion pipeline.
+
+### Commit - Fix applied
+
+- **`src/lines/precompute.ts`**: removed redundant first assignment `this.yp_prime = p.y.inv().assertCanonical()` on line 15.
+
+---
+
+# 16/06/26 - Audit 10b08 extended: Parallel implementations of shared utilities across Groth16 and Plonk components
+
+## Finding 10b08 extended (verbatim)
+
+Parallel implementations of shared utilities across Groth16 and Plonk components
+
+In addition to ArrayListHasher, we identified two more instances of this pattern:
+- AuXWitness and AuXWitnessType in src/aux_witness.ts (used by Groth) and src/plonk/aux_witness.ts (used by Plonk)
+- LineParser in src/line_parser.ts (used by Groth) and src/plonk/recursion/line_parser.ts (used by Plonk)
+
+We will not include the full implementation code in this message. Reading the files makes it clear that these can be consolidated into single implementations.
+
+- For AuXWitness, the Plonk version is straightforwardly reusable; parse has simply been renamed to loadFromPath.
+- For LineParser, the Groth16 recursive circuit (src/groth/recursion/zkp*.ts) already demonstrates a pattern that works equally well for Plonk:
+
+```
+const delta_lines = LineParser.parse(BEGIN, END, VK.delta_lines);
+const gamma_lines = LineParser.parse(BEGIN, END, VK.gamma_lines);
+```
+
+We recommend consolidating these two implementations along with ArrayListHasher into single shared implementations.
+
+## Response (10b08 extended)
+
+Acknowledged. Both duplications follow the same pattern as ArrayListHasher, which was already consolidated under finding 10b08.
+
+- AuXWitness: the Plonk version (src/plonk/aux_witness.ts) is a strict superset of the Groth version (src/aux_witness.ts). The only API difference is the method name: `parse` (Groth) vs `loadFromPath` (Plonk). The Plonk version additionally provides `loadFromJSON`. The struct definition and all field types are identical.
+- LineParser: the Groth version (src/line_parser.ts) is a stateless utility with `static parse(from, to, lines)` and `static frobenius_lines(lines)`. The Plonk version (src/plonk/recursion/line_parser.ts) is a stateful class that bundles JSON loading with the same slicing logic. The core function `ateCntSlice` is identical. The Plonk version also duplicates its JSON loading with src/plonk/recursion/witness_tracker.ts, which independently loads the same g2_lines.json and tau_lines.json at module scope.
+
+### Commit - Fix applied
+
+- **`src/aux_witness.ts`**: replaced with the Plonk superset version (moved from src/plonk/aux_witness.ts). Exports `loadFromPath` (renamed from Groth's `parse`) and `loadFromJSON`. Import path for towers/fp12 updated to reflect new location.
+- **`src/plonk/aux_witness.ts`**: removed, moved up to src/aux_witness.ts.
+- **`src/groth/e2e_test.ts`**, **`src/groth/recursion/prove_zkps.ts`**, **`src/groth/ec50d_regression.spec.ts`**: Groth call sites renamed from `.parse()` to `.loadFromPath()`.
+- **`src/plonk/verifier.ts`**, **`src/plonk/e2e_test.ts`**, **`src/plonk/e2e_verify.ts`**, **`src/plonk/recursion/prove_zkps.ts`**: Plonk import paths repointed from `./aux_witness.js` or `../aux_witness.js` to `../aux_witness.js` or `../../aux_witness.js`.
+- **`src/plonk/mm_loop/load_lines.ts`**: new file, single location for loading and parsing g2_lines.json and tau_lines.json into G2Line arrays.
+- **`src/plonk/recursion/line_parser.ts`**: removed, replaced by shared src/line_parser.ts and src/plonk/mm_loop/load_lines.ts.
+- **`src/plonk/recursion/witness_tracker.ts`**: removed duplicate JSON loading, imports g2_lines and tau_lines from ../mm_loop/load_lines.js.
+- **`src/plonk/recursion/zkp13.ts`**, **`zkp14.ts`**, **`zkp15.ts`**, **`zkp16.ts`**: switched from Plonk's stateful LineParser to shared stateless LineParser from src/line_parser.ts, line data imported from ../mm_loop/load_lines.js. Frobenius calls in zkp16 updated to use `LineParser.frobenius_lines()`.
+
+---
+
+# 09/06/26 - Audit 10b08 and 0dd9c: ArrayListHasher duplicated and hash length not validated
+
+## Finding 10b08 (verbatim)
+
+ArrayListHasher duplicated between Groth16 and Plonk components
+
+We found two ArrayListHasher implementations with identical behavior: one in src/array_list_hasher.ts and the other in src/kzg/structs.ts.
+
+src/array_list_hasher.ts:
+```
+class ArrayListHasher {
+  static n: number;
+
+  static empty(): Field {
+    const a = new Array(this.n).fill(Field(0n));
+    return Poseidon.hashPacked(Provable.Array(Field, this.n), a);
+  }
+
+  static hash(arr: Array<Field>): Field {
+    return Poseidon.hashPacked(Provable.Array(Field, this.n), arr);
+  }
+
+  static open(
+    lhs: Array<Field>,
+    opening: Array<Fp12>,
+    rhs: Array<Field>
+  ): Field {
+    const opening_hashes: Field[] = opening.map((x) =>
+      Poseidon.hashPacked(Fp12, x)
+    );
+
+    let arr: Field[] = [];
+    arr = arr.concat(lhs);
+    arr = arr.concat(opening_hashes);
+    arr = arr.concat(rhs);
+
+    return this.hash(arr);
+  }
+}
+
+ArrayListHasher.n = ATE_LOOP_COUNT.length;
+```
+
+src/kzg/structs.ts:
+```
+class ArrayListHasher {
+  static n: number;
+
+  static empty(): Field {
+    const a = new Array(this.n).fill(Field(0n));
+    return Poseidon.hashPacked(Provable.Array(Field, ATE_LOOP_COUNT.length), a);
+  }
+
+  static hash(arr: Array<Field>): Field {
+    return Poseidon.hashPacked(
+      Provable.Array(Field, ATE_LOOP_COUNT.length),
+      arr
+    );
+  }
+
+  static open(
+    lhs: Array<Field>,
+    opening: Array<Fp12>,
+    rhs: Array<Field>
+  ): Field {
+    const opening_hashes: Field[] = opening.map((x) =>
+      Poseidon.hashPacked(Fp12, x)
+    );
+
+    let arr: Field[] = [];
+    arr = arr.concat(lhs);
+    arr = arr.concat(opening_hashes);
+    arr = arr.concat(rhs);
+
+    return this.hash(arr);
+  }
+}
+
+ArrayListHasher.n = ATE_LOOP_COUNT.length;
+```
+
+The former is used by the Groth16 component (src/groth) and the latter by the Plonk component (src/plonk). We see no reason to maintain them separately, and recommend consolidating them into a single implementation.
+
+## Response (10b08)
+
+Acknowledged. Both classes are functionally identical. `n` is set to `ATE_LOOP_COUNT.length` on both, so the hardcoded variant in `kzg/structs.ts` produces the same results.
+
+## Finding 0dd9c (verbatim)
+
+`ArrayListHasher::hash` does not validate array length
+
+ArrayListHasher::hash is defined as follows:
+```
+  static hash(arr: Array<Field>): Field {
+    return Poseidon.hashPacked(Provable.Array(Field, this.n), arr);
+  }
+```
+From the code, one might expect that the hash is computed over exactly this.n elements of arr. However, Poseidon::hashPacked consumes the actual length of arr rather than this.n.
+
+Poseidon::hashPacked is defined as:
+```
+  hashPacked<T>(type: WithProvable<Hashable<T>>, value: T) {
+    let input = ProvableType.get(type).toInput(value);
+    let packed = packToFields(input);
+    return Poseidon.hash(packed);
+  },
+```
+Provable.Array(Field, this.n) is a call to provableArray, which returns a provable type object with length = this.n captured in its closure. Most methods on this object, such as check and sizeInFields, use length. However, toInput does not:
+```
+    toInput(array) {
+      if (!('toInput' in type)) {
+        throw Error('circuitArray.toInput: element type has no toInput method');
+      }
+      return array.reduce(
+        (curr, value) => HashInput.append(curr, type.toInput(value)),
+        HashInput.empty
+      );
+    },
+```
+Since hashPacked only calls toInput internally, this.n has no effect on the resulting hash. Therefore, arr.length === this.n should be asserted before calling hashPacked. Given that hashPacked takes a type that includes the expected array length, it would be natural for it to validate that arr matches that length. This could be considered a potential upstream issue in o1js.
+
+## Response (0dd9c)
+
+Acknowledged. The observation about `Provable.Array`'s `toInput` is correct: it iterates the actual array elements via `.reduce()`, ignoring the declared `n`. `hashPacked` calls `toInput` without calling `check()`, so no length validation occurs at the hashing step.
+
+In current usage, the length is structurally enforced at every call site: inside ZkProgram circuits, `lines_hashes` is declared as `Provable.Array(Field, ATE_LOOP_COUNT.length)` in `privateInputs` and `fromFields` reconstructs exactly that many elements before the method body runs; in the witness trackers, the array is constructed as `new Array(ATE_LOOP_COUNT.length).fill(Field(0n))` and modified in-place; in `open()`, the three input arrays are `Provable.Array`-declared with sizes summing to 65. A wrong-length array cannot reach `hash()` through any current call path, and if one side drifted the `assertEquals` between the witness tracker digest and the circuit digest would catch it. The risk is limited to future refactors where a clear error at the assertion point is preferable to a cryptic `Field.assertEquals` failure downstream.
+
+### Commit 1 - Regression test for 0dd9c
+
+- **Regression test** (`src/0dd9c_regression.spec.ts`): added `hash with fewer than n elements must throw`, `hash with more than n elements must throw`, and `hash with exactly n elements must not throw`. The first two tests call `ArrayListHasher.hash()` with arrays of length `n - 1` and `n + 1` respectively and expect an error to be thrown. The third test confirms that an array of exactly `n` elements (65) hashes without error.
+
+Run: `npm run test:jest -- src/0dd9c_regression.spec.ts`
+
+Results:
+
+- Regression tests: 2 fail, 1 pass. The wrong-length arrays do not throw on unpatched code, confirming that `hash()` silently hashes whatever it receives regardless of the declared `n`.
+
+### Commit 2 - Fix applied
+
+- **`src/array_list_hasher.ts`**: added `arr.length !== this.n` assertion at the top of `hash()`, throwing with expected and actual lengths if the array size does not match. Since `empty()` and `open()` both route through `hash()`, one assertion covers all three methods.
+- **`src/kzg/structs.ts`**: removed duplicate `ArrayListHasher` class (10b08), replaced with import and re-export from `src/array_list_hasher.ts`. All Plonk imports (`from '../../kzg/structs.js'`) continue working without changes. Unused imports (`Poseidon`, `Provable`, `ATE_LOOP_COUNT`) removed.
+
+Run: `npm run test:jest -- src/0dd9c_regression.spec.ts`
+
+Results:
+
+- Regression tests: 3 pass, 0 fail. `ArrayListHasher.hash()` now rejects wrong-length arrays with a descriptive error.
+
+# 02/06/26 - Audit adcd3: Groth16 proof and VK parsers do not validate that piN and icN keys are contiguous
+
+## Finding (verbatim)
+
+Finding adcd3: Groth16 proof parser does not validate that `piN` keys are sequential
+
+src/groth/proof.ts assumes that public inputs in the proof JSON are stored under contiguous keys pi1 through pi{n}. The input count is detected as follows:
+
+```typescript
+export function detectInputCountFromProof(path: string): number {
+  const json: O1jsProof = JSON.parse(fs.readFileSync(path, 'utf-8'));
+  let count = 0;
+  for (let i = 1; i <= 6; i++) {
+    if (json[`pi${i}` as PiKey]) count++;
+  }
+  return count;
+}
+```
+
+The proof is then parsed using the detected inputCount:
+
+```typescript
+      const publicInputs: FrC[] = [];
+      for (let i = 1; i <= inputCount; i++) {
+        const key = `pi${i}` as PiKey;
+        const val = json[key];
+        if (val) {
+          publicInputs.push(FrC.from(val));
+        }
+      }
+      // ...
+      return new ProofClass({
+        // ...
+        pis: publicInputs,
+      });
+```
+
+Although pis is defined as Provable.Array(FrC.provable, inputCount) and expects exactly inputCount elements, a shorter array can be passed if some piN keys are absent. When this struct is later consumed by Provable.witness, it throws: Error: Expected array of length 3, got 0. This shouldn't have happened and indicates an internal bug.
+
+This is not exploitable, and in practice the piN values produced by the computing plan are always sequential, so the impact is limited. We are flagging this as a code maturity concern: we recommend adding a simple validation step to verify that the detected keys are strictly sequential before proceeding with parsing.
+
+## Response
+
+The finding is acknowledged. In the course of addressing it, scope was expanded to cover `GrothVk.parse` (`src/groth/vk.ts`) which has the same class of issue for `icN` keys - the VK parser collects whatever `ic0` to `ic6` keys are present without checking contiguity, and a FIXME comment in the code (`// FIXME CHECKME what if we have skipped some??`) confirms this was already known. Both parsers will be fixed together: `assertExactStructure` added for schema validation and an explicit contiguity check for sequential key ordering.
+
+In the course of writing tests, three further bugs were identified in the validation layer:
+
+- `isAffinePoint2d` (`src/api/validation/guards/crypto.ts`): used `'x' in obj && 'y' in obj` without checking key count, so `{ x: '1', y: '2', extra: 'bad' }` passed validation.
+- `isComplexAffinePoint2d` (`src/api/validation/guards/crypto.ts`): same issue - checked for presence of the four expected keys but not exclusivity.
+- `isField12` (`src/api/validation/guards/crypto.ts`): same issue - checked all 12 keys were present but did not reject objects with additional keys.
+- `assertExactStructure` (`src/api/validation/validation.ts`): treated all schema keys as required, so optional fields (wrapped with `isOptionalField`) could not be absent from the validated object - this was required to support optional `piN` and `icN` fields in the proof and VK schemas.
+
+All four will be fixed in commit 2 alongside the parser fixes.
+
+### Commit 1 - Regression tests exposing missing contiguity and exact-shape validation
+
+- **Regression tests** (`src/groth/adcd3_regression.spec.ts`): 24 tests covering `detectInputCountFromProof` - valid contiguous sequences (0 through 6 inputs), non-contiguous sequences (gaps at various positions), schema violations (missing/wrong-type fields), and unknown fields (pi0, pi7, extra keys on top-level and nested objects including negA, C, B). On unpatched code 19 fail, 5 pass.
+- **Regression tests** (`src/groth/adcd3_vk_regression.spec.ts`): 24 tests covering `GrothVk.parse` - valid contiguous ic sequences (ic0 through ic3), non-contiguous sequences, missing required fields, wrong field types, and unknown fields (top-level and nested: ic0, delta, gamma, alpha_beta, w27). On unpatched code 10 fail, 14 pass.
+
+Run: `npm run test:jest -- src/groth/adcd3_regression.spec.ts`
+Run: `npm run test:jest -- src/groth/adcd3_vk_regression.spec.ts`
+
+Results:
+
+- Proof regression tests: 19 fail, 5 pass. Contiguity, schema, optional-field, and exact-shape checks all absent.
+- VK regression tests: 10 fail, 14 pass. Contiguity, optional-field, and exact-shape checks absent; basic missing-field checks already present in current code.
+
+### Commit 2 - Fix applied
+
+- **`src/groth/proof.ts`**: `detectInputCountFromProof` updated with `assertExactStructure` schema validation and explicit `piN` contiguity check. `isO1jsProof` schema defined using `isAffinePoint2d`, `isComplexAffinePoint2d`, and `isOptionalString`.
+- **`src/groth/vk.ts`**: `GrothVk.parse` updated with `assertExactStructure` schema validation and explicit `icN` contiguity check. `isGrothVk` schema defined using `isAffinePoint2d`, `isComplexAffinePoint2d`, `isField12`, and `isOptionalAffinePoint2d`. FIXME comment removed.
+- **`src/api/validation/validation.ts`**: `assertExactStructure` patched to treat missing keys as valid when the schema validator accepts `undefined`, enabling optional field support.
+- **`src/api/validation/guards/crypto.ts`**: `isAffinePoint2d` and `isComplexAffinePoint2d` updated to check exact key count in addition to key presence. `isField12` updated to check `Object.keys(obj).length === 12`. `isOptionalAffinePoint2d` added.
+- **`src/api/validation/guards/strings.ts`**: New file. `isOptionalString` defined here with docstring.
+- **`src/api/validation/guards/index.ts`**: `strings.ts` added to exports.
+
+Results:
+
+- Proof regression tests: 24 pass, 0 fail.
+- VK regression tests: 24 pass, 0 fail.
+- Existing validation tests (`src/api/validation/guards/test.spec.ts`): 14 pass, 0 fail.
+
+---
+
+# 26/5/26 - Audit EC50D: Missing on-curve and subgroup checks in Groth16 and PLONK recursion verifiers
+
+## Finding (verbatim)
+
+Finding ec50d: Groth recursion verifier is missing on-curve and subgroup checks
+
+The 16-segments zkp that verifies the groth16 proof does not validate that the proof points are on curve, and, for the G2 points, in the relevant subgroup.
+
+I have attached a more detailed description including an explanation how I verified that there are no (explicit or implicit) on-curve checks for the negA -point (others are analogous) and how this can be exploited
+
+### Missing on-curve and subgroup checks in the Groth16 recursion verifier
+
+The Groth16 verifier circuit (the sequence of recursion proofs `zkp0`, ..., `zkp15` under `src/groth/recursion/`) operates over two groups on the BN254 curve:
+
+- G1 is the full group E(Fp), which for BN254 has prime order r. On-curve membership is therefore equivalent to subgroup membership: a single on-curve check is sufficient.
+- G2 is the order-r subgroup of E'(Fp2) (the sextic twist of the original curve used by the BN254 pairing). The full group E'(Fp2) has cofactor much larger than 1, so on-curve membership does not imply order-r membership. Both an on-curve check and a subgroup-membership check are therefore required.
+
+The verifier consumes three prover-controlled proof points: `negA` and `C` on G1, and `B` on G2. These enter the verifier via `parseProof` in `src/groth/proof.ts`:
+
+```ts
+// proof-conversion/src/groth/proof.ts
+const negA = new G1Affine({
+  x: FpC.from(json.negA.x),
+  y: FpC.from(json.negA.y),
+});
+
+const C = new G1Affine({
+  x: FpC.from(json.C.x),
+  y: FpC.from(json.C.y),
+});
+
+const B = new G2Affine({
+  x: new Fp2({ c0: FpC.from(json.B.x_c0), c1: FpC.from(json.B.x_c1) }),
+  y: new Fp2({ c0: FpC.from(json.B.y_c0), c1: FpC.from(json.B.y_c1) }),
+});
+```
+
+The `G1Affine` and `G2Affine` types are plain `Struct`s over the field coordinates, with no curve relation enforced:
+
+```ts
+// proof-conversion/src/ec/index.ts
+class G1Affine extends Struct({ x: FpA.provable, y: FpA.provable }) {}
+
+// proof-conversion/src/ec/g2.ts
+class G2Affine extends Struct({ x: Fp2, y: Fp2 }) {}
+```
+
+The only constraint applied to the parsed coordinates is canonicality (`< p`). The curve equation `y^2 = x^3 + 3` (for `negA`, `C`) and its Fp2 twist analogue (for `B`) are never asserted, and no order-r subgroup-membership test is performed on `B`. The missing checks are therefore: on-curve for `negA` and `C`, and both on-curve and subgroup-membership for `B`.
+
+These checks are also not enforced indirectly anywhere else in the verifier. The pre-pairing constraints `b_line.assert_is_tangent` / `b_line.assert_is_line` (`src/lines/index.ts:106,119`) enforce only line identities (y - lambda*x + neg_mu = 0 and 2*lambda*y = 3x^2), which hold for any pair (x, y) whose coordinates were used to derive lambda and neg_mu off-circuit via the same formulas, regardless of whether (x, y) lies on the curve. Inside the per-stage circuits, the proof points flow through `AffineCache` (`src/lines/precompute.ts`), which requires only that the point's y coordinate be non-zero (via `yp_prime * y = 1`). Across `zkp0`, ..., `zkp12`, every constraint on the proof points can be satisfied for any off-curve pair of canonical field elements. The only remaining assertion is the final pairing equality `f.assert_equals(Fp12.one())` at `src/groth/recursion/zkp13.ts:50` (mirrored off-circuit at `src/groth/witness_tracker.ts:323`) -- a check on the pairing relation, not on curve or subgroup membership of the inputs.
+
+To confirm the absence of these checks end-to-end, we constructed a PoC that (a) tampers `negA.y` to `(negA.y + 1) mod p` before the proof is parsed and (b) gates out the final pairing equality `f.assert_equals(Fp12.one())` (both the in-circuit assertion at `zkp13.ts:50` and the off-circuit sanity check at `witness_tracker.ts:323`), then runs the full recursion pipeline `zkp0`, ..., `zkp15` against the example fixtures at `src/groth/example_jsons/`. The full patch is:
+
+```diff
+--- a/src/groth/recursion/prove_zkps.ts
++++ b/src/groth/recursion/prove_zkps.ts
+@@ -28,7 +28,43 @@ import { VK } from '../vk_from_env.js';
+
+ const args = process.argv;
+
+-const proof = parseProof(VK, args[3]);
++// POC_OFFCURVE_NEGA: when set, rewrite the proof JSON to use an off-curve negA
++// (y' = y + 1 mod p). This demonstrates that no on-curve check rejects the
++// point through any of the pre-final checks. The 'final' pairing assertion
++// (zkp13 + witness_tracker.zkp13) must be disabled separately for the demo.
++const BN254_P =
++  21888242871839275222246405745257275088696311157297823662689037894645226208583n;
++let proofPathForParse = args[3];
++if (process.env.POC_OFFCURVE_NEGA === '1') {
++  const origJson = JSON.parse(fs.readFileSync(args[3], 'utf-8'));
++  const xBig = BigInt(origJson.negA.x);
++  const yBig = BigInt(origJson.negA.y);
++  let yNewBig = (yBig + 1n) % BN254_P;
++  if (yNewBig === 0n) yNewBig = (yBig + 2n) % BN254_P;
++  const lhs = (yNewBig * yNewBig) % BN254_P;
++  const rhs = (((xBig * xBig) % BN254_P) * xBig + 3n) % BN254_P;
++  const onCurve = lhs === rhs;
++  console.log('[POC_OFFCURVE_NEGA] original negA.y =', yBig.toString());
++  console.log('[POC_OFFCURVE_NEGA] tampered negA.y =', yNewBig.toString());
++  console.log(
++    '[POC_OFFCURVE_NEGA] does tampered (x,y) satisfy y^2 = x^3 + 3 (mod p)?',
++    onCurve
++  );
++  if (onCurve) {
++    throw new Error(
++      'POC sanity check: tampered point is still on the curve; pick a different offset'
++    );
++  }
++  origJson.negA.y = yNewBig.toString();
++  proofPathForParse = `${args[3]}.poc_offcurve.json`;
++  fs.writeFileSync(proofPathForParse, JSON.stringify(origJson), 'utf-8');
++  console.log(
++    '[POC_OFFCURVE_NEGA] wrote tampered proof JSON to',
++    proofPathForParse
++  );
++}
++
++const proof = parseProof(VK, proofPathForParse);
+ const auxWitness = AuXWitness.parse(args[4]);
+ const workDir = args[5];
+ const cacheDir = args[6];
+--- a/src/groth/recursion/zkp13.ts
++++ b/src/groth/recursion/zkp13.ts
+@@ -47,7 +47,11 @@ const zkp13 = ZkProgram({
+         );
+         f = f.mul(shift);
+
+-        f.assert_equals(Fp12.one());
++        // POC_OFFCURVE_NEGA: skip the final pairing assertion when the PoC
++        // env flag is set, since a generic off-curve negA makes f != 1
++        if (process.env.POC_OFFCURVE_NEGA !== '1') {
++          f.assert_equals(Fp12.one());
++        }
+
+         acc.state.f = f;
+
+--- a/src/groth/witness_tracker.ts
++++ b/src/groth/witness_tracker.ts
+@@ -320,7 +320,11 @@ class WitnessTracker {
+       [Fp12.one(), w27, w27_sq]
+     );
+     f = f.mul(shift);
+-    f.assert_equals(Fp12.one());
++    // POC_OFFCURVE_NEGA: skip the off-circuit pairing sanity check when the
++    // PoC env flag is set, since a generic off-curve negA makes f != 1
++    if (process.env.POC_OFFCURVE_NEGA !== '1') {
++      f.assert_equals(Fp12.one());
++    }
+
+     this.acc.state.f = f;
+     return this.acc.deepClone();
+```
+
+Running the pipeline with `POC_OFFCURVE_NEGA=1`, every stage produces a valid proof:
+
+```
+[POC_OFFCURVE_NEGA] does tampered (x,y) satisfy y^2 = x^3 + 3 (mod p)? false
+valid zkp0?:  true
+valid zkp1?:  true
+valid zkp2?:  true
+valid zkp3?:  true
+valid zkp4?:  true
+valid zkp5?:  true
+valid zkp6?:  true
+valid zkp7?:  true
+valid zkp8?:  true
+valid zkp9?:  true
+valid zkp10?:  true
+valid zkp11?:  true
+valid zkp12?:  true
+valid zkp13?:  true
+valid zkp14?:  true
+valid zkp15?:  true
+```
+
+The same PoC structure straightforwardly extends to tampering `C` and `B`. For `B`, the `b_lines` (line coefficients) are computed off-circuit in `parseProof` via `computeLineCoeffs(B)` (`src/lines/coeffs.ts`); recomputing them from the tampered `B` keeps the line constraints `assert_is_tangent` / `assert_is_line` satisfied throughout the Miller loop, by construction.
+
+#### Impact
+
+The Groth16 verifier is the trust anchor for one of the two SNARK families consumed by the Nori bridge (the other being PLONK; see `src/plonk/`). For example, the SP1 Groth16 path produces a final Mina proof whose `rightOut` field is consumed by `NoriTokenBridge.ethVerify` on the Mina side to authorize state-root and deposit-root updates. A break of the Groth16 verifier therefore allows an attacker to forge arbitrary public values into the bridge's accepted state, with the same end-state consequences as documented in finding b1114.
+
+The missing on-curve / subgroup checks weaken the verifier's soundness in the following ways:
+
+- Pairing-equation soundness depends on `B` being in G2, not just on `B` being on the twisted curve. The Groth16 pairing identity is a statement about the order-r bilinear pairing; off-subgroup inputs do not produce a meaningful equality, and the soundness argument fails. The Miller loop the circuit computes is designed so that its output equals 1 exactly when the pairing identity holds on inputs from G2; for a `B` on the twisted curve but outside G2, the same Miller loop evaluates to a different multi-curve relation, and the final `f.assert_equals(Fp12.one())` no longer carries the intended meaning. This is practically exploitable: the cofactor of G2 in the twisted curve has small prime factors, so points of small order outside G2 are easy to construct and combine with a valid `B` to drive the Miller-loop output into a regime where the final equality can be satisfied without honoring the pairing identity.
+- Off-curve inputs produce values in the larger group E'(Fp2) (or even outside it). All of the verifier's per-stage constraints -- tangent/secant line identities, Frobenius identities, the residue-witness consistency relations -- are formal polynomial relations that hold over the full coordinate field, not over the curve. The single remaining soundness barrier is therefore the final pairing equality `f.assert_equals(Fp12.one())`. Whether a malicious prover can satisfy that final equality with a forged residue witness on off-curve or off-subgroup inputs is a question entirely about the residue-witness construction; nothing in the circuit forces them to play on the intended group.
+
+#### Recommendations
+
+Add explicit on-curve and (for `B`) subgroup-membership constraints to the proof inputs of the Groth16 verifier circuit, applied inside the ZkProgram of `zkp0` (or wherever each point is first used in-circuit) so that the constraint becomes part of the verifier's constraint system rather than an off-circuit sanity check.
+
+Concretely:
+
+- `negA` and `C` (in G1): add an in-circuit assertion that the point satisfies the BN254 curve equation. Since G1 has prime order, an on-curve check alone is sufficient. The o1js `ForeignCurve` class already provides an `assertOnCurve()` method, so the simplest implementation is to either reroute `G1Affine` through the existing `bn254` curve type in `src/ec/g1.ts`, or to add an equivalent assertion directly on the `G1Affine` coordinates.
+- `B` (in G2): add both an on-curve check (the curve equation of the twisted curve, using the twist parameters already in `src/towers/precomputed.ts`) and a subgroup-membership check. The standard efficient construction is the Frobenius-based subgroup test of Dai et al., which decides membership using only the Frobenius endomorphism and a small number of point operations; the Frobenius primitive itself is already implemented as `G2Affine.frobenius()` and `G2Affine.negative_frobenius()` in `src/ec/g2.ts`. Implementing this check requires non-trivial circuit logic but does not require any new primitives.
+
+## Response
+
+We agree with the auditor's findings that all three Groth16 prover-supplied proof points (negA, C on G1; B on G2) enter the recursion circuit as raw field coordinates with no curve equation or subgroup membership enforced in-circuit. After discussion with the o1js-blobstream author, we extended the scope to include the PLONK path, which has the same class of vulnerability on its 10 prover-supplied G1 points.
+
+## Discussion
+
+The o1js-blobstream author provided a four-step framework for G2 subgroup checking that leverages the existing Miller loop:
+
+> During the BN254 optimal-ate Miller loop, we are not only accumulating the F_{p^{12}} Miller value; we also have a curve-point accumulator (T). The main loop computes the short scalar part, roughly [6u+2]Q, and then the final correction steps add/subtract Frobenius images of Q. So at the end, T is checking an endomorphism relation of the form
+>
+> [6u+2]Q + pi(Q) - pi^2(Q) + pi^3(Q) = O
+>
+> up to the exact sign/convention used by the implementation.
+>
+> On G_2[r], Frobenius acts like scalar multiplication by the corresponding Frobenius eigenvalue, so this endomorphism relation is zero modulo r. Therefore, for a valid r-torsion point, the final point accumulator should end at infinity.
+>
+> So for an untrusted G_2 proof element, the subgroup-check logic can be:
+>
+> 1. check the point is on the correct twist curve,
+> 2. check it is not infinity,
+> 3. run the Miller loop including the Frobenius correction steps,
+> 4. check that the final curve-point accumulator (T) is infinity.
+>
+> This serves the same purpose as checking [r]Q = O, but it is cheaper because the large scalar contribution is represented using Frobenius maps and it's already implicit inside the miller loop that we anyway do.
+
+Our read on these four points:
+
+1. Check the point is on the correct twist curve.
+   - Not done. B is prover-supplied, need y^2 = x^3 + b_twist asserted in-circuit. 209 rows, zkp6 is at 47,322 (fits).
+
+2. Check it is not infinity.
+   - Not needed. Affine coordinates cannot encode infinity, therefore neither can a malicious actor.
+
+3. Run the Miller loop including the Frobenius correction steps.
+   - Already done. zkp0-zkp6, T tracked alongside f, Frobenius corrections applied at end of zkp6.
+
+4. Check that the final curve-point accumulator (T) is infinity.
+   - Not done but not hard. T and the Frobenius corrections already exist in zkp6, the code just discards T without checking it. The last operation is assert_is_line(T, pi_2_B) with no subsequent addition. Fix is to advance T past pi_2_B, compute pi_3_B = frobenius(pi^2(B)), and assert T = -pi_3_B (same x, negated y).
+
+None of this is needed for PLONK as the G2 points (g2, tau) are hardcoded VK constants precomputed into JSON at build time.
+
+For G1, BN254 G1 has prime order r, so on-curve implies subgroup membership. One assertOnCurve() call per point (125 rows each via bn254 createForeignCurve) is sufficient. This applies to both the Groth16 path (negA, C, PI) and the PLONK path (l_com, r_com, o_com, qcp_0_wire, grand_product, h0, h1, h2, batch_opening_at_zeta, batch_opening_at_zeta_omega).
+
+### Commit 1 - Regression tests exposing missing on-curve and subgroup checks
+
+- **Groth16 regression tests** (`src/groth/ec50d_regression.spec.ts`): 5 tests covering all Groth16 prover-supplied proof points. Three G1 on-curve tests parse a real proof from `src/groth/example_jsons/`, tamper the y coordinate of a single point (+1 mod p, verified off-curve), construct a WitnessTracker, and expect proof generation via the real ZkProgram to be rejected. One G2 on-curve test tampers B.y.c0 and expects zkp6 to reject. One combined G2 subgroup test exercises the endomorphism identity from steps 3-4 above: the Miller loop's T accumulator evaluates [6u+2]B + pi(B) - pi^2(B) + pi^3(B); for B in G2[r] this equals O (T reaches infinity), for B outside G2[r] it does not. The test constructs a point on E'(Fp2) outside G2[r] via Fp2 Tonelli-Shanks and expects zkp6 to reject it, then runs valid proof B through zkp6 and expects acceptance. Both assertions are in one test so it fails on every broken state: missing check (bad B accepted), wrong endomorphism relation (valid B rejected), or correct check (both pass). Tests: `zkp0 must reject off-curve negA`, `zkp0 must reject off-curve C`, `zkp0 must reject off-curve PI`, `zkp6 must reject off-curve B` (G2 on-curve check), `zkp6 subgroup check must reject bad B and accept valid B`.
+- **PLONK regression tests** (`src/plonk/ec50d_regression.spec.ts`): 10 tests covering all PLONK prover-supplied G1 points. Each test constructs a real Accumulator from a hardcoded hex proof, tampers the y coordinate of a single point (+1 mod p, verified off-curve), and expects proof generation via PLONK zkp0 to be rejected. Tests: `zkp0 must reject off-curve l_com`, `zkp0 must reject off-curve r_com`, `zkp0 must reject off-curve o_com`, `zkp0 must reject off-curve qcp_0_wire`, `zkp0 must reject off-curve grand_product`, `zkp0 must reject off-curve h0`, `zkp0 must reject off-curve h1`, `zkp0 must reject off-curve h2`, `zkp0 must reject off-curve batch_opening_at_zeta`, `zkp0 must reject off-curve batch_opening_at_zeta_omega`.
+
+Run:
+
+```
+GROTH16_VK_PATH=./src/groth/example_jsons/vk.json npm run test:jest -- src/groth/ec50d_regression.spec.ts
+npm run test:jest -- src/plonk/ec50d_regression.spec.ts
+```
+
+Results:
+
+- Groth16 regression tests: 5 fail, 0 pass. All five tests resolve instead of rejecting, confirming that zkp0 and zkp6 accept off-curve and off-subgroup proof points.
+- PLONK regression tests: 10 fail, 0 pass. All ten tests resolve instead of rejecting, confirming that PLONK zkp0 accepts off-curve proof points.
+
+### Commit 2 - Fix applied
+
+- **`src/ec/index.ts`**: added `assertOnCurve()` method to `G1Affine`, delegates to `bn254.assertOnCurve()`.
+- **`src/towers/precomputed.ts`**: added `B_TWIST` constant (3/(9+u) in Fp2) for G2 twist curve equation.
+- **`src/groth/recursion/zkp0.ts`**: added G1 on-curve checks for negA, C, PI.
+- **`src/groth/recursion/zkp6.ts`**: added G2 on-curve check (y^2 = x^3 + b_twist) and G2 subgroup check. After the existing pi(B) and -pi^2(B) Frobenius corrections, T is advanced past pi_2_B and checked against -pi_3_B (same x, negated y), enforcing the full 4-term endomorphism relation [6u+2]B + pi(B) - pi^2(B) + pi^3(B) = O.
+- **`src/groth/witness_tracker.ts`**: added off-circuit G2 subgroup check as dev sanity mirror of the in-circuit check in zkp6.
+- **`src/plonk/recursion/zkp0.ts`**: added G1 on-curve checks for all 10 prover-supplied points.
+
+Results:
+
+- Groth16 regression tests: 5 pass, 0 fail.
+- PLONK regression tests: 10 pass, 0 fail.
+
+---
+
 # 19/5/26 - Audit 18fa3: SP1 PLONK `vk_root` public input is not pinned, allowing forgery of public values
 
 ## Finding (verbatim)
@@ -166,6 +1071,8 @@ Rogue pi4 passes because `proof_nonce` is caller-supplied by design and requires
 Results:
 
 - Regression tests: 8 pass, 0 fail across both suites. Rogue exit_code and vk_root are now rejected at proof generation time in both paths.
+
+---
 
 # 18/5/26 - Audit B1114: Disabled layer1 subtrees unconstrained, allowing forgery of SP1 PLONK public inputs
 

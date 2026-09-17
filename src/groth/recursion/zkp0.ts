@@ -36,6 +36,13 @@ const zkp0 = ZkProgram({
         input.assertEquals(Poseidon.hashPacked(Accumulator, acc));
         acc.state.g_digest.assertEquals(ArrayListHasher.hash(lines_hashes));
 
+        // G1 on-curve checks: BN254 G1 has prime order so on-curve implies subgroup membership.
+        // negA, C, PI are prover-supplied and enter as raw coordinates, so we assert
+        // y^2 = x^3 + 3 here at first use.
+        acc.proof.negA.assertOnCurve();
+        acc.proof.C.assertOnCurve();
+        acc.proof.PI.assertOnCurve();
+
         const a_cache = new AffineCache(acc.proof.negA);
         const c_cache = new AffineCache(acc.proof.C);
         const pi_cache = new AffineCache(acc.proof.PI);

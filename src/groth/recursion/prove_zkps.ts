@@ -30,7 +30,7 @@ import { parseGroth16VendorBrand } from '../vendor.js';
 const args = process.argv;
 
 const proof = parseProof(VK, args[3]);
-const auxWitness = AuXWitness.parse(args[4]);
+const auxWitness = AuXWitness.loadFromPath(args[4]);
 const workDir = args[5];
 const cacheDir = args[6];
 // Which vendor (sp1|risc0|snarkjs) produced this proof - determines which,

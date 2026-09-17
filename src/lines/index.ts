@@ -1,5 +1,5 @@
 import { Struct } from 'o1js';
-import { G1Affine, G2Affine } from '../ec/index.js';
+import { G2Affine } from '../ec/index.js';
 import { FpC, Fp2, Fp6, Fp12, Fp2JSON } from '../towers/index.js';
 import { computeLineCoeffs } from './coeffs.js';
 import { AffineCache } from './precompute.js';
@@ -21,6 +21,10 @@ class G2Line extends Struct({ lambda: Fp2, neg_mu: Fp2 }) {
     return new G2Line(value.lambda, value.neg_mu);
   }
 
+  // [a9dea] Off-circuit only. The eq.toBigInt() branch selects between computeLambdaSame
+  // and computeLambdaDiff at JS level, specializing to one code path. Calling this inside
+  // a ZkProgram method would fix the circuit to whichever branch runs during compilation.
+  // toBigInt() on a variable Field throws at compile time, preventing accidental misuse.
   static fromPoints(lhs: G2Affine, rhs: G2Affine): G2Line {
     const eq = lhs.equals(rhs);
 
@@ -76,13 +80,6 @@ class G2Line extends Struct({ lambda: Fp2, neg_mu: Fp2 }) {
     // dbl_lambda_y.assert_equals(x_square.add(x_square).add(x_square));
   }
 
-  // L, T : Y − (λX + µ) = 0
-  evaluate_g1(p: G1Affine): Fp2 {
-    let t = this.lambda.mul_by_fp(p.x);
-    t = t.neg();
-    t = t.add(this.neg_mu);
-    return t.add_fp(p.y);
-  }
 }
 
 export { G2Line, G2LineJSON, computeLineCoeffs };

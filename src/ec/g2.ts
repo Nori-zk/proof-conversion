@@ -35,23 +35,6 @@ class G2Affine extends Struct({ x: Fp2, y: Fp2 }) {
     return this.y.sub(this.x.mul(lambda));
   }
 
-  // assumes that this and rhs are not 0 points
-  add(rhs: G2Affine): G2Affine {
-    const eq = this.equals(rhs);
-
-    let lambda;
-    if (eq.toBigInt() === 1n) {
-      lambda = this.computeLambdaSame();
-    } else {
-      lambda = this.computeLambdaDiff(rhs);
-    }
-
-    const x_3 = lambda.square().sub(this.x).sub(rhs.x);
-    const y_3 = lambda.mul(this.x.sub(x_3)).sub(this.y);
-
-    return new G2Affine({ x: x_3, y: y_3 });
-  }
-
   double_from_line(lambda: Fp2) {
     const x_3 = lambda.square().sub(this.x).sub(this.x); // x_3 = λ^2 - 2x_1
     const y_3 = lambda.mul(this.x.sub(x_3)).sub(this.y); // y_3 = λ(x_1 - x_3) - y_1

@@ -1,6 +1,7 @@
-import { Field, Poseidon, Provable, Struct } from 'o1js';
-import { ATE_LOOP_COUNT, Fp12, FrC } from '../towers/index.js';
+import { Field, Struct } from 'o1js';
+import { Fp12, FrC } from '../towers/index.js';
 import { G1Affine } from '../ec/index.js';
+import { ArrayListHasher } from '../array_list_hasher.js';
 
 // e(A, [1])*e(negB, [x]) = 1
 class KzgProof extends Struct({
@@ -36,40 +37,5 @@ class KzgAccumulator extends Struct({
     });
   }
 }
-
-class ArrayListHasher {
-  static n: number;
-
-  static empty(): Field {
-    const a = new Array(this.n).fill(Field(0n));
-    return Poseidon.hashPacked(Provable.Array(Field, ATE_LOOP_COUNT.length), a);
-  }
-
-  static hash(arr: Array<Field>): Field {
-    return Poseidon.hashPacked(
-      Provable.Array(Field, ATE_LOOP_COUNT.length),
-      arr
-    );
-  }
-
-  static open(
-    lhs: Array<Field>,
-    opening: Array<Fp12>,
-    rhs: Array<Field>
-  ): Field {
-    const opening_hashes: Field[] = opening.map((x) =>
-      Poseidon.hashPacked(Fp12, x)
-    );
-
-    let arr: Field[] = [];
-    arr = arr.concat(lhs);
-    arr = arr.concat(opening_hashes);
-    arr = arr.concat(rhs);
-
-    return this.hash(arr);
-  }
-}
-
-ArrayListHasher.n = ATE_LOOP_COUNT.length;
 
 export { KzgProof, KzgState, KzgAccumulator, ArrayListHasher };

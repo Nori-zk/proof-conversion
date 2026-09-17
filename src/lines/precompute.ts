@@ -12,7 +12,6 @@ class AffineCache {
 
   constructor(p: G1Affine) {
     this.xp_neg = p.x.neg().assertCanonical();
-    this.yp_prime = p.y.inv().assertCanonical();
     this.yp_prime = Provable.witness(FpC.provable, () =>
       p.y.inv().assertCanonical()
     );

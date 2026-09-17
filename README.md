@@ -413,6 +413,8 @@ The package exports via the `/min` path, useful types and some limited utilities
 import {
   parsePlonkPublicInputsProvable,
   wordToBytes,
+  wordToBytesCanonical,
+  isCanonicalFieldBytesLE,
   NodeProofLeft,
   FrC,
   DeferredPromise

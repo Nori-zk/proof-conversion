@@ -228,7 +228,7 @@ const batcherVerifier = ZkProgram({
           chunks.push(chunk);
         }
 
-        let initialStateFields = hashToFields(Gadgets.SHA256.initialState);
+        let initialStateFields = hashToFields(Gadgets.SHA2.initialState<UInt32>(256));
         const currentH = Provable.if(
           isFirst,
           Provable.Array(Field, 2),
@@ -236,9 +236,9 @@ const batcherVerifier = ZkProgram({
           input.currentRollingHash
         );
 
-        let W = Gadgets.SHA256.createMessageSchedule(chunks);
+        let W = Gadgets.SHA2.messageSchedule(256, chunks);
         let H = fieldsToHash(currentH);
-        H = Gadgets.SHA256.compression(H, W);
+        H = Gadgets.SHA2.compression(256, H, W);
 
         const numToAdd = bytesToField(incrementByBytes.bytes.slice(0, 20));
         // Provable.asProver(() => {

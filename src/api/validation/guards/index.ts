@@ -15,3 +15,4 @@ export * from './arrays.js';
 export * from './crypto.js';
 export * from './modifiers.js';
 export * from './types.js';
+export * from './strings.js';

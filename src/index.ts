@@ -14,7 +14,11 @@ export type * from './api/sp1/schema.js';
 
 export * from '@nori-zk/proof-conversion-utils';
 export { parsePublicInputsProvable as parsePlonkPublicInputsProvable } from './plonk/parse_pi.js';
-export { wordToBytes } from './sha/utils.js';
+export {
+  wordToBytes,
+  wordToBytesCanonical,
+  isCanonicalFieldBytesLE,
+} from './sha/utils.js';
 export { NodeProofLeft } from './structs.js';
 export { FrC } from './towers/fr.js';
 export { DeferredPromise } from './utils/DeferredPromise.js';
