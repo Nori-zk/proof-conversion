@@ -4,6 +4,7 @@ export default {
   preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
   testTimeout: 1_000_000,
+  setupFiles: ['<rootDir>/jest.setup.ts'],
   transform: {
     '^.+\\.(t)s$': ['ts-jest', {
       useESM: true,

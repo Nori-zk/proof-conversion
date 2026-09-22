@@ -10,6 +10,8 @@ pub mod eth_root;
 pub mod gnark;
 pub mod kzg;
 mod risc0_vk;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod risc0_control_id;
 pub mod serialize;
 pub mod o1js;
 pub mod snarkjs;
