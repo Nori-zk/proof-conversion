@@ -1,3 +1,9 @@
+# 22/9/26 - Merge path SDK: FIX/audit into CHORE/integration-audit-fix-develop-18-9-26-final
+
+Merge path
+Spawn new integration branch: CHORE/integration-audit-fix-develop-18-9-26-final created from develop.
+Merge FIX/audit: git merge origin/FIX/audit, zero conflicts.
+
 # 5/08/26 - Audit 1f602: Function `wordToBytes` does not guarantee canonicity for large `bytesPerWord`
 
 ## Finding 1f602 (verbatim)
