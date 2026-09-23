@@ -3,9 +3,11 @@ import {
   Poseidon,
   verify,
   Cache,
+  Field,
+  VerificationKey,
 } from 'o1js';
 import {
-  riscZeroExampleVerifier,
+  createRiscZeroExampleVerifier,
 } from './verify_risc_zero.js';
 import { NodeProofLeft } from '../structs.js';
 import fs from 'fs';
@@ -27,7 +29,21 @@ async function prove_risc_zero_example() {
     JSON.parse(fs.readFileSync(riscZeroExampleTreeProofPath, 'utf8'))
   );
 
-  const vk = (
+  const workDir = process.env.RISC_ZERO_EXAMPLE_WORK_DIR as string;
+  const nodeVkDigest = Field.from(
+    JSON.parse(fs.readFileSync(`${workDir}/proofs/layer4/p0.json`, 'utf8'))
+      .publicOutput[2]
+  );
+  const vk = VerificationKey.fromJSON(
+    JSON.parse(fs.readFileSync(`${workDir}/vks/nodeVk.json`, 'utf8'))
+  );
+
+  const { riscZeroExampleVerifier } = createRiscZeroExampleVerifier(
+    vk,
+    nodeVkDigest
+  );
+
+  const compiledVk = (
     await riscZeroExampleVerifier.compile({ cache: Cache.FileSystem(cacheDir) })
   ).verificationKey;
 
@@ -40,7 +56,7 @@ async function prove_risc_zero_example() {
     riscZeroGroth16Proof.pis
   );
 
-  const valid = await verify(proof.proof, vk);
+  const valid = await verify(proof.proof, compiledVk);
 
   fs.writeFileSync(
     riscZeroExampleOutputProofPath,

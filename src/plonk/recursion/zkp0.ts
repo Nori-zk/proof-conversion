@@ -1,6 +1,8 @@
 import { ZkProgram, Field, Poseidon } from 'o1js';
+import { FrC } from '../../towers/index.js';
 import { Accumulator } from '../accumulator.js';
 import { VK } from '../vk.js';
+import { SP1_VK_ROOT } from '../../sp1_vk_root.js';
 import { G1Affine } from '../../ec/index.js';
 
 // ~ 52792
@@ -15,6 +17,9 @@ const zkp0 = ZkProgram({
         const inDigest = Poseidon.hashPacked(Accumulator, acc);
         inDigest.assertEquals(input);
 
+        // Pin exit_code to 0 and vk_root to the legitimate SP1 recursion merkle root
+        acc.state.pi2.assertEquals(FrC.from(0n));
+        acc.state.pi3.assertEquals(SP1_VK_ROOT);
         // G1 on-curve checks: BN254 G1 has prime order so on-curve implies subgroup membership.
         // All 10 prover-supplied points enter as raw coordinates, so we assert
         // y^2 = x^3 + 3 here at first use.
