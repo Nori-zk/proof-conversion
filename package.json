@@ -1,6 +1,6 @@
 {
   "name": "@nori-zk/proof-conversion",
-  "version": "0.8.28",
+  "version": "0.8.29",
   "description": "Verifying zkVM proofs inside o1js circuits, to generate Mina compatible proof",
   "author": "",
   "license": "Apache-2.0",
@@ -49,6 +49,7 @@
     "build:precompute:towers": "npm run build && node build/src/towers/precompute.js",
     "build:precompute:lines": "npm run build && node build/src/plonk/mm_loop/precompute_lines.js",
     "build:precompute": "npm run build:precompute:towers && npm run build:precompute:lines",
+    "vk-tree": "npm run build && node --max-old-space-size=6000 build/src/build_vk_tree.js",
     "coverage": "node node_modules/jest/bin/jest.js --coverage",
     "format": "prettier --check --ignore-unknown --ignore-path .prettierignore **/*",
     "format:fix": "prettier --write --ignore-unknown --ignore-path .prettierignore **/*",

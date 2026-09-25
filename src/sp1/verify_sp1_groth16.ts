@@ -13,12 +13,12 @@ import { NodeProofLeft } from '../structs.js';
 // must chain from. proof.publicOutput.rightOut is checked against a digest
 // of the 5 public inputs, confirming they match what appears at the top of
 // the compression tree.
-export function createRiscZeroExampleVerifier(
+export function createSp1Groth16ExampleVerifier(
   vk: VerificationKey,
   nodeVkDigest: Field
 ) {
-  const riscZeroExampleVerifier = ZkProgram({
-    name: 'RiscZeroExampleVerifier',
+  const sp1Groth16ExampleVerifier = ZkProgram({
+    name: 'Sp1Groth16ExampleVerifier',
     publicInput: Field,
     publicOutput: Undefined,
     methods: {
@@ -42,7 +42,7 @@ export function createRiscZeroExampleVerifier(
   });
 
   return {
-    riscZeroExampleVerifier,
-    RiscZeroExampleProof: ZkProgram.Proof(riscZeroExampleVerifier),
+    sp1Groth16ExampleVerifier,
+    Sp1Groth16ExampleProof: ZkProgram.Proof(sp1Groth16ExampleVerifier),
   };
 }

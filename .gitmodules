@@ -1,0 +1,3 @@
+[submodule "example-generators"]
+	path = example-generators
+	url = git@github.com:Nori-zk/proof-conversion-example-generators.git
